@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#080910">
+
+    <title>NoChat — Conversations without the noise</title>
+    <meta name="description" content="NoChat is a messaging platform powered by Denpher Technologies.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <div id="toast" class="toast" aria-live="polite"></div>
+
+    <!-- LANDING PAGE -->
+    <section id="landingView" class="landing-page">
+        <nav class="landing-nav">
+            <a href="/" class="brand" aria-label="NoChat home">
+                <span class="brand-mark">N</span>
+                <span>NoChat<span class="brand-dot">.</span></span>
+            </a>
+
+            <button class="nav-get-started" id="navGetStarted">
+                Get started <span>↗</span>
+            </button>
+        </nav>
+
+        <main class="landing-hero">
+            <div class="landing-eyebrow">
+                <span class="eyebrow-dot"></span>
+                A DIFFERENT WAY TO CONNECT
+            </div>
+
+            <h1>
+                Conversations<br>
+                <span>without the noise.</span>
+            </h1>
+
+            <p class="landing-description">
+                A simple space to connect, communicate and keep
+                the conversations that matter moving.
+            </p>
+
+            <div class="landing-actions">
+                <button id="getStartedBtn" class="landing-primary">
+                    Get started <span>↗</span>
+                </button>
+                <span class="landing-note">Simple. Personal. Real-time.</span>
+            </div>
+
+            <div class="landing-preview">
+                <div class="preview-top">
+                    <div class="preview-brand">
+                        <span class="brand-mark small-mark">N</span>
+                        <span>NoChat.</span>
+                    </div>
+                    <span class="preview-status">
+                        <i></i> CONNECTION ACTIVE
+                    </span>
+                </div>
+
+                <div class="preview-conversation">
+                    <div class="preview-person">
+                        <div class="preview-avatar">D</div>
+                        <div>
+                            <b>Denpher</b>
+                            <small>Online now</small>
+                        </div>
+                    </div>
+
+                    <div class="preview-message received">
+                        Still building something new?
+                    </div>
+
+                    <div class="preview-message sent">
+                        Always. One step at a time.
+                    </div>
+
+                    <div class="preview-message received">
+                        That's the energy.
+                    </div>
+
+                    <div class="preview-input">
+                        <span>Write a message...</span>
+                        <span>↗</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="landing-features">
+                <article class="feature-card">
+                    <span>01 / CONNECT</span>
+                    <b>Real-time messaging</b>
+                    <small>Conversations that move instantly.</small>
+                </article>
+
+                <article class="feature-card">
+                    <span>02 / PERSONAL</span>
+                    <b>Personal accounts</b>
+                    <small>Your own space and identity.</small>
+                </article>
+
+                <article class="feature-card">
+                    <span>03 / FOCUSED</span>
+                    <b>Simple by design</b>
+                    <small>Less clutter. More conversation.</small>
+                </article>
+            </div>
+        </main>
+
+        <footer class="landing-footer">
+            <div class="footer-main">
+                <span class="footer-kicker">NOCHAT / A SPACE TO CONNECT</span>
+                <h2>Your privacy<br><span>matters.</span></h2>
+                <p>Your conversations deserve care. We believe in keeping communication simple and respectful.</p>
+            </div>
+
+            <div class="footer-bottom">
+                <div class="footer-free">
+                    <span class="free-dot"></span>
+                    FREE TO USE
+                </div>
+
+                <span>© 2026 NoChat. All rights reserved.</span>
+
+                <span class="footer-credit">
+                    Powered by
+                    <a href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer">
+                        Denpher Technologies ↗
+                    </a>
+                </span>
+            </div>
+        </footer>
+    </section>
+
+    <!-- LOGIN / REGISTER -->
+    <section id="authView" class="auth-page hidden">
+        <nav class="auth-nav">
+            <a href="/" class="brand">
+                <span class="brand-mark">N</span>
+                <span>NoChat<span class="brand-dot">.</span></span>
+            </a>
+
+            <button id="backToLanding" class="text-button">
+                ← Back to home
+            </button>
+        </nav>
+
+        <main class="auth-main">
+            <div class="auth-card">
+                <div class="auth-heading">
+                    <div class="auth-symbol">N.</div>
+                    <span class="auth-kicker">YOUR SPACE STARTS HERE</span>
+                    <h1>Welcome to NoChat.</h1>
+                    <p>Sign in or create an account to continue.</p>
+                </div>
+
+                <div class="auth-tabs">
+                    <button class="tab active" data-mode="login" type="button">Sign in</button>
+                    <button class="tab" data-mode="register" type="button">Create account</button>
+                </div>
+
+                <form id="authForm">
+                    <label for="username">Username</label>
+                    <input id="username" name="username" type="text" placeholder="Enter your username" minlength="3"
+                        maxlength="20" autocomplete="username" required>
+
+                    <label for="password">Password</label>
+                    <input id="password" name="password" type="password" placeholder="Enter your password" minlength="8"
+                        maxlength="128" autocomplete="current-password" required>
+
+                    <button class="primary-btn" id="authSubmit" type="submit">
+                        Sign in <span>→</span>
+                    </button>
+
+                    <p id="authHint" class="auth-hint">
+                        Sign in to access your NoChat workspace.
+                    </p>
+                </form>
+
+                <div class="auth-bottom">
+                    <span>Independent messaging platform</span>
+                    <span>Powered by Denpher Technologies</span>
+                </div>
+            </div>
+        </main>
+    </section>
+
+    <!-- MESSAGING APP -->
+    <section id="appView" class="app-shell hidden">
+        <aside class="sidebar">
+            <div class="side-brand">
+                <a href="/" class="brand">
+                    <span class="brand-mark">N</span>
+                    <span>NoChat<span class="brand-dot">.</span></span>
+                </a>
+
+                <button id="logoutBtn" class="icon-btn" title="Sign out" aria-label="Sign out">↗</button>
+            </div>
+
+            <div class="profile">
+                <div class="avatar me-avatar" id="myAvatar">U</div>
+                <div class="profile-info">
+                    <b id="myName">User</b>
+                    <small><i class="online-dot"></i> Active now</small>
+                </div>
+            </div>
+
+            <div class="section-label">
+                <span>MESSAGES</span>
+                <button id="newChatBtn" class="tiny-add" title="Find people" aria-label="Find people">＋</button>
+            </div>
+
+            <div class="search-wrap">
+                <span aria-hidden="true">⌕</span>
+                <input id="searchInput" type="search" placeholder="Search conversations" autocomplete="off">
+            </div>
+
+            <div id="conversationList" class="conversation-list">
+                <div class="empty-side">Your conversations will appear here.</div>
+            </div>
+
+            <div class="sidebar-bottom">
+                <span class="status-pulse"></span>
+                Your space is live
+            </div>
+        </aside>
+
+        <main class="chat-area">
+            <div id="welcomePanel" class="welcome-panel">
+                <div class="welcome-icon">N<span>.</span></div>
+                <h2>Your conversations start here.</h2>
+                <p>Choose a chat or find someone new to talk to.</p>
+                <button id="welcomeNew" class="primary-btn small" type="button">
+                    Find people <span>↗</span>
+                </button>
+            </div>
+            <button id="mobileBackBtn" class="mobile-back-btn" type="button" aria-label="Back to conversations">
+                ←
+            </button>
+
+            <div id="chatPanel" class="chat-panel hidden">
+                <header class="chat-header">
+                    <div class="avatar" id="chatAvatar">?</div>
+
+                    <div class="chat-person">
+                        <b id="chatName">Person</b>
+                        <small id="chatStatus">NoChat member</small>
+                    </div>
+
+                    <div class="header-actions">
+                        <span class="secure-label">● &nbsp; NOCHAT</span>
+                    </div>
+                </header>
+
+                <div id="messages" class="messages"></div>
+
+                <form id="messageForm" class="composer">
+                    <input id="messageInput" type="text" maxlength="2000" placeholder="Write a message..."
+                        autocomplete="off" required>
+                    <button class="send-btn" type="submit" aria-label="Send message">➤</button>
+                </form>
+            </div>
+        </main>
+
+        <!-- FIND PEOPLE MODAL -->
+        <div id="userModal" class="modal hidden">
+            <div class="modal-card">
+                <div class="modal-title">
+                    <div>
+                        <span class="eyebrow">FIND YOUR PEOPLE</span>
+                        <h3>Start a conversation</h3>
+                    </div>
+                    <button id="closeModal" class="icon-btn" aria-label="Close" type="button">×</button>
+                </div>
+
+                <input id="userSearch" class="modal-search" type="search" placeholder="Search by username..."
+                    autocomplete="off">
+
+                <div id="userResults" class="user-results">
+                    <p class="muted">Type a username to find people.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/app.js"></script>
+</body>
+
+</html>
