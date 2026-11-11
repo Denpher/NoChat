@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0a0d">
+  <meta name="color-scheme" content="dark">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NoChat">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta property="og:title" content="NoChat — Reels, friends and private chat">
+  <meta property="og:description" content="Share short video reels, chat with friends in real time and discover new people.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <title>NoChat — Reels, friends and private chat</title>
+  <meta name="description" content="Share short video reels, chat with friends in real time and discover new people. Privacy is our first policy. Powered by Denpher.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#stage">Skip to content</a>
+  <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- BOOT -->
+  <div id="bootSplash" class="boot">
+    <div class="brand-mark lg"><span>N</span></div>
+    <div class="spinner"></div>
+  </div>
+
+  <!-- ===================== AUTH ===================== -->
+  <section id="authView" class="auth hidden" aria-label="Sign in to NoChat">
+    <div class="auth-art" aria-hidden="true">
+      <div class="auth-art-inner">
+        <div class="brand-row">
+          <div class="brand-mark"><span>N</span></div>
+          <span class="brand-word">NoChat<b>.</b></span>
+        </div>
+        <h1 class="auth-headline">Short videos.<br>Real friends.<br><em>No noise.</em></h1>
+        <p class="auth-sub">Post reels, chat in real time and find your people — on a network that keeps your data on your own server.</p>
+        <div class="phone-stack">
+          <div class="phone p1"><div class="phone-screen s1"><span class="ph-heart">♥</span><span class="ph-line w60"></span><span class="ph-line w40"></span></div></div>
+          <div class="phone p2"><div class="phone-screen s2"><span class="ph-bubble l">hey! saw your reel 🔥</span><span class="ph-bubble r">thank you!! new one tonight</span><span class="ph-bubble l">can't wait</span></div></div>
+          <div class="phone p3"><div class="phone-screen s3"><span class="ph-avatar"></span><span class="ph-line w50"></span><span class="ph-pill">Add friend</span></div></div>
+        </div>
+        <ul class="auth-points">
+          <li><i data-icon="film"></i>Vertical reels with likes and comments</li>
+          <li><i data-icon="message"></i>Live private messaging with typing</li>
+          <li><i data-icon="shield"></i>No ads, no trackers, no data selling</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-card">
+        <div class="brand-row mobile-only">
+          <div class="brand-mark"><span>N</span></div>
+          <span class="brand-word">NoChat<b>.</b></span>
+        </div>
+        <div class="segmented" role="tablist">
+          <button type="button" role="tab" class="seg active" data-auth-tab="login" aria-selected="true">Sign in</button>
+          <button type="button" role="tab" class="seg" data-auth-tab="register" aria-selected="false">Create account</button>
+        </div>
+
+        <form id="loginForm" class="auth-form" novalidate>
+          <h2>Welcome back</h2>
+          <p class="muted">Sign in with your username or email.</p>
+          <label class="field">
+            <span>Username or email</span>
+            <input type="text" id="loginIdentifier" autocomplete="username" spellcheck="false" placeholder="alex or alex@mail.com" required>
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <div class="input-affix">
+              <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Your password" required>
+              <button type="button" class="affix-btn" data-toggle-password="loginPassword">Show</button>
+            </div>
+          </label>
+          <p class="form-error hidden" id="loginError" role="alert"></p>
+          <button type="submit" class="btn btn-primary btn-block" id="loginSubmit">Sign in</button>
+          <p class="form-hint">Had an account before passwords? Sign in with your username and choose a password — it'll be saved.</p>
+        </form>
+
+        <form id="registerForm" class="auth-form hidden" novalidate>
+          <h2>Create your account</h2>
+          <p class="muted">It takes 20 seconds. Always free.</p>
+          <label class="field">
+            <span>Display name</span>
+            <input type="text" id="regDisplayName" maxlength="50" placeholder="Alex Rivera" autocomplete="name">
+          </label>
+          <label class="field">
+            <span>Username</span>
+            <div class="input-affix">
+              <span class="affix-pre">@</span>
+              <input type="text" id="regUsername" maxlength="24" placeholder="alex" autocomplete="username" spellcheck="false" required>
+            </div>
+            <small class="field-help">Letters, numbers and underscores. 3–24 characters.</small>
+          </label>
+          <label class="field">
+            <span>Email <em>(optional)</em></span>
+            <input type="email" id="regEmail" placeholder="alex@mail.com" autocomplete="email">
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <div class="input-affix">
+              <input type="password" id="regPassword" minlength="6" placeholder="At least 6 characters" autocomplete="new-password" required>
+              <button type="button" class="affix-btn" data-toggle-password="regPassword">Show</button>
+            </div>
+            <div class="strength" aria-hidden="true"><span id="strengthBar"></span></div>
+          </label>
+          <p class="form-error hidden" id="registerError" role="alert"></p>
+          <button type="submit" class="btn btn-primary btn-block" id="registerSubmit">Create account</button>
+        </form>
+
+        <p class="auth-foot"><i data-icon="shield"></i> Privacy is our first policy · <a href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer">Powered by Denpher</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== APP ===================== -->
+  <div id="appShell" class="shell hidden" data-view="reels">
+    <aside class="sidebar" aria-label="Main navigation">
+      <a href="#/reels" class="brand-row sidebar-brand">
+        <div class="brand-mark"><span>N</span></div>
+        <span class="brand-word">NoChat<b>.</b></span>
+      </a>
+      <nav class="side-nav">
+        <a href="#/reels" class="nav-item" data-nav="reels"><i data-icon="film"></i><span>Reels</span></a>
+        <a href="#/messages" class="nav-item" data-nav="messages"><i data-icon="message"></i><span>Messages</span><b class="badge hidden" data-badge="unread">0</b></a>
+        <a href="#/people" class="nav-item" data-nav="people"><i data-icon="users"></i><span>People</span><b class="badge hidden" data-badge="requests">0</b></a>
+        <a href="#/profile" class="nav-item" data-nav="profile"><span class="avatar xs" data-me-avatar></span><span>Profile</span></a>
+        <button type="button" class="btn btn-primary btn-block create-btn" data-action="open-upload"><i data-icon="plus"></i><span>Create reel</span></button>
+      </nav>
+      <div class="sidebar-foot">
+        <a href="#/profile" class="me-pill">
+          <span class="avatar sm" data-me-avatar></span>
+          <span class="me-pill-text"><strong data-me-name>You</strong><small data-me-username>@you</small></span>
+        </a>
+        <p class="tiny muted"><i data-icon="shield"></i> Privacy is our first policy</p>
+        <a class="tiny denpher-link" href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer">Denpher — Websites for small businesses</a>
+      </div>
+    </aside>
+
+    <header class="topbar">
+      <a href="#/reels" class="brand-row"><div class="brand-mark sm"><span>N</span></div><span class="brand-word sm">NoChat<b>.</b></span></a>
+      <div class="topbar-actions">
+        <button type="button" class="icon-btn" data-action="toggle-sound" aria-label="Toggle sound"><i data-icon="volume-x" data-sound-icon></i></button>
+        <button type="button" class="icon-btn" data-action="open-upload" aria-label="Create reel"><i data-icon="plus"></i></button>
+      </div>
+    </header>
+
+    <main id="stage" class="stage">
+      <!-- REELS -->
+      <section id="view-reels" class="view" aria-label="Reels">
+        <div class="feed-tools">
+          <button type="button" class="chip glass" data-action="toggle-sound"><i data-icon="volume-x" data-sound-icon></i><span data-sound-label>Sound off</span></button>
+          <button type="button" class="chip glass" id="refreshFeed" aria-label="Refresh reels"><i data-icon="refresh"></i></button>
+        </div>
+        <button type="button" id="newReelsPill" class="new-pill hidden"><i data-icon="arrow-up"></i> New reels</button>
+        <div id="feed" class="feed">
+          <div id="feedLoading" class="feed-state"><div class="spinner"></div><p>Loading reels…</p></div>
+          <div id="feedEmpty" class="feed-state hidden">
+            <div class="empty-icon"><i data-icon="film"></i></div>
+            <h3>No reels yet</h3>
+            <p class="muted">Be the first to post something.</p>
+            <button type="button" class="btn btn-primary" data-action="open-upload"><i data-icon="plus"></i> Upload a reel</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- MESSAGES -->
+      <section id="view-messages" class="view" aria-label="Messages">
+        <div class="chat-layout" id="chatLayout">
+          <div class="convo-pane">
+            <div class="pane-head">
+              <h1 class="page-title">Messages</h1>
+              <button type="button" class="icon-btn" id="newChatBtn" aria-label="New message"><i data-icon="edit"></i></button>
+            </div>
+            <label class="search">
+              <i data-icon="search"></i>
+              <input type="search" id="convoSearch" placeholder="Search chats">
+            </label>
+            <div id="convoList" class="convo-list"></div>
+          </div>
+
+          <div class="chat-pane" id="chatPane">
+            <div id="chatEmpty" class="chat-empty">
+              <div class="empty-icon"><i data-icon="message"></i></div>
+              <h3>Your messages</h3>
+              <p class="muted">Private 1-on-1 chats with your friends, delivered instantly.</p>
+              <button type="button" class="btn btn-primary" data-action="new-chat">Start a chat</button>
+            </div>
+            <div id="chatActive" class="chat-active hidden">
+              <div class="chat-head">
+                <a href="#/messages" class="icon-btn back-btn" aria-label="Back to chats"><i data-icon="arrow-left"></i></a>
+                <button type="button" class="chat-partner" id="chatPartnerBtn">
+                  <span class="avatar sm" id="chatPartnerAvatar"></span>
+                  <span class="chat-partner-text">
+                    <strong id="chatPartnerName">—</strong>
+                    <small id="chatPartnerStatus" class="muted">Offline</small>
+                  </span>
+                </button>
+              </div>
+              <div class="msg-stream" id="msgStream">
+                <div id="msgList" class="msg-list"></div>
+                <div id="typingRow" class="typing hidden"><span></span><span></span><span></span></div>
+              </div>
+              <form id="composer" class="composer" autocomplete="off">
+                <div class="emoji-wrap">
+                  <button type="button" class="icon-btn" id="emojiBtn" aria-label="Insert emoji"><i data-icon="smile"></i></button>
+                  <div id="emojiPicker" class="emoji-picker hidden" role="listbox"></div>
+                </div>
+                <input type="text" id="composerInput" maxlength="4000" placeholder="Message…" aria-label="Message">
+                <button type="submit" class="send-btn" id="sendBtn" aria-label="Send" disabled><i data-icon="send"></i></button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PEOPLE -->
+      <section id="view-people" class="view scroll" aria-label="People">
+        <div class="page">
+          <header class="page-head">
+            <div>
+              <h1 class="page-title">People</h1>
+              <p class="muted">Your friends, requests, and creators to discover.</p>
+            </div>
+          </header>
+          <label class="search lg">
+            <i data-icon="search"></i>
+            <input type="search" id="peopleSearch" placeholder="Search by name or @username">
+          </label>
+          <div class="tabs" role="tablist" id="peopleTabs">
+            <button type="button" class="tab active" data-people-tab="friends">Friends <span class="count" id="friendsCount">0</span></button>
+            <button type="button" class="tab" data-people-tab="requests">Requests <b class="badge hidden" data-badge="requests">0</b></button>
+            <button type="button" class="tab" data-people-tab="discover">Discover</button>
+          </div>
+          <div id="peopleBody" class="people-body"></div>
+        </div>
+      </section>
+
+      <!-- PROFILE -->
+      <section id="view-profile" class="view scroll" aria-label="Your profile">
+        <div class="page">
+          <div class="profile-hero">
+            <div class="profile-cover"></div>
+            <div class="profile-main">
+              <button type="button" class="profile-avatar-btn" data-action="open-avatar" aria-label="Change profile photo">
+                <span class="avatar xl" data-me-avatar></span>
+                <span class="avatar-cam"><i data-icon="camera"></i></span>
+              </button>
+              <div class="profile-id">
+                <h1 class="profile-name"><span data-me-name>You</span><span data-me-verified></span></h1>
+                <p class="muted" data-me-username>@you</p>
+                <p class="profile-bio" id="meBio"></p>
+              </div>
+              <div class="profile-cta">
+                <button type="button" class="btn btn-soft" data-profile-tab-jump="settings"><i data-icon="edit"></i> Edit profile</button>
+                <button type="button" class="btn btn-primary" data-action="open-upload"><i data-icon="plus"></i> New reel</button>
+              </div>
+            </div>
+            <div class="stats">
+              <div class="stat"><strong id="meReelsCount">0</strong><span>Reels</span></div>
+              <a class="stat" href="#/people"><strong id="meFriendsCount">0</strong><span>Friends</span></a>
+              <div class="stat"><strong id="meSubsCount">0</strong><span>Subscribers</span></div>
+            </div>
+          </div>
+
+          <div class="tabs" role="tablist">
+            <button type="button" class="tab active" data-profile-tab="reels"><i data-icon="grid"></i> Reels</button>
+            <button type="button" class="tab" data-profile-tab="settings"><i data-icon="settings"></i> Settings</button>
+          </div>
+
+          <div id="profileReels" class="profile-tab-body">
+            <div id="meReelGrid" class="reel-grid"></div>
+          </div>
+
+          <div id="profileSettings" class="profile-tab-body hidden">
+            <div class="settings-grid">
+              <form id="editProfileForm" class="card">
+                <h3>Profile</h3>
+                <label class="field">
+                  <span>Display name</span>
+                  <input type="text" id="editDisplayName" maxlength="50" required>
+                </label>
+                <label class="field">
+                  <span>Bio <em><b id="bioCount">0</b>/200</em></span>
+                  <textarea id="editBio" rows="3" maxlength="200" placeholder="Tell people about yourself"></textarea>
+                </label>
+                <label class="switch-row">
+                  <span><strong>Play reels with sound</strong><small class="muted">Turn sound on by default when you open NoChat.</small></span>
+                  <input type="checkbox" id="editSound" class="switch">
+                </label>
+                <div class="row-actions">
+                  <button type="submit" class="btn btn-primary">Save changes</button>
+                </div>
+              </form>
+
+              <div class="card">
+                <h3>Profile photo</h3>
+                <div class="photo-row">
+                  <span class="avatar lg" data-me-avatar></span>
+                  <div class="row-actions">
+                    <button type="button" class="btn btn-soft" data-action="open-avatar"><i data-icon="camera"></i> Change photo</button>
+                    <button type="button" class="btn btn-ghost" id="removeAvatarBtn">Remove</button>
+                  </div>
+                </div>
+              </div>
+
+              <form id="passwordForm" class="card">
+                <h3>Password</h3>
+                <label class="field" id="currentPasswordField">
+                  <span>Current password</span>
+                  <input type="password" id="currentPassword" autocomplete="current-password">
+                </label>
+                <label class="field">
+                  <span>New password</span>
+                  <input type="password" id="newPassword" minlength="6" autocomplete="new-password" placeholder="At least 6 characters">
+                </label>
+                <div class="row-actions">
+                  <button type="submit" class="btn btn-soft">Update password</button>
+                </div>
+              </form>
+
+              <div class="card">
+                <h3>Account</h3>
+                <dl class="meta-list">
+                  <div><dt>Username</dt><dd data-me-username>@you</dd></div>
+                  <div><dt>Email</dt><dd id="meEmail">Not added</dd></div>
+                  <div><dt>Member since</dt><dd id="meSince">—</dd></div>
+                </dl>
+                <div class="row-actions">
+                  <button type="button" class="btn btn-danger" id="logoutBtn"><i data-icon="log-out"></i> Log out</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabbar" aria-label="Main navigation">
+      <a href="#/reels" class="tab-item" data-nav="reels" aria-label="Reels"><i data-icon="film"></i><span>Reels</span></a>
+      <a href="#/people" class="tab-item" data-nav="people" aria-label="People"><i data-icon="users"></i><span>People</span><b class="badge hidden" data-badge="requests">0</b></a>
+      <button type="button" class="tab-item tab-create" data-action="open-upload" aria-label="Create reel"><span class="tab-create-btn"><i data-icon="plus"></i></span></button>
+      <a href="#/messages" class="tab-item" data-nav="messages" aria-label="Messages"><i data-icon="message"></i><span>Chats</span><b class="badge hidden" data-badge="unread">0</b></a>
+      <a href="#/profile" class="tab-item" data-nav="profile" aria-label="Profile"><span class="avatar xs" data-me-avatar></span><span>You</span></a>
+    </nav>
+  </div>
+
+  <!-- ===================== MODALS ===================== -->
+  <div class="modal hidden" id="uploadModal" role="dialog" aria-modal="true" aria-labelledby="uploadTitle">
+    <div class="modal-card wide">
+      <header class="modal-head">
+        <h2 id="uploadTitle">New reel</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button>
+      </header>
+      <form id="uploadForm" class="upload-grid">
+        <div class="dropzone" id="dropzone" tabindex="0">
+          <input type="file" id="videoInput" accept="video/mp4,video/webm,video/quicktime,video/x-matroska,.mp4,.webm,.mov,.mkv" hidden>
+          <div class="drop-prompt" id="dropPrompt">
+            <div class="empty-icon"><i data-icon="upload"></i></div>
+            <strong>Drag a video here</strong>
+            <span class="muted">MP4, WebM or MOV · up to 100 MB</span>
+            <button type="button" class="btn btn-soft" id="pickVideoBtn">Choose from device</button>
+          </div>
+          <div class="drop-preview hidden" id="dropPreview">
+            <video id="previewVideo" playsinline muted loop autoplay></video>
+            <button type="button" class="icon-btn glass remove-video" id="removeVideoBtn" aria-label="Remove video"><i data-icon="x"></i></button>
+            <span class="file-chip" id="fileChip"></span>
+          </div>
+        </div>
+        <div class="upload-fields">
+          <label class="field">
+            <span>Caption <em><b id="captionCount">0</b>/2200</em></span>
+            <textarea id="captionInput" rows="4" maxlength="2200" placeholder="Say something… add #hashtags"></textarea>
+          </label>
+          <div class="field">
+            <span>Sound label</span>
+            <div class="sound-pick">
+              <i data-icon="music"></i>
+              <input type="text" id="musicInput" maxlength="80" placeholder="Original audio" aria-label="Sound label">
+              <button type="button" class="btn btn-soft sm" id="browseSoundsBtn">Browse</button>
+            </div>
+            <small class="field-help">Shown on your reel. Your video keeps its own audio.</small>
+          </div>
+          <div class="progress hidden" id="uploadProgress">
+            <div class="progress-track"><span id="uploadProgressFill"></span></div>
+            <small id="uploadProgressText">Uploading…</small>
+          </div>
+          <div class="row-actions end">
+            <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+            <button type="submit" class="btn btn-primary" id="publishBtn" disabled>Publish</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="soundsModal" role="dialog" aria-modal="true" aria-labelledby="soundsTitle">
+    <div class="modal-card">
+      <header class="modal-head">
+        <h2 id="soundsTitle">Sounds</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button>
+      </header>
+      <label class="search">
+        <i data-icon="search"></i>
+        <input type="search" id="soundSearch" placeholder="Search tracks, artists, genres">
+      </label>
+      <div id="soundList" class="sound-list"></div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="avatarModal" role="dialog" aria-modal="true" aria-labelledby="avatarTitle">
+    <div class="modal-card narrow center">
+      <header class="modal-head">
+        <h2 id="avatarTitle">Profile photo</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button>
+      </header>
+      <div class="avatar-preview" id="avatarPreview"></div>
+      <p class="muted small">JPG, PNG, WebP or GIF up to 10 MB.</p>
+      <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+      <div class="row-actions center">
+        <button type="button" class="btn btn-soft" id="pickAvatarBtn">Choose photo</button>
+        <button type="button" class="btn btn-primary" id="saveAvatarBtn" disabled>Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal sheet hidden" id="commentsModal" role="dialog" aria-modal="true" aria-labelledby="commentsTitle">
+    <div class="modal-card sheet-card">
+      <header class="modal-head">
+        <h2 id="commentsTitle">Comments <span class="count" id="commentsCount">0</span></h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button>
+      </header>
+      <div id="commentList" class="comment-list"></div>
+      <form id="commentForm" class="comment-form" autocomplete="off">
+        <span class="avatar sm" data-me-avatar></span>
+        <input type="text" id="commentInput" maxlength="1000" placeholder="Add a comment…" aria-label="Add a comment">
+        <button type="submit" class="btn btn-primary sm" id="commentSubmit" disabled>Post</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="userModal" role="dialog" aria-modal="true" aria-label="Profile">
+    <div class="modal-card wide user-modal">
+      <button type="button" class="icon-btn modal-x glass" data-close aria-label="Close"><i data-icon="x"></i></button>
+      <div id="userModalBody"></div>
+    </div>
+  </div>
+
+  <div class="modal viewer hidden" id="viewerModal" role="dialog" aria-modal="true" aria-label="Reel">
+    <button type="button" class="icon-btn modal-x glass" data-close aria-label="Close"><i data-icon="x"></i></button>
+    <div class="viewer-body" id="viewerBody"></div>
+  </div>
+
+  <div class="modal hidden" id="pickerModal" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+    <div class="modal-card">
+      <header class="modal-head">
+        <h2 id="pickerTitle">New message</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button>
+      </header>
+      <label class="search">
+        <i data-icon="search"></i>
+        <input type="search" id="pickerSearch" placeholder="Search people">
+      </label>
+      <div id="pickerList" class="picker-list"></div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="confirmModal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="modal-card narrow">
+      <h2 id="confirmTitle">Are you sure?</h2>
+      <p class="muted" id="confirmText"></p>
+      <div class="row-actions end">
+        <button type="button" class="btn btn-ghost" id="confirmNo">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmYes">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# Render Blueprint — one always-on Node server with a persistent disk.
+# Keeps accounts, messages, reels and photos safe across restarts and redeploys,
+# and supports live chat (WebSockets).
+services:
+  - type: web
+    name: nochat
+    runtime: node
+    plan: starter            # persistent disks need a paid plan
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATA_DIR
+        value: /var/data/db
+      - key: UPLOADS_DIR
+        value: /var/data/uploads
+      - key: FOUNDER_PASSWORD
+        sync: false
+    disk:
+      name: nochat-data
+      mountPath: /var/data
+      sizeGB: 5
