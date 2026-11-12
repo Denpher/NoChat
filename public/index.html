@@ -84,7 +84,7 @@
           </label>
           <p class="form-error hidden" id="loginError" role="alert"></p>
           <button type="submit" class="btn btn-primary btn-block" id="loginSubmit">Sign in</button>
-          <p class="form-hint">Had an account before passwords? Sign in with your username and choose a password — it'll be saved.</p>
+          <p class="form-hint">Need access to an older account? Contact Denpher for secure account recovery.</p>
         </form>
 
         <form id="registerForm" class="auth-form hidden" novalidate>
@@ -206,16 +206,21 @@
                     <small id="chatPartnerStatus" class="muted">Offline</small>
                   </span>
                 </button>
+                <button type="button" class="icon-btn" id="voiceCallBtn" aria-label="Voice call" title="Voice call">☎</button>
+                <button type="button" class="icon-btn" id="markUnreadBtn" aria-label="Mark unread" title="Mark unread"><i data-icon="message"></i></button>
               </div>
               <div class="msg-stream" id="msgStream">
                 <div id="msgList" class="msg-list"></div>
                 <div id="typingRow" class="typing hidden"><span></span><span></span><span></span></div>
               </div>
+              <progress id="attachmentProgress" max="100" value="0" class="hidden" aria-label="Attachment upload progress"></progress>
               <form id="composer" class="composer" autocomplete="off">
                 <div class="emoji-wrap">
                   <button type="button" class="icon-btn" id="emojiBtn" aria-label="Insert emoji"><i data-icon="smile"></i></button>
                   <div id="emojiPicker" class="emoji-picker hidden" role="listbox"></div>
                 </div>
+                <input type="file" id="attachmentInput" accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx" hidden>
+                <button type="button" class="icon-btn" id="attachmentBtn" aria-label="Attach file" title="Attach file"><i data-icon="plus"></i></button>
                 <input type="text" id="composerInput" maxlength="4000" placeholder="Message…" aria-label="Message">
                 <button type="submit" class="send-btn" id="sendBtn" aria-label="Send" disabled><i data-icon="send"></i></button>
               </form>
@@ -278,6 +283,7 @@
             <button type="button" class="tab" data-profile-tab="settings"><i data-icon="settings"></i> Settings</button>
           </div>
 
+          <button type="button" class="btn btn-soft hidden" id="adminReviewBtn"><i data-icon="shield"></i> Moderation review</button>
           <div id="profileReels" class="profile-tab-body">
             <div id="meReelGrid" class="reel-grid"></div>
           </div>
@@ -298,6 +304,7 @@
                   <span><strong>Play reels with sound</strong><small class="muted">Turn sound on by default when you open NoChat.</small></span>
                   <input type="checkbox" id="editSound" class="switch">
                 </label>
+                <label class="switch-row"><span><strong>Read receipts</strong></span><input type="checkbox" id="editReadReceipts" class="switch" checked></label>
                 <div class="row-actions">
                   <button type="submit" class="btn btn-primary">Save changes</button>
                 </div>
@@ -389,7 +396,7 @@
               <input type="text" id="musicInput" maxlength="80" placeholder="Original audio" aria-label="Sound label">
               <button type="button" class="btn btn-soft sm" id="browseSoundsBtn">Browse</button>
             </div>
-            <small class="field-help">Shown on your reel. Your video keeps its own audio.</small>
+            <small class="field-help">Original audio or a selected soundtrack.</small>
           </div>
           <div class="progress hidden" id="uploadProgress">
             <div class="progress-track"><span id="uploadProgressFill"></span></div>
@@ -486,7 +493,10 @@
     </div>
   </div>
 
+  <div class="modal hidden" id="callModal" role="dialog" aria-modal="true" aria-labelledby="callTitle"><div class="modal-card narrow center"><h2 id="callTitle">Voice call</h2><p id="callStatus" role="status">Calling…</p><audio id="callAudio" autoplay playsinline></audio><div class="row-actions center"><button type="button" class="btn btn-primary hidden" id="callAccept">Accept</button><button type="button" class="btn btn-soft hidden" id="callMute" aria-pressed="false">Mute</button><button type="button" class="icon-btn" id="callSpeaker" aria-label="Play call audio" title="Play call audio"><i data-icon="volume"></i></button><button type="button" class="btn btn-danger" id="callEnd">End / Reject</button></div></div></div>
+  <div class="modal hidden" id="reviewModal" role="dialog" aria-modal="true" aria-label="Moderation review"><div class="modal-card wide"><header class="modal-head"><h2>Moderation review</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button></header><div id="reviewList"></div></div></div>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/calls.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

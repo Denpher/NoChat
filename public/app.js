@@ -279,6 +279,7 @@
   function handleSignedOut(fromServer) {
     if (handleSignedOut.busy) return; handleSignedOut.busy = true;
     setTimeout(() => { handleSignedOut.busy = false; }, 1500);
+    state.calls?.end();
     state.me = null;
     currentView = null;
     state.reels = []; state.conversations = []; state.friends = []; state.requests = { incoming: [], outgoing: [] };
@@ -341,6 +342,8 @@
     $("#editBio").value = u.bio || "";
     $("#bioCount").textContent = (u.bio || "").length;
     $("#editSound").checked = u.soundEnabled !== false;
+    $("#editReadReceipts").checked = u.readReceiptsEnabled !== false;
+    $("#adminReviewBtn").classList.toggle("hidden",!u.isAdmin);
     $("#currentPasswordField").classList.toggle("hidden", u.hasPassword === false);
   }
 
@@ -409,6 +412,9 @@
     if (state.socket) state.socket.disconnect();
     const s = io({ withCredentials: true });
     state.socket = s;
+    state.calls = window.NoChatCalls(s,api,toast);
+    s.on('messages:read',({conversationId,userId,lastRead})=>{if(conversationId!==state.activeConvoId)return;state.messages.forEach(m=>{if(m.senderId!==userId && lastRead && m.createdAt<=lastRead)m.seenAt=lastRead;});renderMessages(false);});
+    s.on('message:deleted',({conversationId,messageId})=>{if(conversationId!==state.activeConvoId)return;const m=state.messages.find(m=>m.id===messageId);if(m){m.deletedAt=new Date().toISOString();m.text='';m.attachment=null;renderMessages(false);}});
 
     s.on("connect", () => { if (state.activeConvoId) s.emit("conversation:join", state.activeConvoId); });
     // Socket.IO does not auto-retry after an auth (middleware) rejection. Check the
@@ -439,7 +445,7 @@
       }
       state.messages.push(m);
       renderMessages(true);
-      if (m.senderId !== state.me.id) { hideTyping(); api(`/api/conversations/${m.conversationId}/read`, { method: "POST" }).catch(() => {}); }
+      if (m.senderId !== state.me.id && !document.hidden && currentView === "messages" && state.me.readReceiptsEnabled !== false) { hideTyping(); api(`/api/conversations/${m.conversationId}/read`, { method: "POST" }).catch(() => {}); }
     });
 
     s.on("conversation:update", ({ conversationId, message }) => {
@@ -501,6 +507,7 @@
       <article class="reel" data-reel="${esc(r.id)}">
         <div class="reel-frame">
           <video src="${esc(r.videoUrl)}" playsinline loop preload="metadata" ${state.muted ? "muted" : ""}></video>
+          ${r.musicUrl ? `<audio class="reel-audio" src="${esc(r.musicUrl)}" loop preload="metadata"></audio>` : ""}
           <div class="reel-tap" aria-hidden="true"></div>
           <div class="reel-paused"><span>${icon("play")}</span></div>
           <div class="reel-shade"></div>
@@ -520,7 +527,8 @@
           <div class="ra ${r.isLiked ? "liked" : ""}" data-like-wrap><button type="button" class="ra-btn" data-like aria-label="Like" aria-pressed="${!!r.isLiked}">${icon("heart")}</button><span data-like-count>${fmtCount(r.likesCount)}</span></div>
           <div class="ra"><button type="button" class="ra-btn" data-comments aria-label="Comments">${icon("message")}</button><span data-comment-count>${fmtCount(r.commentsCount)}</span></div>
           <div class="ra"><button type="button" class="ra-btn" data-share aria-label="Share">${icon("share")}</button><span>Share</span></div>
-          ${mine ? `<div class="ra"><button type="button" class="ra-btn" data-delete aria-label="Delete reel">${icon("trash")}</button><span>Delete</span></div>` : ""}
+          <div class="ra"><button type="button" class="ra-btn" data-report aria-label="Report reel">${icon("shield")}</button><span>Report</span></div>
+          ${mine || state.me.isAdmin ? `<div class="ra"><button type="button" class="ra-btn" data-delete aria-label="Delete reel">${icon("trash")}</button><span>Delete</span></div>` : ""}
         </div>
       </article>`;
   }
@@ -554,7 +562,7 @@
       entries.forEach((en) => {
         const v = en.target.querySelector("video");
         if (en.isIntersecting && en.intersectionRatio >= 0.6 && currentView === "reels" && !state.viewerOpen) playReel(en.target);
-        else { v.pause(); }
+        else { v.pause(); en.target.querySelector('.reel-audio')?.pause(); }
       });
     }, { root: feed, threshold: [0, 0.6, 1] });
     $$(".reel", feed).forEach((el) => io_obs.observe(el));
@@ -562,7 +570,9 @@
 
   function playReel(el) {
     const v = el.querySelector("video");
-    v.muted = state.muted;
+    const audio=el.querySelector('.reel-audio');
+    v.muted = state.muted || Boolean(audio);
+    if(audio){audio.muted=state.muted;audio.currentTime=Number.isFinite(audio.duration)&&audio.duration>0?v.currentTime%audio.duration:0;audio.play().catch(()=>{audio.muted=true;});}
     el.classList.remove("is-paused");
     const p = v.play();
     if (p && p.catch) p.catch(() => {
@@ -571,7 +581,7 @@
       else el.classList.add("is-paused");
     });
   }
-  function pauseAllReels() { $$(".reel video").forEach((v) => v.pause()); }
+  function pauseAllReels() { $$(".reel video,.reel-audio").forEach((v) => v.pause()); }
   function playVisibleReel() {
     const r = feed.getBoundingClientRect();
     const el = $$(".reel", feed).find((x) => { const b = x.getBoundingClientRect(); return b.top < r.top + r.height / 2 && b.bottom > r.top + r.height / 2; });
@@ -591,7 +601,8 @@
 
   function toggleSound() {
     state.muted = !state.muted;
-    $$(".reel video").forEach((v) => (v.muted = state.muted));
+    $$(".reel video").forEach((v) => (v.muted = state.muted || Boolean(v.parentElement.querySelector('.reel-audio'))));
+    $$('.reel-audio').forEach(a=>{a.muted=state.muted;if(!a.closest('.reel').querySelector('video').paused)a.play().catch(()=>toast('Tap the reel to enable audio.'));});
     updateSoundUI();
     toast(state.muted ? "Sound off" : "Sound on");
   }
@@ -617,7 +628,7 @@
   }
   function togglePause(el) {
     const v = el.querySelector("video");
-    if (v.paused) { playReel(el); } else { v.pause(); el.classList.add("is-paused"); }
+    if (v.paused) { playReel(el); } else { v.pause(); el.querySelector('.reel-audio')?.pause(); el.classList.add("is-paused"); }
   }
 
   // Shared reel interactions (feed + viewer modal)
@@ -644,6 +655,7 @@
       if (e.target.closest("[data-comments]")) return openComments(id);
       if (e.target.closest("[data-share]")) return shareReel(id);
       if (e.target.closest("[data-delete]")) return deleteReel(id);
+      if (e.target.closest("[data-report]")) {const reason=prompt("Why are you reporting this reel?");if(reason)try{await api(`/api/reels/${id}/report`,{method:'POST',body:{reason}});toast('Report submitted','success');}catch(err){toast(err.message,'error');}return;}
       if (e.target.closest("[data-caption]")) return e.target.closest("[data-caption]").classList.toggle("open");
       const sub = e.target.closest("[data-subscribe]");
       if (sub) return toggleSubscribe(sub.dataset.subscribe);
@@ -740,7 +752,7 @@
   }
   $("#viewerModal").addEventListener("closed", () => {
     state.viewerOpen = false;
-    $$("#viewerBody video").forEach((v) => v.pause());
+    $$("#viewerBody video,#viewerBody audio").forEach((v) => v.pause());
     $("#viewerBody").innerHTML = "";
     if (currentView === "reels") playVisibleReel();
   });
@@ -757,7 +769,7 @@
   }
   function commentHTML(c) {
     const r = findReel(c.reelId);
-    const canDelete = c.user && (c.user.id === state.me.id || (r && r.userId === state.me.id));
+    const canDelete = c.canDelete === true || (c.user && (c.user.id === state.me.id || state.me.isAdmin));
     return `<div class="comment" data-comment="${esc(c.id)}">
       <button type="button" data-open-user="${esc(c.user?.id)}">${avatar(c.user, "sm")}</button>
       <div class="comment-body">
@@ -800,6 +812,7 @@
   $("#commentList").addEventListener("click", async (e) => {
     const del = e.target.closest("[data-delete-comment]");
     if (del) {
+      if (!(await confirmDialog("Delete comment?", "This removes the comment for everyone.", "Delete"))) return;
       try { await api(`/api/reels/${state.commentsReelId}/comments/${del.dataset.deleteComment}`, { method: "DELETE" }); del.closest(".comment").remove(); updateCommentsHeader(); }
       catch (err) { (err.silent || toast(err.message, "error")); }
       return;
@@ -812,13 +825,14 @@
      UPLOAD
      ========================================================= */
   const videoInput = $("#videoInput");
-  let selectedFile = null, previewUrl = null, uploading = false;
+  let selectedFile = null, previewUrl = null, uploading = false, selectedAudioId = null;
   const MAX_VIDEO = 100 * 1024 * 1024;
 
   function openUpload() { resetUpload(); openModal("uploadModal"); }
   function resetUpload() {
     if (uploading) return;
     selectedFile = null; videoInput.value = "";
+    selectedAudioId=null;
     if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = null;
     $("#previewVideo").removeAttribute("src");
     $("#dropPrompt").classList.remove("hidden");
@@ -860,6 +874,7 @@
     fd.append("video", selectedFile);
     fd.append("caption", $("#captionInput").value.trim());
     fd.append("musicTitle", $("#musicInput").value.trim() || "Original audio");
+    if(selectedAudioId)fd.append('audioId',selectedAudioId);
     uploading = true;
     $("#publishBtn").disabled = true;
     $("#uploadProgress").classList.remove("hidden");
@@ -879,8 +894,8 @@
       let data = {}; try { data = JSON.parse(xhr.responseText); } catch (_) {}
       if (xhr.status >= 200 && xhr.status < 300) {
         closeModal("uploadModal"); resetUpload();
-        toast("Your reel is live", "success");
-        if (data.reel) { state.reels.unshift(data.reel); renderFeed(); }
+        toast(data.reel?.moderationStatus === "approved" ? "Your reel is live" : "Reel saved privately for moderation review", "success");
+        if (data.reel?.moderationStatus === "approved") { if(!state.reels.some(r=>r.id===data.reel.id))state.reels.unshift(data.reel); renderFeed(); }
         refreshMe(); loadMyReels();
         go("reels"); feed.scrollTo({ top: 0, behavior: "smooth" });
       } else {
@@ -916,6 +931,7 @@
     const t = JSON.parse(row.dataset.track);
     if (e.target.closest("[data-use]")) {
       $("#musicInput").value = t.title;
+      selectedAudioId=t.id;
       closeModal("soundsModal");
       toast(`Sound set to “${t.title}”`, "success");
       return;
@@ -988,6 +1004,7 @@
       if (state.activeConvoId !== convoId) return;
       state.messages = data.messages || [];
       renderMessages();
+      if (!document.hidden && state.me.readReceiptsEnabled !== false) await api(`/api/conversations/${convoId}/read`,{method:'POST'});
       c.unreadCount = 0; renderConversations();
       setBadge("unread", state.conversations.reduce((s, x) => s + (x.unreadCount || 0), 0));
     } catch (err) { $("#msgList").innerHTML = `<p class="muted">${err.silent ? "" : esc(err.message)}</p>`; }
@@ -1026,7 +1043,7 @@
       if (day !== lastDay) { html += `<div class="day-sep">${dayLabel(m.createdAt)}</div>`; lastDay = day; prev = null; }
       const mine = m.senderId === state.me.id;
       const grouped = prev && prev.senderId === m.senderId && new Date(m.createdAt) - new Date(prev.createdAt) < 5 * 60 * 1000;
-      html += `<div class="msg ${mine ? "mine" : "theirs"} ${grouped ? "grouped" : ""} ${m.pending ? "pending" : ""} ${isEmojiOnly(m.text) ? "big-emoji" : ""}">${esc(m.text)}<time>${m.pending ? "Sending…" : clock(m.createdAt)}</time></div>`;
+      html += `<div data-message-id="${esc(m.id)}" class="msg ${mine ? "mine" : "theirs"} ${grouped ? "grouped" : ""} ${m.pending ? "pending" : ""} ${isEmojiOnly(m.text) ? "big-emoji" : ""}">${m.deletedAt ? '<em>Message deleted</em>' : m.attachment ? `<a href="${esc(m.attachment.url)}?download=1" target="_blank" rel="noopener noreferrer" class="attachment-link">${icon("upload")} ${esc(m.attachment.name)} · ${(m.attachment.size/1048576).toFixed(1)} MB</a>` : esc(m.text)}<time>${m.pending ? "Sending…" : clock(m.createdAt)}${mine && !m.pending && !m.deletedAt ? ` · <span class="receipt ${m.seenAt ? 'seen' : ''}">${m.seenAt ? 'Seen' : 'Unseen'}</span>` : ""}</time>${mine && !m.pending && !m.deletedAt ? `<button type="button" class="msg-delete" data-delete-message="${esc(m.id)}" aria-label="Delete message" title="Delete message">${icon("trash")}</button>` : ""}</div>`;
       prev = m;
     });
     list.innerHTML = html;
@@ -1335,7 +1352,7 @@
     if (displayName.length < 2) return toast("Display name needs at least 2 characters.", "error");
     await withBusy(btn, "Saving…", async () => {
       try {
-        const d = await api("/api/profile", { method: "PUT", body: { displayName, bio: $("#editBio").value, soundEnabled: $("#editSound").checked } });
+        const d = await api("/api/profile", { method: "PUT", body: { displayName, bio: $("#editBio").value, soundEnabled: $("#editSound").checked, readReceiptsEnabled: $("#editReadReceipts").checked } });
         state.me = { ...state.me, ...d.user }; renderMe();
         toast("Profile saved", "success");
       } catch (err) { (err.silent || toast(err.message, "error")); }
@@ -1356,6 +1373,22 @@
       } catch (err) { (err.silent || toast(err.message, "error")); }
     });
   });
+
+  $("#voiceCallBtn").addEventListener('click',()=>{if(state.activeConvoId)state.calls?.start(state.activeConvoId,state.activePartner.displayName);});
+  $("#markUnreadBtn").addEventListener('click',async()=>{if(!state.activeConvoId)return;try{await api(`/api/conversations/${state.activeConvoId}/unread`,{method:'POST'});go('messages');toast('Marked unread');}catch(e){toast(e.message,'error');}});
+  $("#msgList").addEventListener('click',async e=>{const b=e.target.closest('[data-delete-message]');if(!b||!state.activeConvoId)return;if(!await confirmDialog('Delete this message?','It will be removed for both people.','Delete'))return;try{await api(`/api/conversations/${state.activeConvoId}/messages/${b.dataset.deleteMessage}`,{method:'DELETE'});const m=state.messages.find(m=>m.id===b.dataset.deleteMessage);if(m){m.deletedAt=new Date().toISOString();m.text='';m.attachment=null;}renderMessages(false);}catch(e){toast(e.message,'error');}});
+  $("#attachmentBtn").onclick=()=>$("#attachmentInput").click();
+  $("#attachmentInput").onchange=()=>{
+    const file=$("#attachmentInput").files[0];const id=state.activeConvoId;if(!file||!id)return;if(file.size>20*1024*1024)return toast('File is over 20 MB.','error');
+    const form=new FormData();form.append('file',file);const xhr=new XMLHttpRequest();xhr.open('POST',`/api/conversations/${id}/attachments`);xhr.withCredentials=true;
+    const progress=$("#attachmentProgress");progress.classList.remove('hidden');$("#attachmentBtn").disabled=true;
+    const done=()=>{progress.classList.add('hidden');$("#attachmentBtn").disabled=false;$("#attachmentInput").value='';};
+    xhr.upload.onprogress=e=>{if(e.lengthComputable)progress.value=e.loaded/e.total*100;};
+    xhr.onload=()=>{done();let data={};try{data=JSON.parse(xhr.responseText);}catch{}if(xhr.status>=200&&xhr.status<300){if(id===state.activeConvoId&&!state.messages.some(m=>m.id===data.message.id)){state.messages.push(data.message);renderMessages();}}else toast(data.error||'Upload failed','error');};
+    xhr.onerror=()=>{done();toast('Upload connection failed','error');};xhr.send(form);
+  };
+  $("#adminReviewBtn").onclick=async()=>{openModal('reviewModal');$("#reviewList").textContent='Loading…';try{const data=await api('/api/admin/review');$("#reviewList").innerHTML=data.reels.length?data.reels.map(r=>`<article class="review-item" data-review="${esc(r.id)}"><video src="${esc(r.videoUrl)}" controls playsinline preload="metadata"></video><strong>${esc(r.user?.displayName)}</strong><p>${esc(r.caption)}</p><p class="muted">${esc(r.moderationStatus||'reported')}: ${esc(r.moderationReason||'User report')}</p>${r.reports.map(x=>`<p>${esc(x.reason)}</p>`).join('')}<div class="row-actions"><button type="button" class="btn btn-primary" data-decision="approved">Approve</button><button type="button" class="btn btn-soft" data-decision="blocked">Keep hidden</button><button type="button" class="btn btn-danger" data-admin-delete>Delete permanently</button></div></article>`).join(''):'No reels need review.';}catch(e){$("#reviewList").textContent=e.message;}};
+  $("#reviewList").onclick=async e=>{const item=e.target.closest('[data-review]');if(!item)return;try{if(e.target.closest('[data-admin-delete]')){if(!await confirmDialog('Delete permanently?','This cannot be undone.','Delete'))return;await api(`/api/reels/${item.dataset.review}`,{method:'DELETE'});}else{const b=e.target.closest('[data-decision]');if(!b)return;await api(`/api/admin/reels/${item.dataset.review}/review`,{method:'POST',body:{status:b.dataset.decision}});}item.remove();toast('Review saved','success');loadFeed();}catch(e){toast(e.message,'error');}};
 
   /* ---------------- avatar ---------------- */
   let avatarFile = null, avatarUrl = null;
@@ -1408,7 +1441,7 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) pauseAllReels();
     else if (currentView === "reels" && !state.viewerOpen) playVisibleReel();
-    if (!document.hidden && state.activeConvoId) api(`/api/conversations/${state.activeConvoId}/read`, { method: "POST" }).catch(() => {});
+    if (!document.hidden && state.activeConvoId && currentView === "messages" && state.me?.readReceiptsEnabled !== false) api(`/api/conversations/${state.activeConvoId}/read`, { method: "POST" }).catch(() => {});
   });
 
   (async function boot() {

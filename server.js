@@ -1,3 +1,4 @@
+import "express-async-errors";
 import express from "express";
 import http from "http";
 import path from "path";
@@ -13,8 +14,13 @@ import rateLimit from "express-rate-limit";
 import multer from "multer";
 import { Server } from "socket.io";
 import dotenv from "dotenv";
+import { cloudCall, cloudEnabled, storeFile } from './cloud.js';
+import { reelLimit, dayKey, canDeleteContent, unseen, seenAt, blockedText, validateFile } from './policies.js';
+import { reviewReel } from './moderation.js';
+import { mountFeatures } from './features.js';
 
 dotenv.config();
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || !cloudEnabled)) throw new Error('Production requires stable JWT_SECRET, NOCHAT_CLOUD_URL and NOCHAT_BRIDGE_SECRET.');
 
 /* =========================================================
    NOCHAT — NEXT-GEN SOCIAL & REELS ENGINE
@@ -31,6 +37,7 @@ const io = new Server(server, {
     origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",").map(s => s.trim()) : true,
     credentials: true
   },
+  maxHttpBufferSize: 128000,
   pingInterval: 25000,
   pingTimeout: 20000
 });
@@ -116,32 +123,18 @@ const initialSchema = {
   messages: []
 };
 
-let db = { ...initialSchema };
-const localSeedFile = path.join(__dirname, "data", "db.json");
-
-if (fs.existsSync(DB_FILE)) {
-  try {
-    db = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
-  } catch {
-    db = { ...initialSchema };
-  }
-} else if (fs.existsSync(localSeedFile)) {
-  try {
-    db = JSON.parse(fs.readFileSync(localSeedFile, "utf8"));
-  } catch {
-    db = { ...initialSchema };
-  }
+let db = structuredClone(initialSchema);
+let cloudRevision = 0;
+if (cloudEnabled) {
+  const loaded = await cloudCall('load');
+  db = { ...db, ...loaded.state }; cloudRevision = loaded.revision;
+} else if (fs.existsSync(DB_FILE)) {
+  db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 }
-
-db.users ??= [];
-db.subscriptions ??= [];
-db.friends ??= [];
-db.friendRequests ??= [];
-db.reels ??= [];
-db.reelLikes ??= [];
-db.reelComments ??= [];
-db.conversations ??= [];
-db.messages ??= [];
+for (const collection of Object.keys(initialSchema)) db[collection] ??= [];
+db.reports ??= []; db.reelUploads ??= [];
+// Storage retrieval order is not message order: restore chronological ordering.
+for (const collection of ['messages','reelComments']) db[collection].sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
 
 // Ensure Official Denpher Account exists & is the ONLY verified account
 let denpher = db.users.find(
@@ -186,21 +179,26 @@ db.users.forEach(u => {
   }
 });
 
+let storageFailed = false;
 let saveQueue = Promise.resolve();
 function saveDB() {
-  saveQueue = saveQueue.then(async () => {
-    try {
+  // Snapshot now, not when the queued network write finally runs.
+  const snapshot = JSON.parse(JSON.stringify(db));
+  const operation = saveQueue.catch(()=>{}).then(async () => {
+    if (cloudEnabled) {
+      const result = await cloudCall('save', { revision: cloudRevision, state: snapshot });
+      cloudRevision = result.revision;
+    } else {
       const tempFile = `${DB_FILE}.tmp`;
-      await fs.promises.writeFile(tempFile, JSON.stringify(db, null, 2), "utf8");
+      await fs.promises.writeFile(tempFile, JSON.stringify(snapshot));
       await fs.promises.rename(tempFile, DB_FILE);
-    } catch {
-      // In-memory fallback on Vercel lambda
     }
-  }).catch(() => {});
-  return saveQueue;
+  });
+  saveQueue = operation;
+  operation.catch(()=> { storageFailed = true; });
+  return operation;
 }
-
-saveDB();
+await saveDB();
 
 /* =========================================================
    HELPERS & SAFE USER TRANSFORMATION
@@ -244,7 +242,8 @@ function safeUser(user, currentUserId = null) {
     subscribersCount,
     isSubscribed,
     createdAt: user.createdAt,
-    soundEnabled: user.soundEnabled !== false
+    soundEnabled: user.soundEnabled !== false,
+    readReceiptsEnabled: user.readReceiptsEnabled !== false
   };
 
   // 100% STRICT PRIVACY: User email is ONLY returned to the user themselves, NEVER to others!
@@ -305,6 +304,7 @@ function authenticate(req, res, next) {
     }
 
     req.user = user;
+    if (storageFailed) return res.status(503).json({ error: "Storage temporarily unavailable. Your saved data is safe. Restart the service to reload." });
     // Sliding session: active users get a fresh 30-day cookie once a day,
     // so they are never logged out while using the app.
     if (payload.iat && Date.now() / 1000 - payload.iat > 24 * 60 * 60) {
@@ -321,60 +321,33 @@ function authenticate(req, res, next) {
    MULTER CONFIGURATION (LOCAL FILE STORAGE)
 ========================================================= */
 
-const profileStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, UPLOAD_PROFILE_DIR);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || ".png";
-    const filename = `${req.user.id}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`;
-    cb(null, filename);
-  }
-});
-
-const uploadProfile = multer({
-  storage: profileStorage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (allowed.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only JPG, PNG, WebP, and GIF images are allowed."));
-    }
-  }
-});
-
-const reelsStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, UPLOAD_REELS_DIR);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || ".mp4";
-    const filename = `reel-${req.user.id}-${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`;
-    cb(null, filename);
-  }
-});
-
-const uploadReel = multer({
-  storage: reelsStorage,
-  limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const allowed = [
-      "video/mp4",
-      "video/webm",
-      "video/quicktime",
-      "video/x-matroska",
-      "video/ogg"
-    ];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(file.mimetype) || [".mp4", ".webm", ".mov", ".mkv"].includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only MP4, WebM, and MOV videos are supported."));
-    }
-  }
-});
+const uploadProfile = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10*1024*1024, files:1 } });
+const uploadReel = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100*1024*1024, files:1 } });
+const uploadAttachment = multer({ storage: multer.memoryStorage(), limits: { fileSize:20*1024*1024, files:1 } });
+async function persistFile(raw, folder, userId) {
+  const file = validateFile(raw,folder);
+  if (cloudEnabled) return storeFile(file,folder,userId);
+  const root = folder === 'profile' ? UPLOAD_PROFILE_DIR : folder === 'reels' ? UPLOAD_REELS_DIR : path.join(UPLOADS_ROOT,'attachments');
+  await fs.promises.mkdir(root,{recursive:true}); const filename = crypto.randomUUID()+file.extension;
+  await fs.promises.writeFile(path.join(root,filename),file.buffer);
+  return `/uploads/${folder}/${filename}`;
+}
+async function removeStoredFile(url) {
+  if (url?.startsWith('/api/media/')) return cloudCall('remove-file',{key:url.slice('/api/media/'.length)});
+  if (url?.startsWith('/uploads/')) await fs.promises.unlink(path.join(UPLOADS_ROOT,url.slice('/uploads/'.length))).catch(()=>{});
+}
+async function isAdmin(user) {
+  if (!user || user.id !== 'denpher-official-founder-id' || !user.passwordHash) return false;
+  if (cloudEnabled) return (await cloudCall('role',{userId:user.id})).admin;
+  return Boolean(process.env.FOUNDER_PASSWORD);
+}
+const uploadReservations = new Map();
+async function reserveReel(req,res,next) {
+  const key=req.user.id+':'+dayKey(); const used=db.reelUploads.filter(r=>r.userId===req.user.id && r.day===dayKey()).length;
+  if(used+(uploadReservations.get(key)||0)>=reelLimit()) return res.status(429).json({error:`Daily limit: ${reelLimit()} reels per day (UTC).`});
+  uploadReservations.set(key,(uploadReservations.get(key)||0)+1);
+  res.once('finish',()=>{const n=(uploadReservations.get(key)||1)-1;if(n)uploadReservations.set(key,n);else uploadReservations.delete(key);}); next();
+}
 
 /* =========================================================
    MIDDLEWARE & STATIC ASSETS
@@ -391,6 +364,13 @@ app.use(helmet({
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 app.use(cookieParser());
+app.use((req,res,next)=>{
+  const origin=req.headers.origin;
+  if(origin && !['GET','HEAD','OPTIONS'].includes(req.method)){
+    const allowed=(process.env.CORS_ORIGIN||'').split(',').filter(Boolean);
+    try { const host=new URL(origin).host;if(host!==req.get('host') && !allowed.includes(origin))return res.status(403).json({error:'Request origin not allowed.'}); } catch {return res.status(403).json({error:'Invalid origin.'});}
+  } next();
+});
 
 app.use(express.static(PUBLIC_DIR, { index: "index.html" }));
 
@@ -430,7 +410,8 @@ app.get("/api/health", (_req, res) => {
     privacyPolicy: "Privacy is our first policy",
     officialFounder: DENPHER_EMAIL,
     usersCount: db.users.length,
-    persistentStorage: !IS_VERCEL || Boolean(process.env.DATA_DIR),
+    persistentStorage: cloudEnabled && !storageFailed,
+    storageMode: cloudEnabled ? "cloud" : "local-development",
     reelsCount: db.reels.length
   });
 });
@@ -553,7 +534,8 @@ app.post("/api/auth/login", async (req, res) => {
         return res.status(401).json({ error: "Incorrect password." });
       }
     } else {
-      // Legacy account from the password-free version: claim it with this password.
+      return res.status(403).json({error:"This account needs secure recovery by the owner before sign-in."});
+      // Do not allow unverified legacy account claiming.
       if (password.length < MIN_PASSWORD) {
         return res.status(400).json({ error: `Your account needs a password now — choose one with at least ${MIN_PASSWORD} characters.` });
       }
@@ -592,7 +574,7 @@ app.put("/api/account/password", authenticate, async (req, res) => {
   }
 });
 
-app.get("/api/me", authenticate, (req, res) => {
+app.get("/api/me", authenticate, async (req, res) => {
   const currentUserId = req.user.id;
 
   const friendsCount = db.friends.filter(
@@ -610,7 +592,7 @@ app.get("/api/me", authenticate, (req, res) => {
     .reduce((sum, c) => sum + unreadCountFor(c, currentUserId), 0);
 
   return res.json({
-    user: { ...safeUser(req.user, currentUserId), hasPassword: Boolean(req.user.passwordHash) },
+    user: { ...safeUser(req.user, currentUserId), hasPassword: Boolean(req.user.passwordHash), isAdmin: await isAdmin(req.user) },
     stats: {
       friendsCount,
       subscribersCount,
@@ -632,7 +614,7 @@ app.post("/api/auth/logout", (_req, res) => {
 
 app.put("/api/profile", authenticate, async (req, res) => {
   try {
-    const { displayName, bio, soundEnabled } = req.body || {};
+    const { displayName, bio, soundEnabled, readReceiptsEnabled } = req.body || {};
 
     if (displayName !== undefined) {
       const cleanName = String(displayName).trim().slice(0, 50);
@@ -645,6 +627,8 @@ app.put("/api/profile", authenticate, async (req, res) => {
       req.user.bio = String(bio).trim().slice(0, 200);
     }
 
+    if (readReceiptsEnabled !== undefined) req.user.readReceiptsEnabled = readReceiptsEnabled === true;
+    if (blockedText(displayName) || blockedText(bio)) return res.status(422).json({error:"Prohibited profile content."});
     if (soundEnabled !== undefined) {
       req.user.soundEnabled = Boolean(soundEnabled);
     }
@@ -664,12 +648,15 @@ app.post("/api/profile/avatar", authenticate, uploadProfile.single("avatar"), as
     }
 
     const oldPicture = req.user.profilePicture;
-    const newRelativePath = `/uploads/profile/${req.file.filename}`;
+    const newRelativePath = await persistFile(req.file,"profile",req.user.id);
     req.user.profilePicture = newRelativePath;
 
     await saveDB();
 
-    if (oldPicture && oldPicture.startsWith("/uploads/profile/")) {
+    if (oldPicture) {
+      await removeStoredFile(oldPicture);
+    }
+    if (false) {
       const oldFilename = path.basename(oldPicture);
       const oldPath = path.join(UPLOAD_PROFILE_DIR, oldFilename);
       fs.promises.unlink(oldPath).catch(() => {});
@@ -688,7 +675,10 @@ app.delete("/api/profile/avatar", authenticate, async (req, res) => {
     req.user.profilePicture = null;
     await saveDB();
 
-    if (oldPicture && oldPicture.startsWith("/uploads/profile/")) {
+    if (oldPicture) {
+      await removeStoredFile(oldPicture);
+    }
+    if (false) {
       const oldFilename = path.basename(oldPicture);
       const oldPath = path.join(UPLOAD_PROFILE_DIR, oldFilename);
       fs.promises.unlink(oldPath).catch(() => {});
@@ -1025,7 +1015,7 @@ app.get("/api/users/profile/:userId", authenticate, (req, res) => {
   );
 
   const userReels = db.reels
-    .filter(r => r.userId === targetUser.id)
+    .filter(r => r.userId === targetUser.id && (targetUser.id === req.user.id || !r.moderationStatus || r.moderationStatus === "approved"))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .map(r => formatReel(r, req.user.id));
 
@@ -1057,7 +1047,9 @@ function formatReel(reel, currentUserId) {
     videoUrl: reel.videoUrl,
     caption: reel.caption || "",
     musicTitle: reel.musicTitle || "Original Audio",
+    musicUrl: TRENDING_AUDIO.find(t=>t.id===reel.audioId)?.url || null,
     createdAt: reel.createdAt,
+    moderationStatus: reel.moderationStatus || "approved",
     user: safeUser(author, currentUserId),
     likesCount: likes.length,
     isLiked: likes.some(l => l.userId === currentUserId),
@@ -1069,14 +1061,14 @@ app.get("/api/reels", authenticate, (req, res) => {
   const currentUserId = req.user.id;
 
   const reels = db.reels
-    .filter(reel => db.users.some(u => u.id === reel.userId))
+    .filter(reel => db.users.some(u => u.id === reel.userId) && (!reel.moderationStatus || reel.moderationStatus === "approved"))
     .map(reel => formatReel(reel, currentUserId))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   return res.json({ reels });
 });
 
-app.post("/api/reels", authenticate, uploadReel.single("video"), async (req, res) => {
+app.post("/api/reels", authenticate, reserveReel, uploadReel.single("video"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "Please choose a video file to upload." });
@@ -1084,29 +1076,36 @@ app.post("/api/reels", authenticate, uploadReel.single("video"), async (req, res
 
     const caption = String(req.body.caption || "").trim().slice(0, 2200);
     const musicTitle = String(req.body.musicTitle || "").trim().slice(0, 80) || "Original Audio";
+    const selectedTrack = TRENDING_AUDIO.find(t=>t.id===req.body.audioId);
 
-    const relativeUrl = `/uploads/reels/${req.file.filename}`;
+    const checked = validateFile(req.file,"reels");
+    const verdict = await reviewReel(checked,caption);
+    const relativeUrl = await persistFile(checked,"reels",req.user.id);
     const newReel = {
       id: makeId(),
       userId: req.user.id,
       videoUrl: relativeUrl,
+      moderationStatus: verdict.status, moderationReason: verdict.reason,
       caption,
       musicTitle,
+      audioId: selectedTrack?.id || null,
       createdAt: new Date().toISOString()
     };
 
     db.reels.unshift(newReel);
+    db.reelUploads.push({id:makeId(),userId:req.user.id,day:dayKey(),createdAt:newReel.createdAt});
     await saveDB();
 
     const formatted = {
       ...newReel,
+      musicUrl: selectedTrack?.url || null,
       user: safeUser(req.user, req.user.id),
       likesCount: 0,
       isLiked: false,
       commentsCount: 0
     };
 
-    io.emit("reel:new", formatted);
+    if (verdict.status === "approved") io.emit("reel:new", formatted);
 
     return res.status(201).json({ success: true, reel: formatted });
   } catch (error) {
@@ -1125,15 +1124,11 @@ app.delete("/api/reels/:id", authenticate, async (req, res) => {
     }
 
     const reel = db.reels[reelIndex];
-    if (reel.userId !== req.user.id) {
+    if (!canDeleteContent(reel.userId, req.user.id, await isAdmin(req.user))) {
       return res.status(403).json({ error: "You can only delete your own reels." });
     }
 
-    if (reel.videoUrl && reel.videoUrl.startsWith("/uploads/reels/")) {
-      const filename = path.basename(reel.videoUrl);
-      const filePath = path.join(UPLOAD_REELS_DIR, filename);
-      fs.promises.unlink(filePath).catch(() => {});
-    }
+    await removeStoredFile(reel.videoUrl);
 
     db.reels.splice(reelIndex, 1);
     db.reelLikes = db.reelLikes.filter(l => l.reelId !== id);
@@ -1194,7 +1189,8 @@ app.post("/api/reels/:id/like", authenticate, async (req, res) => {
   }
 });
 
-app.get("/api/reels/:id/comments", authenticate, (req, res) => {
+app.get("/api/reels/:id/comments", authenticate, async (req, res) => {
+  const admin = await isAdmin(req.user);
   const { id } = req.params;
 
   const comments = db.reelComments
@@ -1206,6 +1202,7 @@ app.get("/api/reels/:id/comments", authenticate, (req, res) => {
         id: c.id,
         reelId: c.reelId,
         content: c.content,
+        canDelete: canDeleteContent(c.userId,req.user.id,admin),
         createdAt: c.createdAt,
         user: safeUser(author, req.user.id)
       };
@@ -1219,6 +1216,7 @@ app.post("/api/reels/:id/comments", authenticate, async (req, res) => {
     const { id } = req.params;
     const content = String(req.body.content || "").trim().slice(0, 1000);
 
+    if (blockedText(content)) return res.status(422).json({error:"Prohibited comment content."});
     if (!content) {
       return res.status(400).json({ error: "Comment cannot be empty." });
     }
@@ -1265,7 +1263,7 @@ app.delete("/api/reels/:id/comments/:commentId", authenticate, async (req, res) 
     const comment = db.reelComments[commentIndex];
     const reel = db.reels.find(r => r.id === id);
 
-    if (comment.userId !== req.user.id && reel?.userId !== req.user.id) {
+    if (!canDeleteContent(comment.userId, req.user.id, await isAdmin(req.user))) {
       return res.status(403).json({ error: "Not authorized to delete this comment." });
     }
 
@@ -1287,11 +1285,12 @@ app.delete("/api/reels/:id/comments/:commentId", authenticate, async (req, res) 
 function unreadCountFor(conversation, userId) {
   const lastRead = conversation.lastRead?.[userId] || "";
   return db.messages.filter(
-    m => m.conversationId === conversation.id && m.senderId !== userId && m.createdAt > lastRead
+    m => m.conversationId === conversation.id && unseen(m, conversation, userId)
   ).length;
 }
 
 function markRead(conversation, userId) {
+  if (db.users.find(u=>u.id===userId)?.readReceiptsEnabled === false) return;
   conversation.lastRead ??= {};
   conversation.lastRead[userId] = new Date().toISOString();
 }
@@ -1318,7 +1317,7 @@ app.get("/api/conversations", authenticate, (req, res) => {
         id: c.id,
         user: safeUser(otherUser, currentUserId),
         isOnline: Boolean(otherId && onlineUsers.has(otherId)),
-        lastMessage: lastMessage ? lastMessage.text : "",
+        lastMessage: lastMessage ? (lastMessage.deletedAt ? "Message deleted" : lastMessage.text || lastMessage.attachment?.name || "") : "",
         lastMessageFromMe: Boolean(lastMessage && lastMessage.senderId === currentUserId),
         lastAt: lastMessage ? lastMessage.createdAt : c.createdAt,
         unreadCount: unreadCountFor(c, currentUserId)
@@ -1381,10 +1380,7 @@ app.get("/api/conversations/:id/messages", authenticate, (req, res) => {
     .filter(m => m.conversationId === id)
     .slice(-300);
 
-  markRead(conversation, currentUserId);
-  saveDB();
-
-  return res.json({ messages });
+  return res.json({ messages: messages.map(m => ({...m,seenAt:seenAt(m,conversation)})) });
 });
 
 app.post("/api/conversations/:id/read", authenticate, async (req, res) => {
@@ -1396,6 +1392,7 @@ app.post("/api/conversations/:id/read", authenticate, async (req, res) => {
   }
   markRead(conversation, req.user.id);
   await saveDB();
+  io.to(`conversation:${conversation.id}`).emit("messages:read",{conversationId:conversation.id,userId:req.user.id,lastRead:conversation.lastRead?.[req.user.id] || null});
   return res.json({ success: true });
 });
 
@@ -1454,6 +1451,8 @@ app.post("/api/conversations/:id/messages", authenticate, async (req, res) => {
 const onlineUsers = new Map();
 
 io.use((socket, next) => {
+  const origin=socket.handshake.headers.origin;
+  if(origin){try {if(new URL(origin).host!==socket.handshake.headers.host && !(process.env.CORS_ORIGIN||'').split(',').includes(origin))return next(new Error('Unauthorized'));}catch{return next(new Error('Unauthorized'));}}
   try {
     const rawCookies = socket.handshake.headers.cookie || "";
     const cookie = rawCookies
@@ -1478,6 +1477,12 @@ io.use((socket, next) => {
 
 io.on("connection", socket => {
   const userId = socket.user.id;
+  socket.use((_packet,next)=>{
+    try { if(storageFailed || !db.users.some(u=>u.id===userId)) return next(new Error('Unavailable'));
+      const cookies=socket.handshake.headers.cookie||'';const raw=cookies.split(';').map(c=>c.trim()).find(c=>c.startsWith('nochat_session='));
+      jwt.verify(decodeURIComponent((raw||'').slice('nochat_session='.length)),JWT_SECRET); next();
+    } catch { next(new Error('Unauthorized')); socket.disconnect(true); }
+  });
 
   if (!onlineUsers.has(userId)) {
     onlineUsers.set(userId, new Set());
@@ -1497,7 +1502,9 @@ io.on("connection", socket => {
     }
   });
 
-  socket.on("typing:start", ({ conversationId }) => {
+  socket.on("typing:start", (payload = {}) => {
+    const conversationId=payload?.conversationId;
+    if (!db.conversations.some(c=>c.id===conversationId && c.members.includes(userId))) return;
     socket.to(`conversation:${conversationId}`).emit("typing:active", {
       conversationId,
       userId,
@@ -1505,7 +1512,9 @@ io.on("connection", socket => {
     });
   });
 
-  socket.on("typing:stop", ({ conversationId }) => {
+  socket.on("typing:stop", (payload = {}) => {
+    const conversationId=payload?.conversationId;
+    if (!db.conversations.some(c=>c.id===conversationId && c.members.includes(userId))) return;
     socket.to(`conversation:${conversationId}`).emit("typing:inactive", {
       conversationId,
       userId
@@ -1523,6 +1532,7 @@ io.on("connection", socket => {
         c => c.id === conversationId && c.members.includes(userId)
       );
 
+      if (storageFailed) return ack({error:"Storage temporarily unavailable."});
       if (!conversation || !text) {
         return ack({ error: "Invalid conversation or empty message." });
       }
@@ -1573,6 +1583,8 @@ io.on("connection", socket => {
   });
 });
 
+mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile,uploadAttachment,removeStoredFile,safeUser});
+
 /* =========================================================
    ERROR HANDLER & SPA ROUTING
 ========================================================= */
@@ -1587,7 +1599,7 @@ app.use((err, _req, res, _next) => {
   }
 
   if (res.headersSent) return;
-  res.status(500).json({ error: err.message || "Internal server error." });
+  res.status(400).json({ error: "Upload or request could not be processed. Check the file type and size." });
 });
 
 app.use("/api", (_req, res) => {
