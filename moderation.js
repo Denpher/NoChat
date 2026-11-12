@@ -3,14 +3,34 @@ import ffmpeg from 'ffmpeg-static';
 import { cloudCall, cloudEnabled } from './cloud.js';
 import { blockedText } from './policies.js';
 // Samples are extracted on the server from the real uploaded file, never supplied by a browser.
+// Published policy. Only these categories can lead to automatic removal.
+export const MODERATION_POLICIES = Object.freeze([
+  'Sexual content involving minors',
+  'Sexual violence or non-consensual sexual content',
+  'Graphic violence, gore or self-harm promotion',
+  'Terrorism or violent extremism',
+  'Hate speech or threats against protected groups'
+]);
+// Model decisions below this confidence are never auto-removed; they are quarantined for a human.
+export const AUTO_REMOVE_CONFIDENCE = 0.9;
+export function decideVerdict(result = {}) {
+  const status = String(result.status || '').toLowerCase();
+  const confidence = Number(result.confidence);
+  const reason = String(result.reason || '').slice(0, 300);
+  if (status === 'approved') return { status: 'approved', reason: reason || 'Automatic review passed', source: 'automatic-visual', confidence: Number.isFinite(confidence) ? confidence : null };
+  if (status === 'blocked' && Number.isFinite(confidence) && confidence >= AUTO_REMOVE_CONFIDENCE)
+    return { status: 'blocked', reason: reason || 'High-confidence policy violation', source: 'automatic-visual', confidence };
+  // Uncertain, low-confidence or unknown answers: private quarantine for administrator review.
+  return { status: 'pending', reason: reason || 'Needs administrator review', source: 'automatic-visual', confidence: Number.isFinite(confidence) ? confidence : null };
+}
 export async function reviewReel(file, caption) {
-  if (blockedText(caption)) return { status: 'blocked', reason: 'Prohibited caption.' };
-  if (!cloudEnabled) return { status: 'pending', reason: 'Cloud visual review unavailable.' };
+  if (blockedText(caption)) return { status: 'blocked', reason: 'Prohibited caption.', source: 'automatic-caption', confidence: 1 };
+  if (!cloudEnabled) return { status: 'pending', reason: 'Automatic visual review unavailable. Requires administrator review.', source: 'none', confidence: null };
   try {
     const frames = await sampleFrames(file.buffer);
-    if (!frames.length) return { status: 'pending', reason: 'Video could not be inspected.' };
-    return await cloudCall('moderate', { caption, frames });
-  } catch { return { status: 'pending', reason: 'Automatic review unavailable. Requires administrator review.' }; }
+    if (!frames.length) return { status: 'pending', reason: 'Video could not be inspected.', source: 'automatic-visual', confidence: null };
+    return decideVerdict(await cloudCall('moderate', { caption, frames, policies: MODERATION_POLICIES }));
+  } catch { return { status: 'pending', reason: 'Automatic review unavailable. Requires administrator review.', source: 'none', confidence: null }; }
 }
 function sampleFrames(buffer) {
   return new Promise((resolve, reject) => {

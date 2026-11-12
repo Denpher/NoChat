@@ -75,7 +75,13 @@
   function hydrateIcons(root = document) {
     $$("i[data-icon]", root).forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
   }
-  const VERIFIED = '<span class="verified" title="Verified"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 1.8 3-.2 1 2.8 2.6 1.6-.9 2.9.9 2.9-2.6 1.6-1 2.8-3-.2L12 22l-2.4-1.8-3 .2-1-2.8L3 16l.9-2.9L3 10.2l2.6-1.6 1-2.8 3 .2z"/><path d="m8.5 12.2 2.3 2.3 4.7-4.8" stroke="#0b0a0d" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+  Object.assign(ICONS, {
+    mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>',
+    video: '<path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
+    phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>',
+    "phone-off": '<path d="M10.7 13.3a16 16 0 0 0 3.4 2.6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19 19 0 0 1-3.3-2.7M5.3 15.6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8M22 2 2 22"/>'
+  });
+  const VERIFIED = '<span class="verified" title="Verified"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 1.8 3-.2 1 2.8 2.6 1.6-.9 2.9.9 2.9-2.6 1.6-1 2.8-3-.2L12 22l-2.4-1.8-3 .2-1-2.8L3 16l.9-2.9L3 10.2l2.6-1.6 1-2.8 3 .2z"/><path d="m8.5 12.2 2.3 2.3 4.7-4.8" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
   const verified = (u) => (u && u.isVerified ? VERIFIED : "");
 
   function avatar(user, size = "md", online) {
@@ -112,9 +118,14 @@
     if (!res.ok) {
       const err = new Error(data.error || "Something went wrong. Please try again.");
       err.status = res.status; err.code = data.code;
+      err.canAppeal = data.canAppeal === true;
       if (res.status === 401 && !path.startsWith("/api/auth")) {
         err.silent = true; // never show raw auth errors in lists or toasts
         if (state.me) handleSignedOut(true);
+      }
+      if (res.status === 403 && /^ACCOUNT_/.test(data.code || "") && !path.startsWith("/api/auth")) {
+        err.silent = true;
+        if (state.me) { handleSignedOut(false); toast(data.error, "error"); }
       }
       throw err;
     }
@@ -226,7 +237,7 @@
 
   $("#loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    $("#loginError").classList.add("hidden");
+    $("#loginError").classList.add("hidden"); $("#loginAppealBtn").classList.add("hidden");
     const identifier = $("#loginIdentifier").value.trim();
     const password = $("#loginPassword").value;
     if (!identifier) return showFormError("#loginError", "Enter your username or email.");
@@ -243,10 +254,14 @@
           $("#regUsername").value = identifier.includes("@") ? identifier.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "") : identifier.toLowerCase().replace(/[^a-z0-9_]/g, "");
           if (identifier.includes("@")) $("#regEmail").value = identifier;
           setTimeout(() => setAuthTab("register"), 900);
-        } else showFormError("#loginError", err.message);
+        } else {
+          showFormError("#loginError", err.message);
+          if (err.canAppeal) $("#loginAppealBtn").classList.remove("hidden");
+        }
       }
     });
   });
+  $("#loginAppealBtn").addEventListener("click", () => openAppeal({ type: "account", text: "Explain why your account should be restored. Your username and password are used only to confirm it's you." }));
 
   $("#registerForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -308,6 +323,7 @@
     connectSocket();
     loadFeed();
     route();
+    loadMyRestrictions();
   }
 
   $("#logoutBtn").addEventListener("click", async () => {
@@ -343,7 +359,7 @@
     $("#bioCount").textContent = (u.bio || "").length;
     $("#editSound").checked = u.soundEnabled !== false;
     $("#editReadReceipts").checked = u.readReceiptsEnabled !== false;
-    $("#adminReviewBtn").classList.toggle("hidden",!u.isAdmin);
+    $("#adminRow").classList.toggle("hidden",!u.isAdmin);
     $("#currentPasswordField").classList.toggle("hidden", u.hasPassword === false);
   }
 
@@ -1082,20 +1098,24 @@
       const c = state.conversations.find((x) => x.id === convoId);
       if (c) { c.lastMessage = msg.text; c.lastMessageFromMe = true; c.lastAt = msg.createdAt; state.conversations.sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt)); renderConversations(); }
     };
+    const rejected = (err) => {
+      state.messages = state.messages.filter((x) => x.id !== temp.id); renderMessages();
+      composer.value = text; $("#sendBtn").disabled = false;
+      toast(err.error || err.message || "Message not sent", "error");
+      if (err.code === "RATE_LIMITED") loadMyRestrictions();
+    };
     const viaRest = async () => {
       try { const data = await api(`/api/conversations/${convoId}/messages`, { method: "POST", body: { text } }); finish(data.message); }
-      catch (err) {
-        state.messages = state.messages.filter((x) => x.id !== temp.id); renderMessages();
-        composer.value = text; $("#sendBtn").disabled = false;
-        toast(err.message || "Message not sent", "error");
-      }
+      catch (err) { rejected(err); }
     };
     if (state.socket && state.socket.connected) {
       let settled = false;
       const timer = setTimeout(() => { if (!settled) { settled = true; viaRest(); } }, 5000);
       state.socket.emit("message:send", { conversationId: convoId, text }, (res) => {
         if (settled) return; settled = true; clearTimeout(timer);
-        if (res && res.message) finish(res.message); else viaRest();
+        if (res && res.message) finish(res.message);
+        else if (res && res.code === "RATE_LIMITED") rejected(res);
+        else viaRest();
       });
     } else viaRest();
   });
@@ -1275,6 +1295,7 @@
     return `<button type="button" class="tile" data-tile="${esc(r.id)}" aria-label="Open reel">
       <video src="${esc(r.videoUrl)}#t=0.1" muted playsinline preload="metadata"></video>
       <span class="tile-meta">${icon("heart")} ${fmtCount(r.likesCount)}</span>
+      ${r.moderationStatus && r.moderationStatus !== "approved" && state.me && r.userId === state.me.id ? `<span class="tile-flag ${esc(r.moderationStatus)}">${r.moderationStatus === "blocked" ? "Removed" : "In review"}</span><span class="tile-appeal" role="button" tabindex="0" data-appeal-reel="${esc(r.id)}">Appeal</span>` : ""}
     </button>`;
   }
   async function openUser(userId) {
@@ -1295,7 +1316,7 @@
             <div class="profile-avatar-btn">${avatar(u, "xl", d.isOnline)}</div>
             <div class="profile-id">
               <h2 class="profile-name">${esc(u.displayName)}${verified(u)}</h2>
-              <p class="muted">@${esc(u.username)}${u.isVerified ? " · " + esc(u.role) : ""}${d.isOnline ? ' · <span style="color:var(--online)">Online</span>' : ""}</p>
+              <p class="muted">@${esc(u.username)}${u.isVerified ? " · " + esc(u.role === "Member" ? "Verified" : u.role) : ""}${d.isOnline ? ' · <span style="color:var(--online)">Online</span>' : ""}</p>
               ${u.bio ? `<p class="profile-bio">${esc(u.bio)}</p>` : ""}
             </div>
             <div class="profile-cta person-actions">
@@ -1342,7 +1363,11 @@
         : `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">${icon("film")}</div><h3>Share your first reel</h3><p class="muted">Your reels will show up here.</p><button type="button" class="btn btn-primary" data-action="open-upload">${icon("plus")} Upload a reel</button></div>`;
     } catch (err) { grid.innerHTML = `<p class="muted">${err.silent ? "" : esc(err.message)}</p>`; }
   }
-  $("#meReelGrid").addEventListener("click", (e) => { const t = e.target.closest("[data-tile]"); if (t) openViewer(reelCache.get(t.dataset.tile)); });
+  $("#meReelGrid").addEventListener("click", (e) => {
+    const ap = e.target.closest("[data-appeal-reel]");
+    if (ap) { e.stopPropagation(); return openAppeal({ type: "reel", id: ap.dataset.appealReel, text: "Explain why this reel follows NoChat's policies. An administrator will review the original video." }); }
+    const t = e.target.closest("[data-tile]"); if (t) openViewer(reelCache.get(t.dataset.tile));
+  });
 
   $("#editBio").addEventListener("input", (e) => ($("#bioCount").textContent = e.target.value.length));
   $("#editProfileForm").addEventListener("submit", async (e) => {
@@ -1374,7 +1399,8 @@
     });
   });
 
-  $("#voiceCallBtn").addEventListener('click',()=>{if(state.activeConvoId)state.calls?.start(state.activeConvoId,state.activePartner.displayName);});
+  $("#voiceCallBtn").addEventListener('click',()=>{if(state.activeConvoId)state.calls?.start(state.activeConvoId,state.activePartner.displayName,false);});
+  $("#videoCallBtn").addEventListener('click',()=>{if(state.activeConvoId)state.calls?.start(state.activeConvoId,state.activePartner.displayName,true);});
   $("#markUnreadBtn").addEventListener('click',async()=>{if(!state.activeConvoId)return;try{await api(`/api/conversations/${state.activeConvoId}/unread`,{method:'POST'});go('messages');toast('Marked unread');}catch(e){toast(e.message,'error');}});
   $("#msgList").addEventListener('click',async e=>{const b=e.target.closest('[data-delete-message]');if(!b||!state.activeConvoId)return;if(!await confirmDialog('Delete this message?','It will be removed for both people.','Delete'))return;try{await api(`/api/conversations/${state.activeConvoId}/messages/${b.dataset.deleteMessage}`,{method:'DELETE'});const m=state.messages.find(m=>m.id===b.dataset.deleteMessage);if(m){m.deletedAt=new Date().toISOString();m.text='';m.attachment=null;}renderMessages(false);}catch(e){toast(e.message,'error');}});
   $("#attachmentBtn").onclick=()=>$("#attachmentInput").click();
@@ -1389,6 +1415,143 @@
   };
   $("#adminReviewBtn").onclick=async()=>{openModal('reviewModal');$("#reviewList").textContent='Loading…';try{const data=await api('/api/admin/review');$("#reviewList").innerHTML=data.reels.length?data.reels.map(r=>`<article class="review-item" data-review="${esc(r.id)}"><video src="${esc(r.videoUrl)}" controls playsinline preload="metadata"></video><strong>${esc(r.user?.displayName)}</strong><p>${esc(r.caption)}</p><p class="muted">${esc(r.moderationStatus||'reported')}: ${esc(r.moderationReason||'User report')}</p>${r.reports.map(x=>`<p>${esc(x.reason)}</p>`).join('')}<div class="row-actions"><button type="button" class="btn btn-primary" data-decision="approved">Approve</button><button type="button" class="btn btn-soft" data-decision="blocked">Keep hidden</button><button type="button" class="btn btn-danger" data-admin-delete>Delete permanently</button></div></article>`).join(''):'No reels need review.';}catch(e){$("#reviewList").textContent=e.message;}};
   $("#reviewList").onclick=async e=>{const item=e.target.closest('[data-review]');if(!item)return;try{if(e.target.closest('[data-admin-delete]')){if(!await confirmDialog('Delete permanently?','This cannot be undone.','Delete'))return;await api(`/api/reels/${item.dataset.review}`,{method:'DELETE'});}else{const b=e.target.closest('[data-decision]');if(!b)return;await api(`/api/admin/reels/${item.dataset.review}/review`,{method:'POST',body:{status:b.dataset.decision}});}item.remove();toast('Review saved','success');loadFeed();}catch(e){toast(e.message,'error');}};
+
+  /* ---------------- appeals ---------------- */
+  let appealTarget = null;
+  function openAppeal(target) {
+    appealTarget = target; $("#appealReason").value = ""; $("#appealError").classList.add("hidden");
+    $("#appealText").textContent = target.text || "Tell us why this decision should be reviewed.";
+    openModal("appealModal");
+  }
+  $("#appealForm").addEventListener("submit", async (e) => {
+    e.preventDefault(); if (!appealTarget) return;
+    const reason = $("#appealReason").value.trim();
+    if (reason.length < 10) return showFormError("#appealError", "Please write at least 10 characters.");
+    try {
+      const d = appealTarget.type === "account"
+        ? await api("/api/auth/appeal", { method: "POST", body: { identifier: $("#loginIdentifier").value.trim(), password: $("#loginPassword").value, reason } })
+        : await api("/api/appeals", { method: "POST", body: { targetType: appealTarget.type, targetId: appealTarget.id, reason } });
+      closeModal("appealModal"); toast(d.message || "Appeal submitted", "success"); loadMyRestrictions();
+    } catch (err) { showFormError("#appealError", err.message); }
+  });
+  $("#spamAppealBtn").addEventListener("click", () => openAppeal({ type: "spam", text: "Explain why the messaging pause was a mistake." }));
+  async function loadMyRestrictions() {
+    if (!state.me) return;
+    const muted = state.me.mutedUntil && new Date(state.me.mutedUntil) > new Date();
+    try {
+      const d = await api("/api/appeals/mine");
+      const open = d.appeals.filter((a) => a.status === "open");
+      $("#myRestrictions").textContent = open.length ? `You have ${open.length} appeal${open.length > 1 ? "s" : ""} waiting for review.` : (muted ? "Messaging is paused for a short time because of anti-spam protection." : "");
+      $("#spamAppealBtn").classList.toggle("hidden", !(state.me.spamStrikes > 0 || muted) || open.some((a) => a.targetType === "spam"));
+    } catch (_) { /* optional */ }
+  }
+
+  /* ---------------- admin console (server verifies every action) ---------------- */
+  const fmtDate = (d) => d ? new Date(d).toLocaleString() : "—";
+  const statusPill = (u) => `<span class="status-pill ${esc(u.restricted ? u.status : "active")}">${esc(u.restricted ? u.status : (u.status === "suspended" ? "active (suspension ended)" : "active"))}</span>`;
+  const adminUsers = new Map();
+  function adminUserCard(u) {
+    adminUsers.set(u.id, u);
+    const act = (a, label, cls = "btn-soft") => `<button type="button" class="btn ${cls} sm" data-admin-action="${a}" data-user="${esc(u.id)}">${label}</button>`;
+    const actions = u.protected ? `<p class="muted small">${icon("shield")} Founder account — protected from admin actions.</p>` : `<div class="row-actions wrap">
+        ${u.restricted ? act("restore", "Restore", "btn-primary") : act("suspend", "Suspend") + act("ban", "Ban", "btn-danger")}
+        ${u.status !== "deleted" ? act("delete", "Delete", "btn-danger") : ""}
+        ${act("revoke-sessions", "Sign out everywhere")}
+        ${u.verifiedBadge ? act("unverify", "Remove badge") : act("verify", "Give verified badge")}
+        ${u.spamStrikes || u.mutedUntil ? act("clear-spam", "Clear spam limits") : ""}
+      </div>`;
+    return `<article class="admin-user">
+      <div class="admin-user-head">${avatar(u, "md")}<div><strong>${esc(u.displayName)} ${u.verifiedBadge ? VERIFIED : ""}</strong><p class="muted small">@${esc(u.username)} · ${statusPill(u)} ${u.isOnline ? '· <span class="online-text">online</span>' : ""}</p></div></div>
+      <dl class="admin-meta">
+        <div><dt>User ID</dt><dd><code>${esc(u.id)}</code></dd></div>
+        <div><dt>Email</dt><dd>${esc(u.email || "—")}</dd></div>
+        <div><dt>Joined</dt><dd>${fmtDate(u.createdAt)}</dd></div>
+        <div><dt>Reels · Messages</dt><dd>${u.reelsCount} · ${u.messagesCount}</dd></div>
+        <div><dt>Spam strikes (24h)</dt><dd>${u.spamStrikes}${u.mutedUntil && new Date(u.mutedUntil) > new Date() ? " · paused until " + fmtDate(u.mutedUntil) : ""}</dd></div>
+        ${u.statusReason ? `<div><dt>Reason</dt><dd>${esc(u.statusReason)}${u.statusUntil ? " · until " + fmtDate(u.statusUntil) : ""}</dd></div>` : ""}
+        ${u.openAppeals ? `<div><dt>Open appeals</dt><dd>${u.openAppeals}</dd></div>` : ""}
+      </dl>${actions}</article>`;
+  }
+  async function adminSearch() {
+    const box = $("#adminUsers"); box.innerHTML = `<p class="muted">Loading…</p>`;
+    try {
+      const q = encodeURIComponent($("#adminSearch").value.trim()), st = encodeURIComponent($("#adminStatus").value);
+      const d = await api(`/api/admin/users?q=${q}&status=${st}`);
+      box.innerHTML = d.users.length ? `<p class="muted small">${d.total} account${d.total === 1 ? "" : "s"} found${d.total > d.users.length ? " · showing first " + d.users.length : ""}</p>` + d.users.map(adminUserCard).join("") : `<p class="muted">No accounts match.</p>`;
+    } catch (err) { box.innerHTML = `<p class="muted">${esc(err.message)}</p>`; }
+  }
+  const logRow = (l) => {
+    const who = l.username || l.targetUsername || l.userId || "";
+    const what = l.kind === "audit" ? `${esc(l.actorUsername || "")} → ${esc(l.action)} @${esc(l.targetUsername || "?")} <span class="status-pill ${l.outcome === "denied" ? "banned" : "active"}">${esc(l.outcome)}</span>`
+      : l.kind === "spam" ? `@${esc(who)} · ${esc(l.reason)} on ${esc(l.channel)} · strike ${esc(l.strike)} · paused ${Math.round((l.cooldownMs || 0) / 1000)}s`
+      : `Reel ${esc((l.reelRef || "").slice(0, 8))} · <b>${esc(l.decision)}</b> · ${esc(l.source)}${l.confidence != null ? " · confidence " + Number(l.confidence).toFixed(2) : ""}`;
+    return `<div class="log-row"><span class="muted small">${fmtDate(l.createdAt)}</span><span>${what}</span>${l.reason && l.kind !== "spam" ? `<span class="muted small">${esc(l.reason)}</span>` : ""}</div>`;
+  };
+  async function adminLoad(tab) {
+    if (tab === "users") return adminSearch();
+    if (tab === "appeals") {
+      const box = $("#adminAppeals"); box.innerHTML = `<p class="muted">Loading…</p>`;
+      try {
+        const d = await api("/api/admin/appeals");
+        box.innerHTML = d.appeals.length ? d.appeals.map((a) => `<article class="admin-user" data-appeal="${esc(a.id)}"><strong>${esc(a.user?.displayName || "Unknown")} <span class="muted small">@${esc(a.user?.username || "")}</span></strong>
+          <p class="muted small">${esc({ account: "Account restriction", spam: "Messaging pause", reel: "Reel moderation" }[a.targetType] || a.targetType)} · ${fmtDate(a.createdAt)}</p><p>${esc(a.reason)}</p>
+          <div class="row-actions"><button type="button" class="btn btn-primary sm" data-appeal-decision="accepted">Accept &amp; restore</button><button type="button" class="btn btn-soft sm" data-appeal-decision="rejected">Reject</button></div></article>`).join("") : `<p class="muted">No open appeals.</p>`;
+      } catch (err) { box.innerHTML = `<p class="muted">${esc(err.message)}</p>`; }
+      return;
+    }
+    const box = $("#admin" + tab.charAt(0).toUpperCase() + tab.slice(1)); box.innerHTML = `<p class="muted">Loading…</p>`;
+    try { const d = await api(`/api/admin/logs?kind=${tab}`); box.innerHTML = d.logs.length ? d.logs.map(logRow).join("") : `<p class="muted">Nothing logged yet.</p>`; }
+    catch (err) { box.innerHTML = `<p class="muted">${esc(err.message)}</p>`; }
+  }
+  $("#adminConsoleBtn").addEventListener("click", () => { openModal("adminModal"); adminLoad("users"); });
+  $$("[data-admin-tab]").forEach((b) => b.addEventListener("click", () => {
+    $$("[data-admin-tab]").forEach((x) => x.classList.toggle("active", x === b));
+    $$("[data-admin-pane]").forEach((p) => p.classList.toggle("hidden", p.dataset.adminPane !== b.dataset.adminTab));
+    adminLoad(b.dataset.adminTab);
+  }));
+  $("#adminSearchForm").addEventListener("submit", (e) => { e.preventDefault(); adminSearch(); });
+  const ACTION_TEXT = {
+    suspend: ["Suspend account?", "They are signed out everywhere and cannot sign in until the suspension ends. Nothing is deleted."],
+    ban: ["Ban account?", "They are signed out everywhere and hidden from search. Nothing is deleted; you can restore later."],
+    delete: ["Delete account?", "The account is closed and hidden. All records are kept so it can be restored if this was a mistake."],
+    "revoke-sessions": ["Sign out everywhere?", "Every device signed in to this account is signed out immediately."],
+    restore: ["Restore account?", "The account becomes active again."],
+    verify: ["Give verified badge?", "Shows a verified tick on this profile. It does not give any extra permissions."],
+    unverify: ["Remove verified badge?", "The verified tick is removed from this profile."],
+    "clear-spam": ["Clear spam limits?", "Removes strikes and any messaging pause."]
+  };
+  const DESTRUCTIVE = ["suspend", "ban", "delete", "revoke-sessions"], NEEDS_REASON = ["suspend", "ban", "delete"];
+  let pendingAdmin = null;
+  $("#adminUsers").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-admin-action]"); if (!b) return;
+    const u = adminUsers.get(b.dataset.user), a = b.dataset.adminAction; if (!u) return;
+    pendingAdmin = { u, a };
+    $("#adminActionTitle").textContent = ACTION_TEXT[a][0];
+    $("#adminActionText").textContent = `@${u.username} — ${ACTION_TEXT[a][1]}`;
+    $("#adminDurationField").classList.toggle("hidden", a !== "suspend");
+    $("#adminReasonField").classList.toggle("hidden", !NEEDS_REASON.includes(a) && a !== "restore");
+    $("#adminConfirmField").classList.toggle("hidden", !DESTRUCTIVE.includes(a));
+    $("#adminConfirmName").textContent = u.username;
+    $("#adminReason").value = ""; $("#adminConfirm").value = ""; $("#adminActionError").classList.add("hidden");
+    $("#adminActionYes").className = "btn " + (DESTRUCTIVE.includes(a) ? "btn-danger" : "btn-primary");
+    openModal("adminActionModal");
+  });
+  $("#adminActionForm").addEventListener("submit", async (e) => {
+    e.preventDefault(); if (!pendingAdmin) return;
+    const { u, a } = pendingAdmin;
+    try {
+      await api(`/api/admin/users/${encodeURIComponent(u.id)}/action`, { method: "POST", body: { action: a, reason: $("#adminReason").value.trim(), confirm: $("#adminConfirm").value.trim(), durationHours: Number($("#adminDuration").value) } });
+      closeModal("adminActionModal"); toast("Done — saved to the audit log", "success"); adminSearch();
+    } catch (err) { showFormError("#adminActionError", err.message); }
+  });
+  $("#adminAppeals").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-appeal-decision]"); if (!b) return;
+    const item = b.closest("[data-appeal]");
+    const accept = b.dataset.appealDecision === "accepted";
+    if (!(await confirmDialog(accept ? "Accept this appeal?" : "Reject this appeal?", accept ? "The restriction or moderation decision will be lifted." : "The decision stays in place.", accept ? "Accept" : "Reject"))) return;
+    try { await api(`/api/admin/appeals/${item.dataset.appeal}`, { method: "POST", body: { decision: b.dataset.appealDecision } }); item.remove(); toast("Appeal decided", "success"); }
+    catch (err) { toast(err.message, "error"); }
+  });
 
   /* ---------------- avatar ---------------- */
   let avatarFile = null, avatarUrl = null;

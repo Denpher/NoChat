@@ -12,3 +12,22 @@
 
 ## Not verified / required deployment checks
 Render/Vercel accounts were not accessed, and no live redeploy was performed. Published Cloud URL and shared-secret Render configuration are still required. Voice offer/answer and incoming accept worked; the sandbox did not gather ICE candidates, so connected call audio is NOT verified. A configured TURN relay and two real-device/network checks are required. All-device support is not a guarantee: use current browsers; video codec and microphone permissions depend on device/browser. Authentication remains the existing hardened Express cookie login, not a Cloud Auth migration.
+
+# v3.1 verification
+- `npm test`: 33 passing (13 existing + 20 new). New: anti-spam thresholds/cooldowns, account
+  restrictions, exact session revocation, founder protection, confirmation rules, soft delete,
+  badge grants no privileges, moderation confidence gate; plus a live-server flow: non-admins get
+  403 on all admin endpoints, search by username and ID, founder protection audited, suspend ->
+  existing session rejected -> sign-in refused -> appeal -> restore -> sign-in works, delete hides
+  and restore re-lists, flooding returns 429 and is logged and appealable.
+- Two real Chromium browsers (fake camera/mic) on loopback: video call invite -> incoming screen ->
+  accept -> ICE connected, remote video received, timer running, mute and camera toggles,
+  end cleans up on both sides.
+- Visual check of sign-in (desktop + phone), chats, settings, admin console and call screen.
+
+## Not verified (v3.1)
+- Calls across real networks/devices (sandbox has no external ICE). TURN is still required for
+  restrictive networks. Camera switching needs a real two-camera phone.
+- The Cloud `moderate` operation's confidence output: if it returns no confidence, uploads are
+  quarantined for review instead of auto-removed (safe default).
+- No Render deploy was performed.

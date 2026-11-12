@@ -18,6 +18,9 @@ import { cloudCall, cloudEnabled, storeFile } from './cloud.js';
 import { reelLimit, dayKey, canDeleteContent, unseen, seenAt, blockedText, validateFile } from './policies.js';
 import { reviewReel } from './moderation.js';
 import { mountFeatures } from './features.js';
+import { mountAdmin, addLog } from './admin.js';
+import { accountRestriction, sessionRevoked, isListed, cleanText } from './accounts.js';
+import { checkSpam, spamMessage } from './antispam.js';
 
 dotenv.config();
 if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || !cloudEnabled)) throw new Error('Production requires stable JWT_SECRET, NOCHAT_CLOUD_URL and NOCHAT_BRIDGE_SECRET.');
@@ -48,7 +51,12 @@ const IS_PROD = process.env.NODE_ENV === "production";
 const IS_VERCEL = Boolean(process.env.VERCEL || process.env.NOW_REGION);
 
 // STRICT OFFICIAL DENPHER CREDENTIALS (ONLY DENPHER GETS VERIFIED TICK)
-const DENPHER_EMAIL = "denpherai@gmail.com";
+// The founder email is never stored in plain text: only its SHA-256 fingerprint is kept here.
+// Optionally set FOUNDER_EMAIL on the server (never in Git) to store it on a fresh database.
+const FOUNDER_EMAIL_SHA256 = "80c6b61a31e2a923e9905ce4a32d5acd7a03eda4ecc756f5abd2562dadb32565";
+const FOUNDER_EMAIL_ENV = String(process.env.FOUNDER_EMAIL || "").trim().toLowerCase();
+const emailFingerprint = (e) => crypto.createHash("sha256").update(String(e || "").trim().toLowerCase()).digest("hex");
+const isFounderEmail = (e) => Boolean(e) && (emailFingerprint(e) === FOUNDER_EMAIL_SHA256 || (FOUNDER_EMAIL_ENV && String(e).trim().toLowerCase() === FOUNDER_EMAIL_ENV));
 const DENPHER_USERNAME = "denpher";
 
 // Support both local storage and Vercel serverless /tmp fallback
@@ -138,12 +146,12 @@ for (const collection of ['messages','reelComments']) db[collection].sort((a,b)=
 
 // Ensure Official Denpher Account exists & is the ONLY verified account
 let denpher = db.users.find(
-  u => (u.email && u.email.toLowerCase() === DENPHER_EMAIL) ||
+  u => isFounderEmail(u.email) ||
        (u.username && u.username.toLowerCase() === DENPHER_USERNAME)
 );
 
 if (denpher) {
-  denpher.email = DENPHER_EMAIL;
+  if (FOUNDER_EMAIL_ENV) denpher.email = FOUNDER_EMAIL_ENV;
   denpher.username = DENPHER_USERNAME;
   denpher.displayName = "Denpher";
   denpher.isVerified = true;
@@ -152,7 +160,7 @@ if (denpher) {
 } else {
   denpher = {
     id: "denpher-official-founder-id",
-    email: DENPHER_EMAIL,
+    email: FOUNDER_EMAIL_ENV || null,
     username: DENPHER_USERNAME,
     displayName: "Denpher",
     role: "Founder & Official Creator",
@@ -174,7 +182,7 @@ if (process.env.FOUNDER_PASSWORD && !denpher.passwordHash) {
 
 // Ensure no other user mistakenly has isVerified = true
 db.users.forEach(u => {
-  if (u.id !== denpher.id && u.username !== DENPHER_USERNAME && u.email !== DENPHER_EMAIL) {
+  if (u.id !== denpher.id && u.username !== DENPHER_USERNAME && !isFounderEmail(u.email)) {
     u.isVerified = false;
   }
 });
@@ -218,14 +226,16 @@ function isUserDenpher(user) {
   if (!user) return false;
   const email = String(user.email || "").toLowerCase().trim();
   const username = String(user.username || "").toLowerCase().trim();
-  return email === DENPHER_EMAIL || username === DENPHER_USERNAME;
+  return isFounderEmail(email) || username === DENPHER_USERNAME;
 }
 
 function safeUser(user, currentUserId = null) {
   if (!user) return null;
 
   const isSelf = Boolean(currentUserId && user.id === currentUserId);
-  const isVerified = isUserDenpher(user);
+  const isFounder = isUserDenpher(user);
+  // Verified badge is display-only: founder, or a badge granted by an admin. It never grants permissions.
+  const isVerified = isFounder || user.verifiedBadge === true;
   const subscribersCount = db.subscriptions.filter(s => s.creatorId === user.id).length;
   const isSubscribed = currentUserId
     ? db.subscriptions.some(s => s.creatorId === user.id && s.subscriberId === currentUserId)
@@ -236,9 +246,9 @@ function safeUser(user, currentUserId = null) {
     username: user.username,
     displayName: user.displayName || user.username,
     bio: user.bio || "",
-    role: isVerified ? "Founder & Official Creator" : "Member",
+    role: isFounder ? "Founder & Official Creator" : "Member",
     profilePicture: user.profilePicture || null,
-    isVerified, // STRICTLY TRUE FOR DENPHER ONLY (denpherai@gmail.com / denpher)
+    isVerified,
     subscribersCount,
     isSubscribed,
     createdAt: user.createdAt,
@@ -255,7 +265,7 @@ function safeUser(user, currentUserId = null) {
 }
 
 function createToken(user) {
-  return jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: `${SESSION_DAYS}d` });
+  return jwt.sign({ sub: user.id, sv: Number(user.sessionVersion) || 0 }, JWT_SECRET, { expiresIn: `${SESSION_DAYS}d` });
 }
 
 const SESSION_DAYS = 365;
@@ -299,9 +309,12 @@ function authenticate(req, res, next) {
     const payload = jwt.verify(token, JWT_SECRET);
     const user = db.users.find(u => u.id === payload.sub);
 
-    if (!user) {
+    if (!user || sessionRevoked(user, payload)) {
+      clearSession(res);
       return res.status(401).json({ error: "Please sign in to continue.", code: "AUTH_REQUIRED" });
     }
+    const restriction = accountRestriction(user);
+    if (restriction) { clearSession(res); return res.status(403).json({ ...restriction, canAppeal: true }); }
 
     req.user = user;
     if (storageFailed) return res.status(503).json({ error: "Storage temporarily unavailable. Your saved data is safe. Restart the service to reload." });
@@ -408,7 +421,7 @@ app.get("/api/health", (_req, res) => {
     poweredBy: "Denpher — Websites for small businesses",
     poweredByUrl: "https://denpher-portfolio-6xe8.vercel.app/",
     privacyPolicy: "Privacy is our first policy",
-    officialFounder: DENPHER_EMAIL,
+    officialFounder: "@" + DENPHER_USERNAME,
     usersCount: db.users.length,
     persistentStorage: cloudEnabled && !storageFailed,
     storageMode: cloudEnabled ? "cloud" : "local-development",
@@ -476,7 +489,7 @@ app.post("/api/auth/register", async (req, res) => {
     if (password.length < MIN_PASSWORD) {
       return res.status(400).json({ error: `Passwords need at least ${MIN_PASSWORD} characters.` });
     }
-    if (username === DENPHER_USERNAME || email === DENPHER_EMAIL) {
+    if (username === DENPHER_USERNAME || isFounderEmail(email)) {
       return res.status(409).json({ error: "That account already exists. Sign in instead." });
     }
     if (db.users.some(u => u.username === username)) {
@@ -545,6 +558,9 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     if (isUserDenpher(user)) user.isVerified = true;
+    const restriction = accountRestriction(user);
+    if (restriction) return res.status(403).json({ ...restriction, canAppeal: true });
+    if (user.status === 'suspended') { user.status = 'active'; user.statusUntil = null; await saveDB(); } // expired suspension
 
     setSession(res, user);
     return res.json({ success: true, user: safeUser(user, user.id), message });
@@ -592,7 +608,7 @@ app.get("/api/me", authenticate, async (req, res) => {
     .reduce((sum, c) => sum + unreadCountFor(c, currentUserId), 0);
 
   return res.json({
-    user: { ...safeUser(req.user, currentUserId), hasPassword: Boolean(req.user.passwordHash), isAdmin: await isAdmin(req.user) },
+    user: { ...safeUser(req.user, currentUserId), hasPassword: Boolean(req.user.passwordHash), isAdmin: await isAdmin(req.user), spamStrikes: (req.user.spam?.strikes || []).length, mutedUntil: req.user.spam?.mutedUntil || null },
     stats: {
       friendsCount,
       subscribersCount,
@@ -970,7 +986,7 @@ app.get("/api/users/search", authenticate, (req, res) => {
   }
 
   const matches = db.users
-    .filter(u => u.id !== currentUserId && (
+    .filter(u => u.id !== currentUserId && isListed(u) && (
       u.username.includes(query) ||
       (u.displayName && u.displayName.toLowerCase().includes(query))
     ))
@@ -988,7 +1004,7 @@ app.get("/api/recommendations", authenticate, (req, res) => {
   const currentUserId = req.user.id;
 
   const candidates = db.users
-    .filter(u => u.id !== currentUserId && !areFriends(currentUserId, u.id))
+    .filter(u => u.id !== currentUserId && isListed(u) && !areFriends(currentUserId, u.id))
     .slice(0, 20)
     .map(u => ({
       ...safeUser(u, currentUserId),
@@ -1001,7 +1017,7 @@ app.get("/api/recommendations", authenticate, (req, res) => {
 
 app.get("/api/users/profile/:userId", authenticate, (req, res) => {
   const targetUser = db.users.find(u => u.id === req.params.userId);
-  if (!targetUser) {
+  if (!targetUser || (targetUser.id !== req.user.id && !isListed(targetUser))) {
     return res.status(404).json({ error: "User not found." });
   }
 
@@ -1061,7 +1077,7 @@ app.get("/api/reels", authenticate, (req, res) => {
   const currentUserId = req.user.id;
 
   const reels = db.reels
-    .filter(reel => db.users.some(u => u.id === reel.userId) && (!reel.moderationStatus || reel.moderationStatus === "approved"))
+    .filter(reel => isListed(db.users.find(u => u.id === reel.userId)) && (!reel.moderationStatus || reel.moderationStatus === "approved"))
     .map(reel => formatReel(reel, currentUserId))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -1093,6 +1109,7 @@ app.post("/api/reels", authenticate, reserveReel, uploadReel.single("video"), as
     };
 
     db.reels.unshift(newReel);
+    addLog(db, { kind: 'moderation', reelRef: newReel.id, userId: req.user.id, decision: verdict.status, source: verdict.source || 'automatic', reason: verdict.reason || null, confidence: verdict.confidence ?? null });
     db.reelUploads.push({id:makeId(),userId:req.user.id,day:dayKey(),createdAt:newReel.createdAt});
     await saveDB();
 
@@ -1214,7 +1231,9 @@ app.get("/api/reels/:id/comments", authenticate, async (req, res) => {
 app.post("/api/reels/:id/comments", authenticate, async (req, res) => {
   try {
     const { id } = req.params;
-    const content = String(req.body.content || "").trim().slice(0, 1000);
+    const content = cleanText(req.body.content, 1000);
+    const spamBlock = content ? await enforceSpam(req.user, content, 'comment') : null;
+    if (spamBlock) return res.status(429).json(spamBlock);
 
     if (blockedText(content)) return res.status(422).json({error:"Prohibited comment content."});
     if (!content) {
@@ -1339,7 +1358,7 @@ app.post("/api/conversations", authenticate, async (req, res) => {
     }
 
     const targetUser = db.users.find(u => u.id === targetUserId);
-    if (!targetUser) {
+    if (!targetUser || !isListed(targetUser)) {
       return res.status(404).json({ error: "User not found." });
     }
 
@@ -1400,7 +1419,7 @@ app.post("/api/conversations/:id/messages", authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const currentUserId = req.user.id;
-    const text = String(req.body.text || req.body.content || "").trim().slice(0, 4000);
+    const text = cleanText(req.body.text || req.body.content, 4000);
 
     if (!text) {
       return res.status(400).json({ error: "Message cannot be empty." });
@@ -1413,6 +1432,8 @@ app.post("/api/conversations/:id/messages", authenticate, async (req, res) => {
     if (!conversation) {
       return res.status(404).json({ error: "Conversation not found." });
     }
+    const spamBlock = await enforceSpam(req.user, text, 'message');
+    if (spamBlock) return res.status(429).json(spamBlock);
 
     const isVerifiedSender = isUserDenpher(req.user);
 
@@ -1422,7 +1443,7 @@ app.post("/api/conversations/:id/messages", authenticate, async (req, res) => {
       senderId: currentUserId,
       senderUsername: req.user.username,
       senderDisplayName: req.user.displayName || req.user.username,
-      isVerified: isVerifiedSender, // ONLY DENPHER
+      isVerified: isVerifiedSender,
       text,
       createdAt: new Date().toISOString()
     };
@@ -1466,7 +1487,7 @@ io.use((socket, next) => {
     const payload = jwt.verify(token, JWT_SECRET);
     const user = db.users.find(u => u.id === payload.sub);
 
-    if (!user) return next(new Error("Unauthorized"));
+    if (!user || sessionRevoked(user, payload) || accountRestriction(user)) return next(new Error("Unauthorized"));
 
     socket.user = user;
     next();
@@ -1478,9 +1499,11 @@ io.use((socket, next) => {
 io.on("connection", socket => {
   const userId = socket.user.id;
   socket.use((_packet,next)=>{
-    try { if(storageFailed || !db.users.some(u=>u.id===userId)) return next(new Error('Unavailable'));
+    try { const current=db.users.find(u=>u.id===userId); if(storageFailed || !current) return next(new Error('Unavailable'));
       const cookies=socket.handshake.headers.cookie||'';const raw=cookies.split(';').map(c=>c.trim()).find(c=>c.startsWith('nochat_session='));
-      jwt.verify(decodeURIComponent((raw||'').slice('nochat_session='.length)),JWT_SECRET); next();
+      const payload=jwt.verify(decodeURIComponent((raw||'').slice('nochat_session='.length)),JWT_SECRET);
+      if(sessionRevoked(current,payload)||accountRestriction(current)) throw new Error('Revoked');
+      next();
     } catch { next(new Error('Unauthorized')); socket.disconnect(true); }
   });
 
@@ -1526,7 +1549,7 @@ io.on("connection", socket => {
 
     try {
       const conversationId = String(payload.conversationId || "");
-      const text = String(payload.text || payload.content || "").trim().slice(0, 4000);
+      const text = cleanText(payload.text || payload.content, 4000);
 
       const conversation = db.conversations.find(
         c => c.id === conversationId && c.members.includes(userId)
@@ -1536,6 +1559,8 @@ io.on("connection", socket => {
       if (!conversation || !text) {
         return ack({ error: "Invalid conversation or empty message." });
       }
+      const spamBlock = await enforceSpam(socket.user, text, 'message');
+      if (spamBlock) return ack(spamBlock);
 
       const isVerified = isUserDenpher(socket.user);
 
@@ -1583,7 +1608,23 @@ io.on("connection", socket => {
   });
 });
 
-mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile,uploadAttachment,removeStoredFile,safeUser});
+/* Anti-spam: recent history in memory, strikes/cooldowns persisted on the user, every enforcement logged. */
+const spamHistory = new Map();
+async function enforceSpam(user, text, channel) {
+  if (!user || user.id === denpher.id) return null;
+  let history = spamHistory.get(user.id); if (!history) { history = { events: [] }; spamHistory.set(user.id, history); }
+  const result = checkSpam(history, user.spam, text);
+  if (result.allowed) return null;
+  if (result.reason !== 'cooldown') {
+    user.spam = result.spam;
+    addLog(db, { kind: 'spam', userId: user.id, username: user.username, channel, reason: result.reason, strike: result.strike, cooldownMs: result.cooldownMs, until: result.spam.mutedUntil });
+    await saveDB();
+  }
+  return { error: spamMessage(result), code: 'RATE_LIMITED', retryAfterMs: result.retryAfterMs, canAppeal: true };
+}
+
+mountAdmin({app,io,db,authenticate,saveDB,isAdmin,safeUser,founderId:denpher.id,findUserByIdentifier,onlineUsers});
+mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile,uploadAttachment,removeStoredFile,safeUser,enforceSpam,addLog,isListed});
 
 /* =========================================================
    ERROR HANDLER & SPA ROUTING
@@ -1620,7 +1661,7 @@ if (!IS_VERCEL && process.env.NODE_ENV !== "test") {
     console.log(`⚡ NoChat Social Engine is running at http://localhost:${PORT}`);
     console.log(`🛡️ Privacy is our first policy`);
     console.log(`✨ Powered by Denpher — Websites for small businesses`);
-    console.log(`🚀 Official Verified Account: ${DENPHER_EMAIL} / @${DENPHER_USERNAME}`);
+    console.log(`🚀 Official Verified Account: @${DENPHER_USERNAME}`);
     console.log("====================================================");
   });
 }

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0b0a0d">
-  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="color-scheme" content="light">
   <meta name="format-detection" content="telephone=no">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -83,6 +83,7 @@
             </div>
           </label>
           <p class="form-error hidden" id="loginError" role="alert"></p>
+          <button type="button" class="btn btn-ghost btn-block hidden" id="loginAppealBtn">Submit an appeal</button>
           <button type="submit" class="btn btn-primary btn-block" id="loginSubmit">Sign in</button>
           <p class="form-hint">Need access to an older account? Contact Denpher for secure account recovery.</p>
         </form>
@@ -118,6 +119,7 @@
           <button type="submit" class="btn btn-primary btn-block" id="registerSubmit">Create account</button>
         </form>
 
+        <p class="made-with">Made with Love by Denpher ❤️</p>
         <p class="auth-foot"><i data-icon="shield"></i> Privacy is our first policy · <a href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer">Powered by Denpher</a></p>
       </div>
     </div>
@@ -144,6 +146,7 @@
         </a>
         <p class="tiny muted"><i data-icon="shield"></i> Privacy is our first policy</p>
         <a class="tiny denpher-link" href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer">Denpher — Websites for small businesses</a>
+        <p class="made-with sm">Made with Love by Denpher ❤️</p>
       </div>
     </aside>
 
@@ -206,7 +209,8 @@
                     <small id="chatPartnerStatus" class="muted">Offline</small>
                   </span>
                 </button>
-                <button type="button" class="icon-btn" id="voiceCallBtn" aria-label="Voice call" title="Voice call">☎</button>
+                <button type="button" class="icon-btn" id="voiceCallBtn" aria-label="Voice call" title="Voice call"><i data-icon="phone"></i></button>
+                <button type="button" class="icon-btn" id="videoCallBtn" aria-label="Video call" title="Video call"><i data-icon="video"></i></button>
                 <button type="button" class="icon-btn" id="markUnreadBtn" aria-label="Mark unread" title="Mark unread"><i data-icon="message"></i></button>
               </div>
               <div class="msg-stream" id="msgStream">
@@ -283,7 +287,7 @@
             <button type="button" class="tab" data-profile-tab="settings"><i data-icon="settings"></i> Settings</button>
           </div>
 
-          <button type="button" class="btn btn-soft hidden" id="adminReviewBtn"><i data-icon="shield"></i> Moderation review</button>
+          <div class="admin-row hidden" id="adminRow"><button type="button" class="btn btn-soft" id="adminReviewBtn"><i data-icon="shield"></i> Moderation review</button><button type="button" class="btn btn-soft" id="adminConsoleBtn"><i data-icon="users"></i> Admin console</button></div>
           <div id="profileReels" class="profile-tab-body">
             <div id="meReelGrid" class="reel-grid"></div>
           </div>
@@ -346,6 +350,14 @@
                 <div class="row-actions">
                   <button type="button" class="btn btn-danger" id="logoutBtn"><i data-icon="log-out"></i> Log out</button>
                 </div>
+              </div>
+
+              <div class="card about-card">
+                <h3>About NoChat</h3>
+                <p class="muted small">Short videos, real friends and private messaging. Privacy is our first policy.</p>
+                <p class="muted small" id="myRestrictions"></p>
+                <div class="row-actions"><button type="button" class="btn btn-soft hidden" id="spamAppealBtn">Appeal a messaging pause</button></div>
+                <p class="made-with">Made with Love by Denpher ❤️</p>
               </div>
             </div>
           </div>
@@ -493,7 +505,74 @@
     </div>
   </div>
 
-  <div class="modal hidden" id="callModal" role="dialog" aria-modal="true" aria-labelledby="callTitle"><div class="modal-card narrow center"><h2 id="callTitle">Voice call</h2><p id="callStatus" role="status">Calling…</p><audio id="callAudio" autoplay playsinline></audio><div class="row-actions center"><button type="button" class="btn btn-primary hidden" id="callAccept">Accept</button><button type="button" class="btn btn-soft hidden" id="callMute" aria-pressed="false">Mute</button><button type="button" class="icon-btn" id="callSpeaker" aria-label="Play call audio" title="Play call audio"><i data-icon="volume"></i></button><button type="button" class="btn btn-danger" id="callEnd">End / Reject</button></div></div></div>
+  <div class="modal call-modal hidden" id="callModal" role="dialog" aria-modal="true" aria-labelledby="callTitle">
+    <div class="call-card">
+      <video id="callRemoteVideo" class="call-remote" autoplay playsinline></video>
+      <video id="callLocalVideo" class="call-local" autoplay playsinline muted></video>
+      <audio id="callAudio" autoplay playsinline></audio>
+      <div class="call-info">
+        <span class="call-kind" id="callKind">Voice call</span>
+        <div class="call-avatar" id="callAvatar" aria-hidden="true">N</div>
+        <h2 id="callTitle">Call</h2>
+        <p id="callStatus" class="call-status" role="status">Calling…</p>
+        <p id="callTimer" class="call-timer" aria-live="off"></p>
+      </div>
+      <div class="call-controls">
+        <button type="button" class="call-btn" id="callMute" aria-pressed="false"><i data-icon="mic"></i><span>Mute</span></button>
+        <button type="button" class="call-btn" id="callCamera" aria-pressed="false"><i data-icon="video"></i><span>Camera off</span></button>
+        <button type="button" class="call-btn" id="callSwitch"><i data-icon="refresh"></i><span>Flip</span></button>
+        <button type="button" class="call-btn" id="callSpeaker" aria-label="Play call audio"><i data-icon="volume"></i><span>Speaker</span></button>
+        <button type="button" class="call-btn accept" id="callAccept"><i data-icon="phone"></i><span>Accept</span></button>
+        <button type="button" class="call-btn hang" id="callDecline"><i data-icon="phone-off"></i><span>Decline</span></button>
+        <button type="button" class="call-btn hang" id="callEnd"><i data-icon="phone-off"></i><span>End</span></button>
+      </div>
+    </div>
+  </div>
+  <div class="modal hidden" id="adminModal" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+    <div class="modal-card wide admin-card">
+      <header class="modal-head"><h2 id="adminTitle">Admin console</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button></header>
+      <div class="tabs admin-tabs" role="tablist">
+        <button type="button" class="tab active" data-admin-tab="users">Users</button>
+        <button type="button" class="tab" data-admin-tab="appeals">Appeals</button>
+        <button type="button" class="tab" data-admin-tab="spam">Anti-spam log</button>
+        <button type="button" class="tab" data-admin-tab="moderation">Moderation log</button>
+        <button type="button" class="tab" data-admin-tab="audit">Audit log</button>
+      </div>
+      <div data-admin-pane="users">
+        <form id="adminSearchForm" class="admin-search">
+          <label class="search"><i data-icon="search"></i><input type="search" id="adminSearch" placeholder="Search by username, name or user ID" maxlength="80"></label>
+          <select id="adminStatus" aria-label="Filter by status"><option value="">All</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="banned">Banned</option><option value="deleted">Deleted</option></select>
+          <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+        <div id="adminUsers" class="admin-list"></div>
+      </div>
+      <div data-admin-pane="appeals" class="hidden"><div id="adminAppeals" class="admin-list"></div></div>
+      <div data-admin-pane="spam" class="hidden"><div id="adminSpam" class="admin-list"></div></div>
+      <div data-admin-pane="moderation" class="hidden"><div id="adminModeration" class="admin-list"></div></div>
+      <div data-admin-pane="audit" class="hidden"><div id="adminAudit" class="admin-list"></div></div>
+    </div>
+  </div>
+  <div class="modal hidden" id="adminActionModal" role="alertdialog" aria-modal="true" aria-labelledby="adminActionTitle">
+    <form class="modal-card narrow" id="adminActionForm">
+      <h2 id="adminActionTitle">Confirm action</h2>
+      <p class="muted" id="adminActionText"></p>
+      <label class="field hidden" id="adminDurationField"><span>Suspend for</span>
+        <select id="adminDuration"><option value="1">1 hour</option><option value="24" selected>24 hours</option><option value="168">7 days</option><option value="720">30 days</option></select></label>
+      <label class="field" id="adminReasonField"><span>Reason (saved in the audit log)</span><textarea id="adminReason" rows="2" maxlength="500"></textarea></label>
+      <label class="field" id="adminConfirmField"><span>Type <b id="adminConfirmName"></b> to confirm</span><input type="text" id="adminConfirm" autocomplete="off" spellcheck="false"></label>
+      <p class="form-error hidden" id="adminActionError" role="alert"></p>
+      <div class="row-actions end"><button type="button" class="btn btn-ghost" data-close>Cancel</button><button type="submit" class="btn btn-danger" id="adminActionYes">Confirm</button></div>
+    </form>
+  </div>
+  <div class="modal hidden" id="appealModal" role="dialog" aria-modal="true" aria-labelledby="appealTitle">
+    <form class="modal-card narrow" id="appealForm">
+      <h2 id="appealTitle">Submit an appeal</h2>
+      <p class="muted" id="appealText">Tell us why this decision should be reviewed. An administrator will read it.</p>
+      <label class="field"><span>Your appeal</span><textarea id="appealReason" rows="4" minlength="10" maxlength="1000" required></textarea></label>
+      <p class="form-error hidden" id="appealError" role="alert"></p>
+      <div class="row-actions end"><button type="button" class="btn btn-ghost" data-close>Cancel</button><button type="submit" class="btn btn-primary">Send appeal</button></div>
+    </form>
+  </div>
   <div class="modal hidden" id="reviewModal" role="dialog" aria-modal="true" aria-label="Moderation review"><div class="modal-card wide"><header class="modal-head"><h2>Moderation review</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button></header><div id="reviewList"></div></div></div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/calls.js"></script>

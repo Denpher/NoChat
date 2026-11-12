@@ -1,14 +1,14 @@
 import crypto from 'node:crypto';
 import { cloudCall, cloudEnabled } from './cloud.js';
 import { canDeleteContent } from './policies.js';
-export function mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile,uploadAttachment,removeStoredFile,safeUser}) {
+export function mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile,uploadAttachment,removeStoredFile,safeUser,enforceSpam,addLog,isListed}) {
   const route = (fn) => async (req,res,next) => { try { await fn(req,res); } catch(error) { next(error); } };
   const convoFor=(id,userId)=>db.conversations.find(c=>c.id===id&&c.members.includes(userId));
   app.get('/api/media/*',authenticate,route(async(req,res)=>{
     const key=req.params[0];const url='/api/media/'+key;
     const reel=db.reels.find(r=>r.videoUrl===url); const avatar=db.users.some(u=>u.profilePicture===url);
     const message=db.messages.find(m=>!m.deletedAt && m.attachment?.url===url);
-    const allowed=avatar || (reel && (reel.moderationStatus==='approved'||!reel.moderationStatus||reel.userId===req.user.id||await isAdmin(req.user))) || (message&&convoFor(message.conversationId,req.user.id));
+    const allowed=avatar || (reel && (reel.moderationStatus==='approved'||!reel.moderationStatus||(reel.userId===req.user.id&&reel.moderationStatus!=='blocked')||await isAdmin(req.user))) || (message&&convoFor(message.conversationId,req.user.id));
     if(!allowed)return res.status(404).json({error:'File not found.'});
     const result=await cloudCall('download-url',{key,download:req.query.download==='1'});
     res.set('Cache-Control','no-store');res.redirect(result.url);
@@ -17,6 +17,7 @@ export function mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile
     const conversation=convoFor(req.params.id,req.user.id);
     if(!conversation)return res.status(404).json({error:'Conversation not found.'});
     if(!req.file)return res.status(400).json({error:'Choose a file.'});
+    const spamBlock=await enforceSpam(req.user,'','attachment');if(spamBlock)return res.status(429).json(spamBlock);
     const url=await persistFile(req.file,'attachments',req.user.id);
     const message={id:crypto.randomUUID(),conversationId:conversation.id,senderId:req.user.id,senderDisplayName:req.user.displayName,senderUsername:req.user.username,text:'',attachment:{url,name:req.file.originalname.slice(0,160),size:req.file.size,type:req.file.mimetype},createdAt:new Date().toISOString()};
     db.messages.push(message);await saveDB();io.to(`conversation:${conversation.id}`).emit('message:new',message);
@@ -54,12 +55,14 @@ export function mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile
     const reel=db.reels.find(r=>r.id===req.params.id);if(!reel)return res.status(404).json({error:'Reel not found.'});
     if(!['approved','blocked'].includes(req.body.status))return res.status(400).json({error:'Invalid decision.'});
     reel.moderationStatus=req.body.status;reel.moderationReason='Administrator review';
+    addLog(db,{kind:'moderation',reelRef:reel.id,userId:reel.userId,decision:req.body.status,source:'administrator',reason:'Administrator review',actorId:req.user.id});
+    addLog(db,{kind:'audit',actorId:req.user.id,actorUsername:req.user.username,action:`reel-${req.body.status}`,targetId:reel.userId,targetUsername:db.users.find(u=>u.id===reel.userId)?.username||null,outcome:'success',reelRef:reel.id});
     for(const report of db.reports.filter(r=>r.reelId===reel.id)){report.status='reviewed';report.reviewedAt=new Date().toISOString();}
     await saveDB();io.emit('reel:deleted',{id:reel.id});res.json({success:true});
   }));
   // Denpher global remove means content moderation, not deleting other people's accounts.
   app.get('/api/calls/config',authenticate,(_req,res)=>{
-    const iceServers=[];if(process.env.STUN_URL)iceServers.push({urls:process.env.STUN_URL.split(',')});
+    const iceServers=[{urls:(process.env.STUN_URL||'stun:stun.l.google.com:19302').split(',').map(s=>s.trim()).filter(Boolean)}];
     if(process.env.TURN_URL&&process.env.TURN_USERNAME&&process.env.TURN_PASSWORD)iceServers.push({urls:process.env.TURN_URL.split(','),username:process.env.TURN_USERNAME,credential:process.env.TURN_PASSWORD});
     res.set('Cache-Control','no-store').json({iceServers,turnConfigured:iceServers.some(s=>s.username)});
   });
@@ -71,13 +74,16 @@ export function mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile
       const ack=typeof callback==='function'?callback:()=>{};const conversation=convoFor(payload?.conversationId,userId);
       if(!conversation||conversation.members.length!==2)return ack({error:'Call not allowed.'});
       if([...calls.values()].some(c=>c.members.some(id=>conversation.members.includes(id))))return ack({error:'Someone is already on a call.'});
-      const id=crypto.randomUUID();const target=conversation.members.find(id=>id!==userId);if(!io.sockets.adapter.rooms.has(`user:${target}`))return ack({error:'This person is offline.'});
-      const call={id,members:conversation.members,caller:userId,conversationId:conversation.id,status:'ringing',sockets:new Set([socket.id])};calls.set(id,call);call.timer=setTimeout(()=>end(call,'No answer'),45000);
-      io.to(`user:${target}`).emit('call:incoming',{callId:id,conversationId:conversation.id,caller:safeUser(socket.user,target)});ack({callId:id});
+      const id=crypto.randomUUID();const target=conversation.members.find(id=>id!==userId);
+      if(!isListed(db.users.find(u=>u.id===target)))return ack({error:'This account is unavailable.'});
+      if(!io.sockets.adapter.rooms.has(`user:${target}`))return ack({error:'This person is offline.'});
+      const video=payload?.video===true;
+      const call={id,members:conversation.members,caller:userId,conversationId:conversation.id,status:'ringing',video,sockets:new Set([socket.id])};calls.set(id,call);call.timer=setTimeout(()=>end(call,'No answer'),45000);
+      io.to(`user:${target}`).emit('call:incoming',{callId:id,conversationId:conversation.id,video,caller:safeUser(socket.user,target)});ack({callId:id,video});
     });
     socket.on('call:accept',(payload={})=>{
       const call=calls.get(payload?.callId);if(!call||!call.members.includes(userId)||call.caller===userId||call.status!=='ringing')return;
-      clearTimeout(call.timer);call.status='accepted';call.sockets.add(socket.id);io.to(`user:${call.caller}`).emit('call:accepted',{callId:call.id});
+      clearTimeout(call.timer);call.status='accepted';call.startedAt=Date.now();call.sockets.add(socket.id);io.to(`user:${call.caller}`).emit('call:accepted',{callId:call.id});
     });
     socket.on('call:signal',(payload={})=>{
       const call=calls.get(payload?.callId);if(!call||!call.members.includes(userId)||call.status!=='accepted')return;
@@ -86,7 +92,7 @@ export function mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile
       if(signal.type!=='candidate'&&typeof signal.sdp!=='string')return;
       const other=call.members.find(id=>id!==userId);io.to(`user:${other}`).emit('call:signal',{callId:call.id,signal});
     });
-    socket.on('call:end',(payload={})=>{const call=calls.get(payload?.callId);if(call&&call.members.includes(userId))end(call,'Call ended');});
+    socket.on('call:end',(payload={})=>{const call=calls.get(payload?.callId);if(call&&call.members.includes(userId))end(call,call.status==='ringing'&&call.caller!==userId?'Call declined':'Call ended');});
     socket.on('disconnect',()=>{for(const call of calls.values())if(call.sockets.has(socket.id))end(call,'Connection lost');});
   });
 }

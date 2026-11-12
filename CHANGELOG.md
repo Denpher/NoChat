@@ -1,4 +1,11 @@
-# CHANGELOG — production fixes
+# CHANGELOG
+
+## v3.1
+See RELEASE-v3.1.md: admin console with audit log, suspend/ban/restore/soft-delete, sign out
+everywhere, server anti-spam with appeals, confidence-gated video moderation with logs, display-only
+verified badge, real WebRTC video calls, white-and-purple redesign. Tests: `npm test` (33 passing).
+
+## v3.0 — production fixes
 
 No features, design or UI were removed or changed.
 
