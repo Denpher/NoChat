@@ -144,6 +144,14 @@ if (cloudEnabled) {
 }
 for (const collection of Object.keys(initialSchema)) db[collection] ??= [];
 db.reports ??= []; db.reelUploads ??= []; db.videos ??= [];
+// Videos saved while the Cloud save function did not accept a "videos" collection are stored as tagged rows
+// inside the existing "reelUploads" collection (see saveDB). Move them back into db.videos in memory.
+const VIDEO_ROW_KIND = 'nochat-video';
+if (db.reelUploads.some(r => r && r.kind === VIDEO_ROW_KIND)) {
+  const have = new Set(db.videos.map(v => v.id));
+  for (const r of db.reelUploads) if (r && r.kind === VIDEO_ROW_KIND && !have.has(r.id)) { const { kind, ...v } = r; db.videos.push(v); }
+  db.reelUploads = db.reelUploads.filter(r => !(r && r.kind === VIDEO_ROW_KIND));
+}
 // Storage retrieval order is not message order: restore chronological ordering.
 for (const collection of ['messages','reelComments']) db[collection].sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
 
@@ -194,11 +202,16 @@ let storageFailed = false;
 let saveQueue = Promise.resolve();
 // Collections added in v3.3. Cloud only accepts them after database/migrations/2026-11-13-v3.3-videos.sql.
 // Local development storage always supports them.
-const schema = { videos: true };
+// ownCollection=false: Cloud has no "videos" collection yet, so videos are saved as tagged reelUploads rows instead.
+const schema = { videos: true, ownCollection: true };
 function saveDB() {
   // Snapshot now, not when the queued network write finally runs.
   const snapshot = JSON.parse(JSON.stringify(db));
   if (!schema.videos) delete snapshot.videos;
+  else if (!schema.ownCollection) {
+    snapshot.reelUploads = snapshot.reelUploads.concat((snapshot.videos || []).map(v => ({ ...v, kind: VIDEO_ROW_KIND })));
+    delete snapshot.videos;
+  }
   const operation = saveQueue.catch(()=>{}).then(async () => {
     if (cloudEnabled) {
       const result = await cloudCall('save', { revision: cloudRevision, state: snapshot });
@@ -218,9 +231,9 @@ try {
 } catch (error) {
   if (!cloudEnabled) throw error;
   // The Cloud save function rejects unknown collections atomically (nothing is written).
-  // Retry without the v3.3 "videos" collection so existing features keep working unchanged.
-  console.error('[NoChat] Cloud rejected the videos collection. Apply database/migrations/2026-11-13-v3.3-videos.sql to enable founder video management and view counts.', error.message);
-  schema.videos = false; storageFailed = false;
+  // Retry with videos stored as tagged rows in the existing "reelUploads" collection (no migration needed).
+  console.error('[NoChat] Cloud has no videos collection; storing videos inside reelUploads instead.', error.message);
+  schema.ownCollection = false; storageFailed = false;
   await saveDB();
 }
 
