@@ -3,7 +3,7 @@ export const DEFAULT_REEL_LIMIT = 2;
 export function reelLimit(value = process.env.DAILY_REEL_LIMIT) { const n = Number(value ?? DEFAULT_REEL_LIMIT); if (!Number.isInteger(n) || n < 1 || n > 100) throw new Error('DAILY_REEL_LIMIT must be between 1 and 100.'); return n; }
 export function dayKey(date = new Date()) { return date.toISOString().slice(0, 10); }
 export function canDeleteContent(ownerId, actorId, admin) { return ownerId === actorId || admin === true; }
-export function unseen(message, conversation, readerId) { return message.senderId !== readerId && !message.deletedAt && message.createdAt > (conversation.lastRead?.[readerId] || ''); }
+export function unseen(message, conversation, readerId) { return !message.system && message.senderId !== readerId && !message.deletedAt && message.createdAt > (conversation.lastRead?.[readerId] || ''); }
 export function seenAt(message, conversation) { const other = conversation.members.find(id => id !== message.senderId); const last = conversation.lastRead?.[other]; return last && last >= message.createdAt ? last : null; }
 export function blockedText(value) {
   const text = String(value || '').normalize('NFKC').toLowerCase();

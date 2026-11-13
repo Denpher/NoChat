@@ -21,3 +21,12 @@ services:
         value: 2
       - key: STUN_URL
         value: stun:stun.l.google.com:19302
+      # v3.3 optional — calls through a TURN relay (choose ONE option, see TURN-SETUP.md)
+      - key: TURN_SECRET
+        sync: false
+      - key: TURN_URLS
+        sync: false
+      - key: CLOUDFLARE_TURN_KEY_ID
+        sync: false
+      - key: CLOUDFLARE_TURN_API_TOKEN
+        sync: false

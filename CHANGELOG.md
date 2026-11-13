@@ -1,5 +1,61 @@
 # CHANGELOG
 
+## v3.3.0 — Videos, group chats, TURN relay, dark design
+See RELEASE-v3.3.md for deployment steps and TURN-SETUP.md for calls.
+
+### Videos (new: `videos.js`, `videos-catalog.js`, `public/videos.js`)
+- New **Videos** section (sidebar + mobile tab bar, `#/videos`, shareable `#/videos/<id>`).
+- 31 preloaded videos in **Anime, Movies, Trailers, Entertainment**, all from official channels
+  (Crunchyroll, Netflix, GKIDS, Warner Bros., Universal, Pixar, Sony, TOHO, Kurzgesagt, Mark Rober,
+  Sesame Street) or complete Creative-Commons Blender open movies. Embedding was checked with
+  YouTube oEmbed. Nothing is downloaded; thumbnails load lazily from YouTube's CDN (320 px, 480 px srcset).
+- Search, category chips, Featured / Most viewed sort, featured hero, 12-per-page infinite scroll,
+  skeleton / empty / error states, streaming-style player with "Up next", privacy-enhanced
+  `youtube-nocookie.com` embeds, Vimeo support.
+- **Founder-only management** (server enforced on every route): add by YouTube/Vimeo link, upload a
+  file (MP4/MOV/WebM, max 15 minutes checked with FFmpeg on the server, max 100 MB, poster frame
+  generated), edit, delete (soft delete; uploaded file removed from storage). Requires the fixed founder
+  account, password sign-in, the founder email fingerprint and the existing server-side founder role
+  check. Ordinary admins, moderators, verified badges and `FOUNDER_EMAIL` overrides cannot grant it.
+  Denied attempts are written to the audit log.
+- **View counts**: counted only when the player reports real playback (YouTube IFrame API `PLAYING`,
+  Vimeo `play`, `<video>` `playing`); one count per viewer per video per 30 minutes (server-side,
+  repeated player events never inflate). Increments are synchronous (no lost updates under
+  concurrency) and acknowledged only after the durable Cloud save; writes in the same second are
+  coalesced into one save. Stored in the Cloud database, so they survive refreshes, restarts and
+  redeploys. Final writes are flushed on SIGTERM.
+
+### Group chats (new: `groups.js`, `public/groups.js`)
+- Create a group with name, photo and friends; rename; change photo; add/remove members; owner and
+  admin roles (owner promotes/demotes admins, admins manage plain members); leave (ownership passes to
+  an admin or the longest-standing member; an empty group is archived, never deleted).
+- Uses the existing Socket.IO rooms, persistent `conversations`/`messages`, attachments, typing,
+  anti-spam and unread badges. System messages record membership changes. Sender names in bubbles,
+  "Seen by N / Seen by all" read status, group notifications, live member updates, removed members are
+  disconnected from the room immediately.
+- Every private group route returns 404 to non-members; role checks on the server. Calls stay
+  one-to-one only. Existing 1-to-1 chats are unchanged (direct lookups now ignore groups).
+
+### Calls (new: `turn.js`; changed: `features.js`, `public/calls.js`)
+- STUN + TURN with temporary credentials: coturn REST (`TURN_SECRET`), Cloudflare, Metered, or legacy
+  static. Secrets never reach the browser. UDP/TCP/TLS transports reported.
+- Removed the hidden shared public relay that was reported as "configured".
+- Connection indicator on the call screen (relay / STUN / local), fresh credentials on ICE restart,
+  honest failure messages, optional `TURN_FORCE_RELAY`, and a browser **Test connection** tool.
+
+### Design
+- Premium dark theme (deep ink surfaces, violet accent, warm highlight), dark mobile tab bar and
+  top bar, refined buttons, chips, modals, member lists and call status. NoChat branding unchanged.
+
+### Database
+- Additive migration `database/migrations/2026-11-13-v3.3-videos.sql` (see RELEASE-v3.3.md).
+  The server detects a Cloud that has not applied it and keeps every existing feature running.
+
+### Tests
+- New: `tests/videos.test.js`, `tests/videos-founder.test.js`, `tests/groups.test.js`,
+  `tests/turn.test.js`, `tests/helpers.js`. `socket.io-client` added as a dev dependency only.
+- `npm test`: 61 passing (34 existing + 27 new). See TEST-RESULTS.md.
+
 ## v3.1
 See RELEASE-v3.1.md: admin console with audit log, suspend/ban/restore/soft-delete, sign out
 everywhere, server anti-spam with appeals, confidence-gated video moderation with logs, display-only

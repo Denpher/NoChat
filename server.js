@@ -21,6 +21,9 @@ import { mountFeatures } from './features.js';
 import { mountAdmin, addLog } from './admin.js';
 import { accountRestriction, sessionRevoked, isListed, cleanText } from './accounts.js';
 import { checkSpam, spamMessage } from './antispam.js';
+import { mountVideos } from './videos.js';
+import { mountGroups, isGroup, readCount } from './groups.js';
+import { turnMode } from './turn.js';
 
 dotenv.config();
 if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || !cloudEnabled)) throw new Error('Production requires stable JWT_SECRET, NOCHAT_CLOUD_URL and NOCHAT_BRIDGE_SECRET.');
@@ -140,7 +143,7 @@ if (cloudEnabled) {
   db = { ...db, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) };
 }
 for (const collection of Object.keys(initialSchema)) db[collection] ??= [];
-db.reports ??= []; db.reelUploads ??= [];
+db.reports ??= []; db.reelUploads ??= []; db.videos ??= [];
 // Storage retrieval order is not message order: restore chronological ordering.
 for (const collection of ['messages','reelComments']) db[collection].sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
 
@@ -189,9 +192,13 @@ db.users.forEach(u => {
 
 let storageFailed = false;
 let saveQueue = Promise.resolve();
+// Collections added in v3.3. Cloud only accepts them after database/migrations/2026-11-13-v3.3-videos.sql.
+// Local development storage always supports them.
+const schema = { videos: true };
 function saveDB() {
   // Snapshot now, not when the queued network write finally runs.
   const snapshot = JSON.parse(JSON.stringify(db));
+  if (!schema.videos) delete snapshot.videos;
   const operation = saveQueue.catch(()=>{}).then(async () => {
     if (cloudEnabled) {
       const result = await cloudCall('save', { revision: cloudRevision, state: snapshot });
@@ -206,7 +213,16 @@ function saveDB() {
   operation.catch(()=> { storageFailed = true; });
   return operation;
 }
-await saveDB();
+try {
+  await saveDB();
+} catch (error) {
+  if (!cloudEnabled) throw error;
+  // The Cloud save function rejects unknown collections atomically (nothing is written).
+  // Retry without the v3.3 "videos" collection so existing features keep working unchanged.
+  console.error('[NoChat] Cloud rejected the videos collection. Apply database/migrations/2026-11-13-v3.3-videos.sql to enable founder video management and view counts.', error.message);
+  schema.videos = false; storageFailed = false;
+  await saveDB();
+}
 
 /* =========================================================
    HELPERS & SAFE USER TRANSFORMATION
@@ -220,6 +236,15 @@ function normalizeUsername(value) {
     .toLowerCase()
     .replace(/[^a-z0-9_]/g, "")
     .slice(0, 24);
+}
+
+// Founder-only video management: the fixed founder account, signed in with a password, whose stored
+// email matches the fixed founder fingerprint (FOUNDER_EMAIL_SHA256), and which passes the server-side founder role check.
+// Ordinary admins, moderators, verified badges and the FOUNDER_EMAIL override cannot grant this.
+async function canManageVideos(user) {
+  if (!user || user.id !== denpher.id || !user.passwordHash) return false;
+  if (emailFingerprint(user.email) !== FOUNDER_EMAIL_SHA256) return false;
+  return isAdmin(user);
 }
 
 function isUserDenpher(user) {
@@ -425,6 +450,8 @@ app.get("/api/health", (_req, res) => {
     usersCount: db.users.length,
     persistentStorage: cloudEnabled && !storageFailed,
     storageMode: cloudEnabled ? "cloud" : "local-development",
+    videoStorage: schema.videos,
+    turnMode: turnMode(),
     reelsCount: db.reels.length
   });
 });
@@ -1316,7 +1343,7 @@ function markRead(conversation, userId) {
 
 function findConversation(userA, userB) {
   return db.conversations.find(
-    c => c.members.includes(userA) && c.members.includes(userB)
+    c => !isGroup(c) && c.members.includes(userA) && c.members.includes(userB)
   );
 }
 
@@ -1326,6 +1353,19 @@ app.get("/api/conversations", authenticate, (req, res) => {
   const convos = db.conversations
     .filter(c => c.members.includes(currentUserId))
     .map(c => {
+      if (isGroup(c)) {
+        const last = db.messages.filter(m => m.conversationId === c.id).at(-1);
+        return {
+          id: c.id, type: "group",
+          group: { id: c.id, name: c.name, avatar: c.avatar || null, memberCount: c.members.length, myRole: c.ownerId === currentUserId ? "owner" : (c.admins || []).includes(currentUserId) ? "admin" : "member" },
+          lastMessage: last ? (last.deletedAt ? "Message deleted" : last.text || last.attachment?.name || "") : "",
+          lastSender: last && !last.system ? (last.senderId === currentUserId ? "You" : last.senderDisplayName || last.senderUsername || "") : "",
+          lastMessageFromMe: Boolean(last && last.senderId === currentUserId),
+          lastAt: last ? last.createdAt : c.createdAt,
+          unreadCount: unreadCountFor(c, currentUserId),
+          onlineCount: c.members.filter(id => id !== currentUserId && onlineUsers.has(id)).length
+        };
+      }
       const otherId = c.members.find(id => id !== currentUserId);
       const otherUser = db.users.find(u => u.id === otherId);
       const lastMessage = db.messages
@@ -1342,7 +1382,7 @@ app.get("/api/conversations", authenticate, (req, res) => {
         unreadCount: unreadCountFor(c, currentUserId)
       };
     })
-    .filter(c => c.user)
+    .filter(c => c.user || c.group)
     .sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
 
   return res.json({ conversations: convos });
@@ -1399,6 +1439,10 @@ app.get("/api/conversations/:id/messages", authenticate, (req, res) => {
     .filter(m => m.conversationId === id)
     .slice(-300);
 
+  if (isGroup(conversation)) {
+    const others = conversation.members.length - 1;
+    return res.json({ messages: messages.map(m => { const readBy = m.system ? 0 : readCount(m, conversation); return { ...m, readBy, readTotal: conversation.members.filter(id => id !== m.senderId).length, seenAt: readBy && readBy >= others ? m.createdAt : null }; }) });
+  }
   return res.json({ messages: messages.map(m => ({...m,seenAt:seenAt(m,conversation)})) });
 });
 
@@ -1435,7 +1479,7 @@ app.post("/api/conversations/:id/messages", authenticate, async (req, res) => {
     const spamBlock = await enforceSpam(req.user, text, 'message');
     if (spamBlock) return res.status(429).json(spamBlock);
 
-    const isVerifiedSender = isUserDenpher(req.user);
+    const isVerifiedSender = isUserDenpher(req.user) || req.user.verifiedBadge === true;
 
     const message = {
       id: makeId(),
@@ -1562,7 +1606,7 @@ io.on("connection", socket => {
       const spamBlock = await enforceSpam(socket.user, text, 'message');
       if (spamBlock) return ack(spamBlock);
 
-      const isVerified = isUserDenpher(socket.user);
+      const isVerified = isUserDenpher(socket.user) || socket.user.verifiedBadge === true;
 
       const message = {
         id: makeId(),
@@ -1625,6 +1669,15 @@ async function enforceSpam(user, text, channel) {
 
 mountAdmin({app,io,db,authenticate,saveDB,isAdmin,safeUser,founderId:denpher.id,findUserByIdentifier,onlineUsers});
 mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile,uploadAttachment,removeStoredFile,safeUser,enforceSpam,addLog,isListed});
+mountGroups({app,io,db,authenticate,saveDB,persistFile,uploadImage:uploadProfile,removeStoredFile,safeUser,areFriends,isListed,onlineUsers});
+const uploadVideo = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100*1024*1024, files:1 } });
+const videos = mountVideos({app,db,authenticate,saveDB,canManageVideos,persistFile,removeStoredFile,uploadVideo,schema,addLog});
+
+// Graceful shutdown (Render sends SIGTERM on deploy/restart): finish queued durable writes first.
+for (const signal of ["SIGTERM", "SIGINT"]) process.once(signal, async () => {
+  try { await videos.flush(); await saveQueue; } catch (e) { console.error("[NoChat] Final save failed:", e.message); }
+  process.exit(0);
+});
 
 /* =========================================================
    ERROR HANDLER & SPA ROUTING

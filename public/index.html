@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#ffffff">
-  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#0b0a12">
+  <meta name="color-scheme" content="dark">
   <meta name="format-detection" content="telephone=no">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -17,7 +17,7 @@
   <meta property="og:description" content="Share short video reels, chat with friends in real time and discover new people.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <title>NoChat — Reels, friends and private chat</title>
+  <title>NoChat — Reels, videos, groups and private chat</title>
   <meta name="description" content="Share short video reels, chat with friends in real time and discover new people. Privacy is our first policy. Powered by Denpher.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -120,7 +120,7 @@
         </form>
 
         <p class="made-with">Made with Love by Denpher ❤️</p>
-        <p class="auth-foot"><i data-icon="shield"></i> Privacy is our first policy · <a href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer">Powered by Denpher</a></p>
+        <p class="auth-foot"><i data-icon="shield"></i> Privacy is our first policy · Version 3.3.0 · <a href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer">Powered by Denpher</a></p>
       </div>
     </div>
   </section>
@@ -134,6 +134,7 @@
       </a>
       <nav class="side-nav">
         <a href="#/reels" class="nav-item" data-nav="reels"><i data-icon="film"></i><span>Reels</span></a>
+        <a href="#/videos" class="nav-item" data-nav="videos"><i data-icon="tv"></i><span>Videos</span></a>
         <a href="#/messages" class="nav-item" data-nav="messages"><i data-icon="message"></i><span>Messages</span><b class="badge hidden" data-badge="unread">0</b></a>
         <a href="#/people" class="nav-item" data-nav="people"><i data-icon="users"></i><span>People</span><b class="badge hidden" data-badge="requests">0</b></a>
         <a href="#/profile" class="nav-item" data-nav="profile"><span class="avatar xs" data-me-avatar></span><span>Profile</span></a>
@@ -177,6 +178,29 @@
         </div>
       </section>
 
+      <!-- VIDEOS -->
+      <section id="view-videos" class="view scroll" aria-label="Videos">
+        <div class="page videos-page">
+          <header class="videos-head">
+            <div>
+              <h1 class="page-title">Videos</h1>
+              <p class="muted">Anime, movies, trailers and more — streamed from official channels.</p>
+            </div>
+            <button type="button" class="btn btn-primary hidden" id="videoAddBtn"><i data-icon="plus"></i><span>Add video</span></button>
+          </header>
+          <div class="videos-tools">
+            <label class="search grow"><i data-icon="search"></i><input type="search" id="videoSearch" placeholder="Search titles, channels…" aria-label="Search videos"></label>
+            <select id="videoSort" class="select" aria-label="Sort videos"><option value="latest">Featured</option><option value="popular">Most viewed</option></select>
+          </div>
+          <div class="vchips" id="videoCats" role="tablist" aria-label="Categories"></div>
+          <p class="notice hidden" id="videoNotice"><i data-icon="info"></i> View counts are paused while video storage is being enabled.</p>
+          <section class="featured hidden" id="videoFeatured" aria-label="Featured video"></section>
+          <div id="videoGrid" class="video-grid"></div>
+          <div id="videoMore" class="feed-state hidden"><div class="spinner"></div></div>
+          <div id="videoSentinel" aria-hidden="true"></div>
+        </div>
+      </section>
+
       <!-- MESSAGES -->
       <section id="view-messages" class="view" aria-label="Messages">
         <div class="chat-layout" id="chatLayout">
@@ -196,7 +220,7 @@
             <div id="chatEmpty" class="chat-empty">
               <div class="empty-icon"><i data-icon="message"></i></div>
               <h3>Your messages</h3>
-              <p class="muted">Private 1-on-1 chats with your friends, delivered instantly.</p>
+              <p class="muted">Private chats and groups with your friends, delivered instantly.</p>
               <button type="button" class="btn btn-primary" data-action="new-chat">Start a chat</button>
             </div>
             <div id="chatActive" class="chat-active hidden">
@@ -352,12 +376,20 @@
                 </div>
               </div>
 
+              <div class="card" id="callTestCard">
+                <h3>Call connectivity</h3>
+                <p class="muted small">Checks whether this device can reach NoChat's call relay (TURN) over UDP, TCP and TLS.</p>
+                <div id="callTestResult" class="call-test" aria-live="polite"></div>
+                <div class="row-actions"><button type="button" class="btn btn-soft" id="callTestBtn"><i data-icon="wifi"></i> Test connection</button></div>
+              </div>
+
               <div class="card about-card">
                 <h3>About NoChat</h3>
                 <p class="muted small">Short videos, real friends and private messaging. Privacy is our first policy.</p>
                 <p class="muted small" id="myRestrictions"></p>
                 <div class="row-actions"><button type="button" class="btn btn-soft hidden" id="spamAppealBtn">Appeal a messaging pause</button></div>
                 <p class="made-with">Made with Love by Denpher ❤️</p>
+                <p class="muted tiny">NoChat Version 3.3.0</p>
               </div>
             </div>
           </div>
@@ -367,6 +399,7 @@
 
     <nav class="tabbar" aria-label="Main navigation">
       <a href="#/reels" class="tab-item" data-nav="reels" aria-label="Reels"><i data-icon="film"></i><span>Reels</span></a>
+      <a href="#/videos" class="tab-item" data-nav="videos" aria-label="Videos"><i data-icon="tv"></i><span>Videos</span></a>
       <a href="#/people" class="tab-item" data-nav="people" aria-label="People"><i data-icon="users"></i><span>People</span><b class="badge hidden" data-badge="requests">0</b></a>
       <button type="button" class="tab-item tab-create" data-action="open-upload" aria-label="Create reel"><span class="tab-create-btn"><i data-icon="plus"></i></span></button>
       <a href="#/messages" class="tab-item" data-nav="messages" aria-label="Messages"><i data-icon="message"></i><span>Chats</span><b class="badge hidden" data-badge="unread">0</b></a>
@@ -515,6 +548,7 @@
         <div class="call-avatar" id="callAvatar" aria-hidden="true">N</div>
         <h2 id="callTitle">Call</h2>
         <p id="callStatus" class="call-status" role="status">Calling…</p>
+        <p id="callNet" class="call-net hidden" aria-live="polite"><span class="net-dot"></span><span id="callNetText"></span></p>
         <p id="callTimer" class="call-timer" aria-live="off"></p>
       </div>
       <div class="call-controls">
@@ -574,8 +608,44 @@
     </form>
   </div>
   <div class="modal hidden" id="reviewModal" role="dialog" aria-modal="true" aria-label="Moderation review"><div class="modal-card wide"><header class="modal-head"><h2>Moderation review</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button></header><div id="reviewList"></div></div></div>
+  <!-- VIDEO PLAYER -->
+  <div class="modal player-modal hidden" id="videoPlayerModal" role="dialog" aria-modal="true" aria-labelledby="playerTitle">
+    <div class="player-card">
+      <button type="button" class="icon-btn modal-x glass" data-close aria-label="Close player"><i data-icon="x"></i></button>
+      <div class="player-main">
+        <div class="player-frame" id="playerFrame"></div>
+        <div class="player-info">
+          <span class="vchip static" id="playerCat"></span>
+          <h2 id="playerTitle"></h2>
+          <p class="player-meta"><strong id="playerChannel"></strong><span id="playerViews"></span></p>
+          <p class="player-desc" id="playerDesc"></p>
+        </div>
+      </div>
+      <aside class="player-next"><p class="section-label">Up next</p><div id="playerNext"></div></aside>
+    </div>
+  </div>
+  <div class="modal hidden" id="videoManageModal" role="dialog" aria-modal="true" aria-labelledby="vmTitle">
+    <form class="modal-card" id="videoManageForm" autocomplete="off">
+      <header class="modal-head"><h2 id="vmTitle">Add video</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button></header>
+      <div class="seg" id="vmModes"><button type="button" class="seg-btn active" data-vmode="link"><i data-icon="link"></i> Embed link</button><button type="button" class="seg-btn" data-vmode="upload"><i data-icon="upload"></i> Upload (max 15 min)</button></div>
+      <label class="field" id="vmLinkField"><span>YouTube or Vimeo link</span><input type="url" id="vmUrl" placeholder="https://www.youtube.com/watch?v=…"></label>
+      <label class="field hidden" id="vmFileField"><span>Video file — MP4, MOV or WebM, up to 15 minutes and 100 MB</span><input type="file" id="vmFile" accept="video/mp4,video/quicktime,video/webm"></label>
+      <label class="field"><span>Title</span><input type="text" id="vmName" maxlength="120" required></label>
+      <div class="field-row">
+        <label class="field"><span>Category</span><select id="vmCategory" class="select"></select></label>
+        <label class="field"><span>Channel / credit</span><input type="text" id="vmChannel" maxlength="80" placeholder="Official channel"></label>
+      </div>
+      <label class="field"><span>Description</span><textarea id="vmDesc" rows="3" maxlength="1000"></textarea></label>
+      <progress id="vmProgress" max="100" value="0" class="hidden" aria-label="Upload progress"></progress>
+      <p class="muted tiny">Only add videos you own or that the rights holder allows to be embedded.</p>
+      <p class="form-error hidden" id="vmError" role="alert"></p>
+      <div class="row-actions end"><button type="button" class="btn btn-ghost" data-close>Cancel</button><button type="submit" class="btn btn-primary" id="vmSave">Save</button></div>
+    </form>
+  </div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/calls.js"></script>
   <script src="/app.js"></script>
+  <script src="/videos.js"></script>
+  <script src="/groups.js"></script>
 </body>
 </html>

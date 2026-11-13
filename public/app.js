@@ -71,6 +71,15 @@
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
     alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>'
   };
+  Object.assign(ICONS, {
+    tv: '<rect width="20" height="15" x="2" y="7" rx="2"/><path d="m17 2-5 5-5-5"/>',
+    "user-plus": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
+    crown: '<path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zM5 20h14"/>',
+    wifi: '<path d="M12 20h.01M2 8.82a15 15 0 0 1 20 0M5 12.86a10 10 0 0 1 14 0M8.5 16.43a5 5 0 0 1 7 0"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    "group": '<circle cx="9" cy="7" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20v-1.5A4.5 4.5 0 0 1 6.5 14h5a4.5 4.5 0 0 1 4.5 4.5V20M16.5 14.2A3.5 3.5 0 0 1 22 17v3"/>'
+  });
   const icon = (name, cls = "") => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
   function hydrateIcons(root = document) {
     $$("i[data-icon]", root).forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
@@ -383,7 +392,7 @@
   /* =========================================================
      ROUTER (#/reels, #/messages/:id, #/people, #/profile)
      ========================================================= */
-  const VIEWS = ["reels", "messages", "people", "profile"];
+  const VIEWS = ["reels", "videos", "messages", "people", "profile"];
   function parseHash() {
     const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
     const view = VIEWS.includes(parts[0]) ? parts[0] : "reels";
@@ -402,6 +411,7 @@
     if (view !== "reels") pauseAllReels(); else if (changed) setTimeout(playVisibleReel, 60);
     if (view !== "messages" || !id) closeChat(view === "messages");
 
+    window.NoChatVideos?.route(view === "videos", view === "videos" ? id : null, changed);
     if (view === "reels" && id) scrollToReel(id);
     if (view === "messages") { loadConversations().then(() => { if (id) openChat(id); }); }
     if (view === "people" && changed) loadPeople();
@@ -429,7 +439,8 @@
     const s = io({ withCredentials: true });
     state.socket = s;
     state.calls = window.NoChatCalls(s,api,toast);
-    s.on('messages:read',({conversationId,userId,lastRead})=>{if(conversationId!==state.activeConvoId)return;state.messages.forEach(m=>{if(m.senderId!==userId && lastRead && m.createdAt<=lastRead)m.seenAt=lastRead;});renderMessages(false);});
+    window.NoChatGroups?.bindSocket(s);
+    s.on('messages:read',({conversationId,userId,lastRead})=>{if(conversationId!==state.activeConvoId)return;if(state.activeGroup){refreshGroupReceipts();return;}state.messages.forEach(m=>{if(m.senderId!==userId && lastRead && m.createdAt<=lastRead)m.seenAt=lastRead;});renderMessages(false);});
     s.on('message:deleted',({conversationId,messageId})=>{if(conversationId!==state.activeConvoId)return;const m=state.messages.find(m=>m.id===messageId);if(m){m.deletedAt=new Date().toISOString();m.text='';m.attachment=null;renderMessages(false);}});
 
     s.on("connect", () => { if (state.activeConvoId) s.emit("conversation:join", state.activeConvoId); });
@@ -466,7 +477,11 @@
 
     s.on("conversation:update", ({ conversationId, message }) => {
       const viewing = currentView === "messages" && state.activeConvoId === conversationId && !document.hidden;
-      if (!viewing) toast(`${message.senderDisplayName}: ${message.text.slice(0, 60)}`);
+      if (!viewing) {
+        const g = state.conversations.find((c) => c.id === conversationId && c.group);
+        const who = message.system ? "" : `${message.senderDisplayName || message.senderUsername || ""}: `;
+        toast(g ? `${g.group.name} · ${who}${(message.text || message.attachment?.name || "").slice(0, 60)}` : `${message.senderDisplayName}: ${(message.text || message.attachment?.name || "").slice(0, 60)}`);
+      }
       loadConversations(true);
     });
 
@@ -971,7 +986,7 @@
     try {
       const data = await api("/api/conversations");
       state.conversations = data.conversations || [];
-      data.conversations.forEach((c) => { if (c.isOnline) state.online.add(c.user.id); });
+      data.conversations.forEach((c) => { if (c.isOnline && c.user) state.online.add(c.user.id); });
       renderConversations();
       const unread = state.conversations.reduce((s, c) => s + (c.id === state.activeConvoId && currentView === "messages" ? 0 : c.unreadCount || 0), 0);
       setBadge("unread", unread);
@@ -979,7 +994,7 @@
   }
   function renderConversations() {
     const q = $("#convoSearch").value.trim().toLowerCase();
-    const list = state.conversations.filter((c) => !q || (c.user.displayName || "").toLowerCase().includes(q) || c.user.username.includes(q));
+    const list = state.conversations.filter((c) => !q || (c.group ? c.group.name.toLowerCase().includes(q) : (c.user.displayName || "").toLowerCase().includes(q) || c.user.username.includes(q)));
     if (!state.conversations.length) {
       $("#convoList").innerHTML = `<div class="empty"><div class="empty-icon">${icon("message")}</div><h3>No chats yet</h3><p class="muted">Message a friend to get started.</p><button type="button" class="btn btn-primary sm" data-action="new-chat">New message</button></div>`;
       return;
@@ -987,6 +1002,17 @@
     if (!list.length) { $("#convoList").innerHTML = `<p class="muted" style="padding:16px;text-align:center">No chats match “${esc(q)}”.</p>`; return; }
     $("#convoList").innerHTML = list.map((c) => {
       const unread = c.id === state.activeConvoId ? 0 : c.unreadCount || 0;
+      if (c.group) {
+        const lastG = c.lastMessage ? (c.lastSender ? c.lastSender + ": " : "") + c.lastMessage : "Group created";
+        return `<a href="#/messages/${esc(c.id)}" class="convo is-group ${c.id === state.activeConvoId ? "active" : ""} ${unread ? "unread" : ""}">
+        ${groupAvatar(c.group, "md")}
+        <span class="convo-text">
+          <span class="convo-top"><strong>${esc(c.group.name)}<span class="group-tag">${icon("group")}${c.group.memberCount}</span></strong><time>${timeAgo(c.lastAt)}</time></span>
+          <span class="convo-last">${esc(lastG)}</span>
+        </span>
+        ${unread ? `<b class="badge">${unread}</b>` : ""}
+      </a>`;
+      }
       const last = c.lastMessage ? (c.lastMessageFromMe ? "You: " : "") + c.lastMessage : "Say hello 👋";
       return `<a href="#/messages/${esc(c.id)}" class="convo ${c.id === state.activeConvoId ? "active" : ""} ${unread ? "unread" : ""}">
         ${avatar(c.user, "md", state.online.has(c.user.id) || c.isOnline)}
@@ -998,6 +1024,14 @@
       </a>`;
     }).join("");
   }
+  function groupAvatar(g, size = "md") {
+    const inner = g && g.avatar ? `<img src="${esc(g.avatar)}" alt="" loading="lazy">` : icon("group");
+    return `<span class="avatar group-avatar ${size}">${inner}</span>`;
+  }
+  const refreshGroupReceipts = debounce(async () => {
+    const id = state.activeConvoId; if (!id || !state.activeGroup) return;
+    try { const data = await api(`/api/conversations/${id}/messages`); if (state.activeConvoId !== id) return; const map = new Map(data.messages.map((m) => [m.id, m])); state.messages.forEach((m) => { const f = map.get(m.id); if (f) { m.readBy = f.readBy; m.readTotal = f.readTotal; m.seenAt = f.seenAt; } }); renderMessages(false); } catch (_) {}
+  }, 800);
   $("#convoSearch").addEventListener("input", renderConversations);
   $("#newChatBtn").addEventListener("click", openPicker);
 
@@ -1006,7 +1040,9 @@
     if (!c) { toast("That chat isn't available.", "error"); go("messages"); return; }
     if (state.activeConvoId && state.activeConvoId !== convoId) hideTyping();
     state.activeConvoId = convoId;
-    state.activePartner = { ...c.user, isOnline: state.online.has(c.user.id) || c.isOnline };
+    state.activeGroup = c.group ? { ...c.group } : null;
+    state.activePartner = c.group ? null : { ...c.user, isOnline: state.online.has(c.user.id) || c.isOnline };
+    $("#chatActive").classList.toggle("is-group", Boolean(c.group));
     $("#chatLayout").classList.add("has-active");
     $("#appShell").classList.add("chat-open");
     $("#chatEmpty").classList.add("hidden");
@@ -1028,7 +1064,7 @@
   }
   function closeChat(stayOnMessages) {
     if (!state.activeConvoId && !$("#appShell").classList.contains("chat-open")) return;
-    state.activeConvoId = null; state.activePartner = null; state.messages = [];
+    state.activeConvoId = null; state.activePartner = null; state.activeGroup = null; state.messages = [];
     $("#chatLayout").classList.remove("has-active");
     $("#appShell").classList.remove("chat-open");
     $("#chatActive").classList.add("hidden");
@@ -1036,6 +1072,16 @@
     if (stayOnMessages) renderConversations();
   }
   function renderChatHeader() {
+    const g = state.activeGroup;
+    if (g) {
+      $("#chatPartnerAvatar").outerHTML = groupAvatar(g, "sm").replace('class="avatar', 'id="chatPartnerAvatar" class="avatar');
+      $("#chatPartnerName").textContent = g.name;
+      const c = state.conversations.find((x) => x.id === state.activeConvoId);
+      const online = c?.onlineCount || 0;
+      $("#chatPartnerStatus").textContent = `${g.memberCount} members${online ? ` · ${online} online` : ""}`;
+      $("#chatPartnerStatus").classList.toggle("on", online > 0);
+      return;
+    }
     const p = state.activePartner; if (!p) return;
     $("#chatPartnerAvatar").outerHTML = avatar(p, "sm", p.isOnline).replace('class="avatar', 'id="chatPartnerAvatar" class="avatar');
     $("#chatPartnerName").innerHTML = esc(p.displayName) + verified(p);
@@ -1043,13 +1089,14 @@
     st.textContent = p.isOnline ? "Active now" : "@" + p.username;
     st.classList.toggle("on", !!p.isOnline);
   }
-  $("#chatPartnerBtn").addEventListener("click", () => state.activePartner && openUser(state.activePartner.id));
+  $("#chatPartnerBtn").addEventListener("click", () => { if (state.activeGroup) window.NoChatGroups?.openInfo(state.activeConvoId); else if (state.activePartner) openUser(state.activePartner.id); });
 
   const isEmojiOnly = (t) => /^(\p{Extended_Pictographic}|\p{Emoji_Component}|\u200d|\ufe0f|\s){1,6}$/u.test(t) && /\p{Extended_Pictographic}/u.test(t) && [...t.replace(/\s/g, "")].length <= 6;
   function renderMessages(scroll = true) {
     const list = $("#msgList");
     if (!state.messages.length) {
       const p = state.activePartner;
+      if (state.activeGroup) { list.innerHTML = `<div class="empty">${groupAvatar(state.activeGroup, "lg")}<h3>${esc(state.activeGroup.name)}</h3><p class="muted">Say hi to the group.</p></div>`; return; }
       list.innerHTML = `<div class="empty">${avatar(p, "lg")}<h3>${esc(p?.displayName || "")}</h3><p class="muted">Say hi to start your conversation.</p></div>`;
       return;
     }
@@ -1057,9 +1104,13 @@
     state.messages.forEach((m) => {
       const day = new Date(m.createdAt).toDateString();
       if (day !== lastDay) { html += `<div class="day-sep">${dayLabel(m.createdAt)}</div>`; lastDay = day; prev = null; }
+      if (m.system) { html += `<div class="sys-msg"><span>${esc(m.text)}</span><time>${clock(m.createdAt)}</time></div>`; prev = null; return; }
       const mine = m.senderId === state.me.id;
+      const inGroup = Boolean(state.activeGroup);
+      const receipt = inGroup ? (m.readTotal && m.readBy >= m.readTotal ? '<span class="receipt seen">Seen by all</span>' : m.readBy ? `<span class="receipt seen">Seen by ${m.readBy}</span>` : '<span class="receipt">Sent</span>') : `<span class="receipt ${m.seenAt ? 'seen' : ''}">${m.seenAt ? 'Seen' : 'Unseen'}</span>`;
       const grouped = prev && prev.senderId === m.senderId && new Date(m.createdAt) - new Date(prev.createdAt) < 5 * 60 * 1000;
-      html += `<div data-message-id="${esc(m.id)}" class="msg ${mine ? "mine" : "theirs"} ${grouped ? "grouped" : ""} ${m.pending ? "pending" : ""} ${isEmojiOnly(m.text) ? "big-emoji" : ""}">${m.deletedAt ? '<em>Message deleted</em>' : m.attachment ? `<a href="${esc(m.attachment.url)}?download=1" target="_blank" rel="noopener noreferrer" class="attachment-link">${icon("upload")} ${esc(m.attachment.name)} · ${(m.attachment.size/1048576).toFixed(1)} MB</a>` : esc(m.text)}<time>${m.pending ? "Sending…" : clock(m.createdAt)}${mine && !m.pending && !m.deletedAt ? ` · <span class="receipt ${m.seenAt ? 'seen' : ''}">${m.seenAt ? 'Seen' : 'Unseen'}</span>` : ""}</time>${mine && !m.pending && !m.deletedAt ? `<button type="button" class="msg-delete" data-delete-message="${esc(m.id)}" aria-label="Delete message" title="Delete message">${icon("trash")}</button>` : ""}</div>`;
+      if (inGroup && !mine && !grouped) html += `<div class="msg-sender">${esc(m.senderDisplayName || m.senderUsername || "Member")}${m.isVerified ? VERIFIED : ""}</div>`;
+      html += `<div data-message-id="${esc(m.id)}" class="msg ${mine ? "mine" : "theirs"} ${grouped ? "grouped" : ""} ${m.pending ? "pending" : ""} ${isEmojiOnly(m.text) ? "big-emoji" : ""}">${m.deletedAt ? '<em>Message deleted</em>' : m.attachment ? `<a href="${esc(m.attachment.url)}?download=1" target="_blank" rel="noopener noreferrer" class="attachment-link">${icon("upload")} ${esc(m.attachment.name)} · ${(m.attachment.size/1048576).toFixed(1)} MB</a>` : esc(m.text)}<time>${m.pending ? "Sending…" : clock(m.createdAt)}${mine && !m.pending && !m.deletedAt ? ` · ${receipt}` : ""}</time>${mine && !m.pending && !m.deletedAt ? `<button type="button" class="msg-delete" data-delete-message="${esc(m.id)}" aria-label="Delete message" title="Delete message">${icon("trash")}</button>` : ""}</div>`;
       prev = m;
     });
     list.innerHTML = html;
@@ -1399,8 +1450,8 @@
     });
   });
 
-  $("#voiceCallBtn").addEventListener('click',()=>{if(state.activeConvoId)state.calls?.start(state.activeConvoId,state.activePartner.displayName,false);});
-  $("#videoCallBtn").addEventListener('click',()=>{if(state.activeConvoId)state.calls?.start(state.activeConvoId,state.activePartner.displayName,true);});
+  $("#voiceCallBtn").addEventListener('click',()=>{if(state.activeConvoId&&state.activePartner)state.calls?.start(state.activeConvoId,state.activePartner.displayName,false);});
+  $("#videoCallBtn").addEventListener('click',()=>{if(state.activeConvoId&&state.activePartner)state.calls?.start(state.activeConvoId,state.activePartner.displayName,true);});
   $("#markUnreadBtn").addEventListener('click',async()=>{if(!state.activeConvoId)return;try{await api(`/api/conversations/${state.activeConvoId}/unread`,{method:'POST'});go('messages');toast('Marked unread');}catch(e){toast(e.message,'error');}});
   $("#msgList").addEventListener('click',async e=>{const b=e.target.closest('[data-delete-message]');if(!b||!state.activeConvoId)return;if(!await confirmDialog('Delete this message?','It will be removed for both people.','Delete'))return;try{await api(`/api/conversations/${state.activeConvoId}/messages/${b.dataset.deleteMessage}`,{method:'DELETE'});const m=state.messages.find(m=>m.id===b.dataset.deleteMessage);if(m){m.deletedAt=new Date().toISOString();m.text='';m.attachment=null;}renderMessages(false);}catch(e){toast(e.message,'error');}});
   $("#attachmentBtn").onclick=()=>$("#attachmentInput").click();
@@ -1606,6 +1657,10 @@
     else if (currentView === "reels" && !state.viewerOpen) playVisibleReel();
     if (!document.hidden && state.activeConvoId && currentView === "messages" && state.me?.readReceiptsEnabled !== false) api(`/api/conversations/${state.activeConvoId}/read`, { method: "POST" }).catch(() => {});
   });
+
+  // Shared helpers for videos.js and groups.js (loaded after this file).
+  window.NoChatApp = { api, toast, esc, icon, avatar, verified, groupAvatar, openModal, closeModal, confirmDialog, go, debounce, fmtCount, timeAgo, hydrateIcons,
+    state, me: () => state.me, loadConversations, renderChatHeader, refreshChat: () => { if (state.activeConvoId) openChat(state.activeConvoId); }, closeChat: () => { closeChat(true); go("messages"); } };
 
   (async function boot() {
     try { await enterApp(); }

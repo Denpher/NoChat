@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { cloudCall, cloudEnabled } from './cloud.js';
 import { canDeleteContent } from './policies.js';
+import { buildIceConfig } from './turn.js';
 export function mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile,uploadAttachment,removeStoredFile,safeUser,enforceSpam,addLog,isListed}) {
   const route = (fn) => async (req,res,next) => { try { await fn(req,res); } catch(error) { next(error); } };
   const convoFor=(id,userId)=>db.conversations.find(c=>c.id===id&&c.members.includes(userId));
@@ -8,7 +9,8 @@ export function mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile
     const key=req.params[0];const url='/api/media/'+key;
     const reel=db.reels.find(r=>r.videoUrl===url); const avatar=db.users.some(u=>u.profilePicture===url);
     const message=db.messages.find(m=>!m.deletedAt && m.attachment?.url===url);
-    const allowed=avatar || (reel && (reel.moderationStatus==='approved'||!reel.moderationStatus||(reel.userId===req.user.id&&reel.moderationStatus!=='blocked')||await isAdmin(req.user))) || (message&&convoFor(message.conversationId,req.user.id));
+    const groupPhoto=db.conversations.some(c=>c.type==='group'&&c.avatar===url&&c.members.includes(req.user.id));const video=(db.videos||[]).some(v=>!v.deletedAt&&(v.fileUrl===url||v.thumbnail===url));
+    const allowed=avatar || groupPhoto || video || (reel && (reel.moderationStatus==='approved'||!reel.moderationStatus||(reel.userId===req.user.id&&reel.moderationStatus!=='blocked')||await isAdmin(req.user))) || (message&&convoFor(message.conversationId,req.user.id));
     if(!allowed)return res.status(404).json({error:'File not found.'});
     const result=await cloudCall('download-url',{key,download:req.query.download==='1'});
     res.set('Cache-Control','no-store');res.redirect(result.url);
@@ -61,18 +63,17 @@ export function mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile
     await saveDB();io.emit('reel:deleted',{id:reel.id});res.json({success:true});
   }));
   // Denpher global remove means content moderation, not deleting other people's accounts.
-  app.get('/api/calls/config',authenticate,(_req,res)=>{
-    const iceServers=[{urls:(process.env.STUN_URL||'stun:stun.l.google.com:19302').split(',').map(s=>s.trim()).filter(Boolean)}];
-    if(process.env.TURN_URL&&process.env.TURN_USERNAME&&process.env.TURN_PASSWORD)iceServers.push({urls:process.env.TURN_URL.split(','),username:process.env.TURN_USERNAME,credential:process.env.TURN_PASSWORD});
-    res.set('Cache-Control','no-store').json({iceServers,turnConfigured:iceServers.some(s=>s.username)});
-  });
+  // STUN + TURN. Permanent TURN secrets never leave the server; see turn.js and TURN-SETUP.md.
+  app.get('/api/calls/config',authenticate,route(async(req,res)=>{
+    res.set('Cache-Control','no-store').json(await buildIceConfig({userId:req.user.id}));
+  }));
   const calls=new Map();
   io.on('connection',socket=>{
     const userId=socket.user.id;
     const end=(call,reason)=>{clearTimeout(call.timer);calls.delete(call.id);for(const id of call.members)io.to(`user:${id}`).emit('call:end',{callId:call.id,reason});};
     socket.on('call:invite',(payload={},callback)=>{
       const ack=typeof callback==='function'?callback:()=>{};const conversation=convoFor(payload?.conversationId,userId);
-      if(!conversation||conversation.members.length!==2)return ack({error:'Call not allowed.'});
+      if(!conversation||conversation.type==='group'||conversation.members.length!==2)return ack({error:'Calls are available in one-to-one chats.'});
       if([...calls.values()].some(c=>c.members.some(id=>conversation.members.includes(id))))return ack({error:'Someone is already on a call.'});
       const id=crypto.randomUUID();const target=conversation.members.find(id=>id!==userId);
       if(!isListed(db.users.find(u=>u.id===target)))return ack({error:'This account is unavailable.'});

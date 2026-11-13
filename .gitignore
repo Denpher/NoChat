@@ -11,3 +11,4 @@ public/uploads/
 *.log
 .vercel
 .env*
+!.env.example

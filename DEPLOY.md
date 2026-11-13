@@ -1,5 +1,7 @@
 # NoChat v3 — Render Free with permanent Cloud storage
 
+> **v3.3:** read `RELEASE-v3.3.md` first (one additive Cloud migration, optional `FOUNDER_EMAIL`, optional TURN variables). For calls across networks follow `TURN-SETUP.md`.
+
 ## What changed, and what did not
 Your existing Express, Socket.IO, login cookie and UI are retained. PostgreSQL now stores each legacy entity as a separate JSONB row rather than a disk JSON file. Video files, avatars and attachments are private Cloud storage objects. Render's filesystem is used only in explicitly local development. Production refuses to start without permanent Cloud configuration and a stable signing secret.
 

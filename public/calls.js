@@ -1,17 +1,40 @@
 // Genuine peer-to-peer WebRTC voice and video calls over the existing Socket.IO signaling.
 // The UI only says "Connected" after ICE actually connects.
 window.NoChatCalls = function (socket, api, toast) {
-  let current = null, pc = null, stream = null, candidates = [], ringTimer = null, tick = null, dropTimer = null, config = null, facing = 'user';
+  let current = null, pc = null, stream = null, candidates = [], ringTimer = null, tick = null, dropTimer = null, config = null, facing = 'user', iceRestarts = 0;
   const $ = (id) => document.getElementById(id);
   const signal = (value) => current && socket.emit('call:signal', { callId: current.id, signal: value });
   const setStatus = (t) => { $('callStatus').textContent = t; };
   const show = (id, on) => $(id).classList.toggle('hidden', !on);
+  // Connection indicator: shows the real route ICE selected (relay = TURN, srflx = STUN, host = local).
+  const net = (text, kind) => { $('callNetText').textContent = text; $('callNet').className = 'call-net ' + (kind || ''); };
+  async function getConfig(force) {
+    if (!force && config && (!config.turn?.expiresAt || Date.parse(config.turn.expiresAt) - Date.now() > 120000)) return config;
+    config = await api('/api/calls/config'); return config;
+  }
+  async function describeRoute() {
+    if (!pc) return;
+    try {
+      const stats = await pc.getStats(); let pair = null; const byId = new Map();
+      stats.forEach((r) => { byId.set(r.id, r); if (r.type === 'transport' && r.selectedCandidatePairId) pair = r.selectedCandidatePairId; });
+      let sel = pair ? byId.get(pair) : null;
+      if (!sel) stats.forEach((r) => { if (r.type === 'candidate-pair' && (r.selected || (r.nominated && r.state === 'succeeded'))) sel = r; });
+      const local = sel && byId.get(sel.localCandidateId), remote = sel && byId.get(sel.remoteCandidateId);
+      if (!local) return net('Connected', 'ok');
+      const relayed = local.candidateType === 'relay' || remote?.candidateType === 'relay';
+      const proto = (local.relayProtocol || local.protocol || '').toUpperCase();
+      if (relayed) net(`Connected via TURN relay${proto ? ' · ' + proto : ''}`, 'ok relay');
+      else if (local.candidateType === 'srflx' || local.candidateType === 'prflx') net('Connected directly (STUN)', 'ok');
+      else net('Connected directly (local network)', 'ok');
+    } catch { net('Connected', 'ok'); }
+  }
 
   function clean() {
     clearTimeout(ringTimer); clearInterval(tick); clearTimeout(dropTimer);
     stream?.getTracks().forEach((t) => t.stop());
     if (pc) { pc.ontrack = pc.onicecandidate = pc.onconnectionstatechange = null; pc.close(); }
-    pc = null; stream = null; current = null; candidates = []; facing = 'user';
+    pc = null; stream = null; current = null; candidates = []; facing = 'user'; iceRestarts = 0;
+    $('callNet').classList.add('hidden');
     $('callRemoteVideo').srcObject = null; $('callLocalVideo').srcObject = null; $('callAudio').srcObject = null;
     $('callModal').classList.add('hidden'); $('callModal').classList.remove('is-video', 'is-live');
     $('callTimer').textContent = '';
@@ -52,14 +75,17 @@ window.NoChatCalls = function (socket, api, toast) {
   }
   async function setup(video) {
     if (!window.RTCPeerConnection || !navigator.mediaDevices?.getUserMedia) throw new Error('Calling is unavailable in this browser. Open NoChat over HTTPS in a current browser.');
-    config = await api('/api/calls/config');
+    await getConfig();
     stream = await getMedia(video);
+    const relay = config.turn?.status === 'ready';
+    net(relay ? 'Relay ready (TURN ' + (config.turn.transports || []).join('/').toUpperCase() + ')' : config.turn?.status === 'unavailable' ? 'Relay unavailable — using STUN only' : 'No relay configured — STUN only', relay ? 'info' : 'warn');
     if (current?.video) {
       $('callLocalVideo').srcObject = stream;
       const cams = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter((d) => d.kind === 'videoinput');
       current.canSwitch = cams.length > 1;
     }
-    pc = new RTCPeerConnection({ iceServers: config.iceServers });
+    pc = new RTCPeerConnection({ iceServers: config.iceServers, iceTransportPolicy: config.iceTransportPolicy || 'all', iceCandidatePoolSize: 4 });
+    pc.oniceconnectionstatechange = () => { const st = pc?.iceConnectionState; if (st === 'checking') net('Finding the best network route…', 'info'); };
     stream.getTracks().forEach((t) => pc.addTrack(t, stream));
     if (!current?.video) pc.addTransceiver('video', { direction: 'recvonly' });
     pc.onicecandidate = (e) => { if (e.candidate && current) signal({ type: 'candidate', candidate: e.candidate.toJSON() }); };
@@ -73,12 +99,19 @@ window.NoChatCalls = function (socket, api, toast) {
       if (st === 'connected') {
         clearTimeout(ringTimer); clearTimeout(dropTimer);
         if (!$('callModal').classList.contains('is-live')) { $('callModal').classList.add('is-live'); startTimer(); }
-        setStatus('Connected'); controls(false);
+        setStatus('Connected'); controls(false); describeRoute();
       } else if (st === 'disconnected') {
         setStatus('Reconnecting…');
-        clearTimeout(dropTimer); dropTimer = setTimeout(() => { if (pc?.connectionState !== 'connected') end('Call connection lost'); }, 10000);
+        try { pc.restartIce(); } catch { /* older browsers */ }
+        clearTimeout(dropTimer); dropTimer = setTimeout(() => { if (pc?.connectionState !== 'connected') end('Call connection lost'); }, 15000);
       } else if (st === 'failed') {
-        end(config.turnConfigured ? 'Call connection failed.' : 'Could not connect. Some networks need a TURN relay server, which is not configured yet.');
+        if (iceRestarts < 2) {
+          iceRestarts++; setStatus('Reconnecting…'); net('Retrying with fresh relay credentials…', 'warn');
+          getConfig(true).then((c) => { try { pc?.setConfiguration({ iceServers: c.iceServers, iceTransportPolicy: c.iceTransportPolicy || 'all' }); } catch { /* keep old config */ } })
+            .catch(() => {}).finally(() => { try { pc?.restartIce(); } catch { end('Call connection failed.'); } });
+        } else {
+          end(config?.turn?.status === 'ready' ? 'Call connection failed, even through the relay. One of the networks may be blocking calls.' : 'Call connection failed. One of the networks may be blocking calls, and no TURN relay is configured.');
+        }
       }
     };
   }
@@ -142,8 +175,30 @@ window.NoChatCalls = function (socket, api, toast) {
   socket.on('disconnect', () => { if (current) { clean(); toast('Call disconnected.'); } });
   window.addEventListener('pagehide', () => { if (current) end(); });
 
+  // Real TURN check from this browser: gather relay-only candidates and report which transports worked.
+  async function testConnectivity() {
+    const out = $('callTestResult'); const btn = $('callTestBtn');
+    if (!window.RTCPeerConnection) { out.innerHTML = '<p class="test-bad">This browser does not support calls.</p>'; return; }
+    btn.disabled = true; out.innerHTML = '<p class="muted small">Testing… this takes up to 10 seconds.</p>';
+    try {
+      const c = await getConfig(true);
+      if (c.turn?.status !== 'ready') { out.innerHTML = `<p class="test-warn">${c.turn?.message || 'No TURN relay is configured.'}</p>`; return; }
+      const test = new RTCPeerConnection({ iceServers: c.iceServers, iceTransportPolicy: 'relay' });
+      const found = new Set(); test.createDataChannel('probe');
+      test.onicecandidate = (e) => { const cand = e.candidate; if (!cand || !/ typ relay /.test(cand.candidate)) return; found.add((cand.relayProtocol || (/ tcp /i.test(cand.candidate) ? 'tcp' : 'udp')).toLowerCase()); };
+      await test.setLocalDescription(await test.createOffer());
+      await new Promise((r) => { const t = setTimeout(r, 10000); test.onicegatheringstatechange = () => { if (test.iceGatheringState === 'complete') { clearTimeout(t); r(); } }; });
+      test.close();
+      const want = c.turn.transports || [];
+      out.innerHTML = want.map((t) => `<p class="${found.has(t) ? 'test-ok' : 'test-bad'}">TURN over ${t.toUpperCase()}: ${found.has(t) ? 'reachable' : 'not reachable from this network'}</p>`).join('')
+        + (found.size ? '' : '<p class="test-bad">No relay candidates. Check the TURN server, credentials and firewall.</p>');
+    } catch (e) { out.innerHTML = `<p class="test-bad">${e.message || 'Test failed.'}</p>`; }
+    finally { btn.disabled = false; }
+  }
+  $('callTestBtn').onclick = testConnectivity;
+
   return {
-    end,
+    end, testConnectivity,
     async start(conversationId, name, video = false) {
       if (current) return toast('A call is already active.');
       if (!socket.connected) return toast('Reconnect before calling.');
