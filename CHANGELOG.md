@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v3.3.2 — startup and video manager repair
+- Guard optional profile/restriction UI elements so the main app can finish booting when those optional sections are absent.
+- Restored the complete video manager controls expected by `public/videos.js` (YouTube/Vimeo link mode, official-trailer upload mode, file picker and upload progress). The missing `#vmFile` element previously stopped the Videos client script before it registered its route handler.
+- Persist and return the optional HTTPS “Where to Watch” URL for video entries so custom Netflix/Crunchyroll/provider links survive reloads.
+- Preserved all existing audio tracks, reels/chat/profile/call/group code, movie/anime catalogue, database schema/migrations, and tests. No production database migration or data reset is included.
+
 ## Unreleased — founder video
 - Added the founder's own YouTube video (3J81gK6QBgc, official embed) to Videos, listed first as "Denpher · NoChat founder".
 - Fixed founder video upload error: production reported `videoStorage:false` because the cloud save function rejects a `videos` collection, so uploads returned "Video storage is not enabled yet". Videos are now saved as tagged rows inside the existing `reelUploads` collection when that happens; no database migration or new setting is needed. Applying `database/migrations/2026-11-13-v3.3-videos.sql` later is optional and moves them to their own collection automatically. Test: tests/videos-cloud.test.js.

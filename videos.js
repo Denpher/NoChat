@@ -101,7 +101,7 @@ export function mountVideos({ app, db, authenticate, saveDB, canManageVideos, pe
   const route = (fn) => async (req, res, next) => { try { await fn(req, res); } catch (e) { next(e); } };
   const live = () => db.videos.filter((v) => !v.deletedAt);
   const view = (v, manage) => ({
-    id: v.id, title: v.title, description: v.description || '', category: v.category, channel: v.channel || 'NoChat',
+    id: v.id, title: v.title, description: v.description || '', category: v.category, channel: v.channel || 'NoChat', watchUrl: v.watchUrl || null,
     provider: v.provider, embedId: v.provider === 'upload' ? null : v.embedId, embedUrl: embedUrl(v), fileUrl: v.provider === 'upload' ? v.fileUrl : null,
     thumbnail: thumbnailFor(v), durationSec: v.durationSec ?? null, views: schema.videos ? Number(v.views) || 0 : null,
     createdAt: v.createdAt, ...(manage ? { seed: Boolean(v.seed) } : {})
@@ -123,6 +123,16 @@ export function mountVideos({ app, db, authenticate, saveDB, canManageVideos, pe
     if (!partial || body.category !== undefined) { out.category = clean(body.category, 30); if (!VIDEO_CATEGORIES.includes(out.category)) throw Object.assign(new Error('Choose a valid category.'), { status: 400 }); }
     if (body.description !== undefined) out.description = clean(body.description, 1000);
     if (body.channel !== undefined) out.channel = clean(body.channel, 80) || 'NoChat';
+    if (body.watchUrl !== undefined) {
+      const raw = clean(body.watchUrl, 500);
+      if (!raw) out.watchUrl = null;
+      else {
+        let parsed;
+        try { parsed = new URL(raw); } catch { throw Object.assign(new Error('Where to Watch must be a valid HTTPS URL.'), { status: 400 }); }
+        if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw Object.assign(new Error('Where to Watch must be a valid HTTPS URL.'), { status: 400 });
+        out.watchUrl = parsed.toString();
+      }
+    }
     return out;
   };
   const fail = (res, e) => res.status(e.status || 400).json({ error: e.message });

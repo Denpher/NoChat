@@ -16,7 +16,7 @@
 
   <!-- SEO & Social OpenGraph -->
   <title>NoChat — Humans. Not Algorithms.</title>
-  <meta name="description" content="NoChat is a place for real humans, no fake likes, no ads. Built for authentic human connection.">
+  <meta name="description" content="NoChat is a place for real humans, no fake likes, no ads. Built by a student from Meerut, for the Earth.">
   <meta property="og:title" content="NoChat — Humans. Not Algorithms.">
   <meta property="og:description" content="NoChat is a place for real humans, no fake likes, no ads. Built for authentic connection.">
   <meta property="og:type" content="website">
@@ -106,6 +106,21 @@
         <div class="feature-icon"><i data-icon="tv"></i></div>
         <h3>Watch Party & Trailers</h3>
         <p>Official anime and movie trailers with instant "Where to Watch" links and dedicated group discussion rooms for true fans.</p>
+      </div>
+    </section>
+
+    <!-- Founder Section -->
+    <section class="founder-section">
+      <div class="founder-card">
+        <span class="founder-tag">Founder Note</span>
+        <blockquote class="founder-quote">“Built by a student from Meerut, for the Earth.”</blockquote>
+        <div class="founder-author">
+          <div class="founder-avatar">D</div>
+          <div>
+            <strong>Denpher</strong>
+            <small class="muted">Founder & Creator of NoChat</small>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -504,7 +519,7 @@
                   <button type="button" class="btn btn-soft" id="profileAboutModalBtn">About Us</button>
                   <button type="button" class="btn btn-soft" id="profilePrivacyModalBtn">Privacy Policy</button>
                 </div>
-                <p class="muted tiny">NoChat Version 3.3.1 · Built for Humans.</p>
+                <p class="muted tiny">NoChat Version 3.3.1 · Built by a student from Meerut, for the Earth.</p>
               </div>
             </div>
           </div>
@@ -589,8 +604,8 @@
             <p>Runs on private cloud storage and self-hosted instances with end-to-end user data sovereignty.</p>
           </div>
           <div class="info-cell">
-            <strong>Human-Centric</strong>
-            <p>Created for authentic connections, striving for a cleaner, ad-free internet.</p>
+            <strong>Student Built</strong>
+            <p>Created by a passionate young founder from Meerut, India, striving for a cleaner internet.</p>
           </div>
         </div>
       </div>
@@ -876,18 +891,24 @@
 
   <div class="modal hidden" id="videoManageModal" role="dialog" aria-modal="true" aria-labelledby="vmTitle">
     <form class="modal-card" id="videoManageForm" autocomplete="off">
-      <header class="modal-head"><h2 id="vmTitle">Add official trailer</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button></header>
-      <label class="field" id="vmLinkField"><span>Official YouTube trailer link</span><input type="url" id="vmUrl" placeholder="https://www.youtube.com/watch?v=…" required></label>
-      <label class="field"><span>Title</span><input type="text" id="vmName" maxlength="120" placeholder="e.g. Demon Slayer Infinity Castle Trailer" required></label>
+      <header class="modal-head"><h2 id="vmTitle">Add official video</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button></header>
+      <div class="segmented" id="vmModes" role="group" aria-label="Video source">
+        <button type="button" class="seg active" data-vmode="link">YouTube / Vimeo link</button>
+        <button type="button" class="seg" data-vmode="upload">Upload official trailer</button>
+      </div>
+      <label class="field" id="vmLinkField"><span>Official YouTube or Vimeo trailer link</span><input type="url" id="vmUrl" placeholder="https://www.youtube.com/watch?v=…" required></label>
+      <label class="field hidden" id="vmFileField"><span>Trailer video file (MP4, MOV or WebM · up to 100 MB)</span><input type="file" id="vmFile" accept="video/mp4,video/quicktime,video/webm"></label>
+      <label class="field"><span>Title</span><input type="text" id="vmName" maxlength="120" placeholder="e.g. Demon Slayer Official Trailer" required></label>
       <div class="field-row">
         <label class="field"><span>Category</span><select id="vmCategory" class="select"></select></label>
         <label class="field"><span>Channel / Studio</span><input type="text" id="vmChannel" maxlength="80" placeholder="Crunchyroll, Netflix, etc."></label>
       </div>
-      <label class="field"><span>Where to Watch URL (Netflix / Crunchyroll)</span><input type="url" id="vmWatchUrl" placeholder="https://www.crunchyroll.com/..."></label>
+      <label class="field"><span>Where to Watch URL</span><input type="url" id="vmWatchUrl" placeholder="https://www.crunchyroll.com/..." inputmode="url"></label>
       <label class="field"><span>Description</span><textarea id="vmDesc" rows="3" maxlength="1000"></textarea></label>
-      <p class="muted tiny">NoChat only hosts official trailers. Full movies are never uploaded.</p>
+      <progress id="vmProgress" class="video-upload-progress hidden" max="100" value="0" aria-label="Upload progress"></progress>
+      <p class="muted tiny">NoChat hosts official trailers only. Add a legal viewing link for full titles; full copyrighted movies are not uploaded.</p>
       <p class="form-error hidden" id="vmError" role="alert"></p>
-      <div class="row-actions end"><button type="button" class="btn btn-ghost" data-close>Cancel</button><button type="submit" class="btn btn-primary" id="vmSave">Save Trailer</button></div>
+      <div class="row-actions end"><button type="button" class="btn btn-ghost" data-close>Cancel</button><button type="submit" class="btn btn-primary" id="vmSave">Save Video</button></div>
     </form>
   </div>
 

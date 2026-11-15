@@ -112,7 +112,7 @@
     destroyPlayer();
     let v = S.items.find((x) => x.id === id);
     openModal("videoPlayerModal");
-    $("#playerFrame").innerHTML = `<div class="player-loading" style="padding:40px"><div class="skeleton" style="width:100%;height:320px;border-radius:14px"></div></div>`;
+    $("#playerFrame").innerHTML = `<div class="player-loading"><div class="spinner"></div></div>`;
     try { if (!v) v = (await api("/api/videos/" + encodeURIComponent(id))).video; }
     catch (e) { closeModal("videoPlayerModal"); e.silent || toast("That video isn't available.", "error"); history.replaceState(null, "", "#/videos"); return; }
     S.current = { id: v.id, counted: false };
@@ -170,13 +170,15 @@
   function setMode(m) {
     mode = m; document.querySelectorAll("[data-vmode]").forEach((b) => b.classList.toggle("active", b.dataset.vmode === m));
     $("#vmLinkField").classList.toggle("hidden", m !== "link"); $("#vmFileField").classList.toggle("hidden", m !== "upload");
+    $("#vmUrl").required = m === "link";
   }
   function openManage(v) {
     editing = v || null; $("#vmError").classList.add("hidden");
     $("#vmTitle").textContent = v ? "Edit video" : "Add video";
     $("#vmCategory").innerHTML = (S.cats || ["Anime", "Movies", "Trailers", "Entertainment"]).map((c) => `<option ${v?.category === c ? "selected" : ""}>${esc(c)}</option>`).join("");
     $("#vmName").value = v?.title || ""; $("#vmDesc").value = v?.description || ""; $("#vmChannel").value = v?.channel || "";
-    $("#vmUrl").value = v && v.provider === "youtube" ? `https://www.youtube.com/watch?v=${v.embedId}` : ""; $("#vmFile").value = "";
+    $("#vmUrl").value = v && v.provider === "youtube" ? `https://www.youtube.com/watch?v=${v.embedId}` : (v?.provider === "vimeo" ? `https://vimeo.com/${v.embedId}` : "");
+    $("#vmWatchUrl").value = v?.watchUrl || ""; $("#vmFile").value = "";
     $("#vmModes").classList.toggle("hidden", Boolean(v)); setMode(v?.provider === "upload" ? "none" : "link");
     $("#vmProgress").classList.add("hidden");
     openModal("videoManageModal");
@@ -191,7 +193,7 @@
   });
   $("#videoManageForm").addEventListener("submit", async (e) => {
     e.preventDefault(); const btn = $("#vmSave"); btn.disabled = true; const err = $("#vmError"); err.classList.add("hidden");
-    const meta = { title: $("#vmName").value.trim(), category: $("#vmCategory").value, description: $("#vmDesc").value.trim(), channel: $("#vmChannel").value.trim() };
+    const meta = { title: $("#vmName").value.trim(), category: $("#vmCategory").value, description: $("#vmDesc").value.trim(), channel: $("#vmChannel").value.trim(), watchUrl: $("#vmWatchUrl").value.trim() };
     try {
       if (editing) await api("/api/videos/" + editing.id, { method: "PUT", body: { ...meta, ...(mode === "link" && $("#vmUrl").value.trim() ? { url: $("#vmUrl").value.trim() } : {}) } });
       else if (mode === "link") await api("/api/videos", { method: "POST", body: { ...meta, url: $("#vmUrl").value.trim() } });
@@ -200,7 +202,7 @@
         const fd = new FormData(); Object.entries(meta).forEach(([k, val]) => fd.append(k, val)); fd.append("video", f);
         await new Promise((res, rej) => {
           const x = new XMLHttpRequest(); x.open("POST", "/api/videos/upload"); x.withCredentials = true;
-          $("#vmProgress").classList.remove("hidden");
+          $("#vmProgress").value = 0; $("#vmProgress").classList.remove("hidden");
           x.upload.onprogress = (ev) => { if (ev.lengthComputable) $("#vmProgress").value = Math.round((ev.loaded / ev.total) * 100); };
           x.onload = () => { let d = {}; try { d = JSON.parse(x.responseText); } catch (_) {} x.status < 300 ? res(d) : rej(new Error(d.error || "Upload failed.")); };
           x.onerror = () => rej(new Error("Upload failed. Check your connection.")); x.send(fd);
