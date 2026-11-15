@@ -1619,7 +1619,7 @@
       closeModal("appealModal"); toast(d.message || "Appeal submitted", "success"); loadMyRestrictions();
     } catch (err) { showFormError("#appealError", err.message); }
   });
-  $("#spamAppealBtn")?.addEventListener("click", () => openAppeal({ type: "spam", text: "Explain why the messaging pause was a mistake." }));
+  $("#spamAppealBtn").addEventListener("click", () => openAppeal({ type: "spam", text: "Explain why the messaging pause was a mistake." }));
   async function loadMyRestrictions() {
     if (!state.me) return;
     const muted = state.me.mutedUntil && new Date(state.me.mutedUntil) > new Date();
@@ -1627,7 +1627,7 @@
       const d = await api("/api/appeals/mine");
       const open = d.appeals.filter((a) => a.status === "open");
       $("#myRestrictions").textContent = open.length ? `You have ${open.length} appeal${open.length > 1 ? "s" : ""} waiting for review.` : (muted ? "Messaging is paused for a short time because of anti-spam protection." : "");
-      $("#spamAppealBtn")?.classList.toggle("hidden", !(state.me.spamStrikes > 0 || muted) || open.some((a) => a.targetType === "spam"));
+      $("#spamAppealBtn").classList.toggle("hidden", !(state.me.spamStrikes > 0 || muted) || open.some((a) => a.targetType === "spam"));
     } catch (_) { /* optional */ }
   }
 

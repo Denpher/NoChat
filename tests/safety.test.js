@@ -67,7 +67,8 @@ test('delete is a soft delete that keeps the record and can be restored', () => 
 });
 test('verified badge is display-only and separate from admin permissions', () => {
   const u = { id: 'p', username: 'parth' }; applyAdminAction(u, 'verify');
-assert.deepEqual(Object.keys(u).sort(), ['id', 'username', 'verifiedBadge', 'verifiedUntil']);});
+  assert.deepEqual(Object.keys(u).sort(), ['id', 'username', 'verifiedBadge']); // no role/admin fields touched
+});
 test('control characters are stripped from user text', () => { assert.equal(cleanText(' hi\u0000\u0007 there\n ', 50), 'hi there'); });
 
 test('moderation auto-removes only high-confidence violations; uncertain content is quarantined', () => {
@@ -83,7 +84,7 @@ test('founder email is never written in plain text in shipped code', async () =>
   const fs = await import('node:fs');
   const path = await import('node:path');
   const crypto = await import('node:crypto');
-  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
+  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
   const src = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
   const fp = src.match(/FOUNDER_EMAIL_SHA256 = "([a-f0-9]{64})"/)[1];
   const files = ['server.js','admin.js','accounts.js','features.js','antispam.js','policies.js','moderation.js','cloud.js','public/app.js','public/index.html','public/calls.js','videos.js','videos-catalog.js','groups.js','turn.js','public/videos.js','public/groups.js']
