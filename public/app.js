@@ -351,7 +351,8 @@
     const u = state.me; if (!u) return;
     $$("[data-me-avatar]").forEach((el) => {
       const size = ["xs", "sm", "md", "lg", "xl"].find((s) => el.classList.contains(s)) || "md";
-      el.outerHTML = avatar(u, size).replace('class="avatar', 'data-me-avatar class="avatar');
+      const ringCls = u.isVerified ? " verified-ring" : "";
+      el.outerHTML = avatar(u, size).replace('class="avatar', `data-me-avatar class="avatar${ringCls}`);
     });
     $$("[data-me-name]").forEach((el) => (el.textContent = u.displayName || u.username));
     $$("[data-me-username]").forEach((el) => (el.textContent = "@" + u.username));
@@ -359,10 +360,54 @@
     $("#meBio").textContent = u.bio || "";
     $("#meBio").classList.toggle("hidden", !u.bio);
     $("#meEmail").textContent = u.email || "Not added";
-    $("#meSince").textContent = u.createdAt ? new Date(u.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "—";
-    $("#meReelsCount").textContent = fmtCount(state.stats.reelsCount);
-    $("#meFriendsCount").textContent = fmtCount(state.stats.friendsCount);
+    
+    // Member number badge
+    if ($("#meMemberBadge")) {
+      $("#meMemberBadge").textContent = "Human #" + (u.memberNumber || 21);
+    }
+
+    // Live verified countdown badge
+    const vCount = $("#meVerifiedCountdown");
+    if (vCount) {
+      if (u.isVerified && u.verifiedUntil) {
+        const ms = new Date(u.verifiedUntil).getTime() - Date.now();
+        const days = Math.max(1, Math.ceil(ms / (24 * 3600 * 1000)));
+        vCount.textContent = `Verified • ${days} day${days > 1 ? "s" : ""} left`;
+        vCount.classList.remove("hidden");
+      } else if (u.isVerified) {
+        vCount.textContent = "Verified • Permanent";
+        vCount.classList.remove("hidden");
+      } else {
+        vCount.classList.add("hidden");
+      }
+    }
+
+    // Joined date
+    if ($("#meJoinedDate")) {
+      const dt = u.createdAt ? new Date(u.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "Nov 2026";
+      $("#meJoinedDate").innerHTML = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> <span>Joined ${dt}</span>`;
+    }
+
+    // Clean Posts / Followers / Following row
+    $("#meReelsCount").textContent = fmtCount(u.postsCount ?? state.stats.reelsCount ?? 0);
+    if ($("#meFollowersCount")) $("#meFollowersCount").textContent = fmtCount(u.followersCount ?? state.stats.subscribersCount ?? 0);
+    if ($("#meFollowingCount")) $("#meFollowingCount").textContent = fmtCount(u.followingCount ?? state.stats.friendsCount ?? 0);
     $("#meSubsCount").textContent = fmtCount(u.subscribersCount ?? state.stats.subscribersCount);
+
+    // 24h Welcome Banner
+    const welcome = $("#welcomeBanner");
+    if (welcome) {
+      const isNew = u.createdAt && (Date.now() - new Date(u.createdAt).getTime() < 24 * 3600 * 1000);
+      const dismissed = localStorage.getItem("nc_welcome_dismissed_" + u.id);
+      if (isNew && !dismissed) {
+        $("#welcomeBadge").textContent = `Human #${u.memberNumber || 21}`;
+        $("#welcomeText").textContent = `Welcome ${u.displayName || u.username}, you are Human #${u.memberNumber || 21}`;
+        welcome.classList.remove("hidden");
+      } else {
+        welcome.classList.add("hidden");
+      }
+    }
+
     $("#editDisplayName").value = u.displayName || "";
     $("#editBio").value = u.bio || "";
     $("#bioCount").textContent = (u.bio || "").length;
@@ -473,6 +518,15 @@
       state.messages.push(m);
       renderMessages(true);
       if (m.senderId !== state.me.id && !document.hidden && currentView === "messages" && state.me.readReceiptsEnabled !== false) { hideTyping(); api(`/api/conversations/${m.conversationId}/read`, { method: "POST" }).catch(() => {}); }
+    });
+
+    s.on("message:edited", ({ conversationId, message }) => {
+      if (conversationId !== state.activeConvoId) return;
+      const idx = state.messages.findIndex((x) => x.id === message.id);
+      if (idx !== -1) {
+        state.messages[idx] = { ...state.messages[idx], text: message.text, isEdited: true, editedAt: message.editedAt };
+        renderMessages(false);
+      }
     });
 
     s.on("conversation:update", ({ conversationId, message }) => {
@@ -732,12 +786,27 @@
   }
 
   async function shareReel(id) {
-    const url = `${location.origin}/#/reels/${id}`;
-    try {
-      if (navigator.share) { await navigator.share({ title: "NoChat reel", url }); return; }
-      await navigator.clipboard.writeText(url);
-      toast("Link copied", "success");
-    } catch (err) { if (err && err.name !== "AbortError") toast("Couldn't copy the link", "error"); }
+    const r = findReel(id);
+    state.sharingReelId = id;
+    openModal("shareReelModal");
+    const box = $("#shareReelConvoList");
+    if (!state.conversations.length) {
+      await loadConversations(true);
+    }
+    if (!state.conversations.length) {
+      box.innerHTML = `<p class="muted" style="padding:16px;text-align:center">No chats yet. Start a chat with a friend to share reels.</p>`;
+      return;
+    }
+    box.innerHTML = state.conversations.map(c => `
+      <div class="pick-row" data-send-reel-convo="${esc(c.id)}" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;">
+        ${c.group ? groupAvatar(c.group, 'sm') : avatar(c.user, 'sm')}
+        <div style="flex:1;min-width:0">
+          <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px">${esc(c.group ? c.group.name : c.user?.displayName || c.user?.username)}</strong>
+          <small class="muted" style="font-size:11px">${c.group ? 'Group' : '@' + esc(c.user?.username)}</small>
+        </div>
+        <button type="button" class="btn btn-primary sm" style="height:28px;padding:0 12px;font-size:12px">Send</button>
+      </div>
+    `).join('');
   }
 
   async function deleteReel(id) {
@@ -1032,6 +1101,7 @@
     const id = state.activeConvoId; if (!id || !state.activeGroup) return;
     try { const data = await api(`/api/conversations/${id}/messages`); if (state.activeConvoId !== id) return; const map = new Map(data.messages.map((m) => [m.id, m])); state.messages.forEach((m) => { const f = map.get(m.id); if (f) { m.readBy = f.readBy; m.readTotal = f.readTotal; m.seenAt = f.seenAt; } }); renderMessages(false); } catch (_) {}
   }, 800);
+  const messageCache = new Map();
   $("#convoSearch").addEventListener("input", renderConversations);
   $("#newChatBtn").addEventListener("click", openPicker);
 
@@ -1049,17 +1119,28 @@
     $("#chatActive").classList.remove("hidden");
     renderChatHeader();
     renderConversations();
-    $("#msgList").innerHTML = `<div class="feed-state"><div class="spinner"></div></div>`;
+
+    // Zero-lag instant render from cache if available
+    if (messageCache.has(convoId)) {
+      state.messages = messageCache.get(convoId);
+      renderMessages(true);
+    } else {
+      $("#msgList").innerHTML = `<div class="feed-state"><div class="skeleton-line w50" style="margin:20px auto"></div></div>`;
+    }
+
     state.socket?.emit("conversation:join", convoId);
     try {
       const data = await api(`/api/conversations/${convoId}/messages`);
       if (state.activeConvoId !== convoId) return;
       state.messages = data.messages || [];
-      renderMessages();
+      messageCache.set(convoId, state.messages.slice(-50));
+      renderMessages(true);
       if (!document.hidden && state.me.readReceiptsEnabled !== false) await api(`/api/conversations/${convoId}/read`,{method:'POST'});
       c.unreadCount = 0; renderConversations();
       setBadge("unread", state.conversations.reduce((s, x) => s + (x.unreadCount || 0), 0));
-    } catch (err) { $("#msgList").innerHTML = `<p class="muted">${err.silent ? "" : esc(err.message)}</p>`; }
+    } catch (err) {
+      if (!messageCache.has(convoId)) $("#msgList").innerHTML = `<p class="muted">${err.silent ? "" : esc(err.message)}</p>`;
+    }
     if (window.matchMedia("(min-width: 861px)").matches) $("#composerInput").focus();
   }
   function closeChat(stayOnMessages) {
@@ -1092,6 +1173,51 @@
   $("#chatPartnerBtn").addEventListener("click", () => { if (state.activeGroup) window.NoChatGroups?.openInfo(state.activeConvoId); else if (state.activePartner) openUser(state.activePartner.id); });
 
   const isEmojiOnly = (t) => /^(\p{Extended_Pictographic}|\p{Emoji_Component}|\u200d|\ufe0f|\s){1,6}$/u.test(t) && /\p{Extended_Pictographic}/u.test(t) && [...t.replace(/\s/g, "")].length <= 6;
+
+  function messageItemHTML(m, prev = null) {
+    if (m.system) {
+      return `<div data-message-id="${esc(m.id)}" class="sys-msg"><span>${esc(m.text)}</span><time>${clock(m.createdAt)}</time></div>`;
+    }
+    const mine = m.senderId === state.me.id;
+    const inGroup = Boolean(state.activeGroup);
+    const receipt = inGroup ? (m.readTotal && m.readBy >= m.readTotal ? '<span class="receipt seen">Seen by all</span>' : m.readBy ? `<span class="receipt seen">Seen by ${m.readBy}</span>` : '<span class="receipt">Sent</span>') : `<span class="receipt ${m.seenAt ? 'seen' : ''}">${m.seenAt ? 'Seen' : 'Unseen'}</span>`;
+    const grouped = prev && prev.senderId === m.senderId && new Date(m.createdAt) - new Date(prev.createdAt) < 5 * 60 * 1000;
+    const ageMs = Date.now() - new Date(m.createdAt).getTime();
+    const canEdit = mine && !m.deletedAt && !m.pending && ageMs <= 15 * 60 * 1000;
+
+    let contentHtml = "";
+    if (m.deletedAt) {
+      contentHtml = '<em>Message deleted</em>';
+    } else if (m.sharedReel) {
+      contentHtml = `<div class="shared-reel-card" data-open-shared-reel="${esc(m.sharedReel.id)}">
+        <div class="reel-card-thumb">
+          <img src="${esc(m.sharedReel.thumbnail || '/icon.svg')}" alt="" loading="lazy">
+          <div class="reel-card-play">${icon("play")}</div>
+        </div>
+        <div class="reel-card-body">
+          <strong>${esc(m.sharedReel.caption || 'Shared reel')}</strong>
+          <small>@${esc(m.sharedReel.creatorUsername || 'creator')}</small>
+        </div>
+      </div>${m.text && m.text !== 'Shared a reel' ? `<span class="msg-text-span">${esc(m.text)}</span>` : ''}`;
+    } else if (m.attachment) {
+      contentHtml = `<a href="${esc(m.attachment.url)}?download=1" target="_blank" rel="noopener noreferrer" class="attachment-link">${icon("upload")} ${esc(m.attachment.name)} · ${(m.attachment.size/1048576).toFixed(1)} MB</a>`;
+    } else {
+      contentHtml = `<span class="msg-text-span">${esc(m.text)}</span>`;
+    }
+
+    const senderHeader = (inGroup && !mine && !grouped) ? `<div class="msg-sender">${esc(m.senderDisplayName || m.senderUsername || "Member")}${m.isVerified ? VERIFIED : ""}</div>` : "";
+    const editedHtml = m.isEdited ? `<span class="msg-edited-tag">Edited • ${clock(m.editedAt || m.createdAt)}</span>` : "";
+
+    return `${senderHeader}<div data-message-id="${esc(m.id)}" class="msg ${mine ? "mine" : "theirs"} ${grouped ? "grouped" : ""} ${m.pending ? "pending" : ""} ${isEmojiOnly(m.text) ? "big-emoji" : ""}">
+      ${contentHtml}
+      <time>${m.pending ? "Sending…" : clock(m.createdAt)}${editedHtml}${mine && !m.pending && !m.deletedAt ? ` · ${receipt}` : ""}</time>
+      <div class="msg-actions">
+        ${canEdit ? `<button type="button" class="msg-action-btn" data-edit-message="${esc(m.id)}" title="Edit">${icon("edit")}</button>` : ""}
+        ${mine && !m.pending && !m.deletedAt ? `<button type="button" class="msg-action-btn" data-delete-message="${esc(m.id)}" title="Delete">${icon("trash")}</button>` : ""}
+      </div>
+    </div>`;
+  }
+
   function renderMessages(scroll = true) {
     const list = $("#msgList");
     if (!state.messages.length) {
@@ -1104,13 +1230,7 @@
     state.messages.forEach((m) => {
       const day = new Date(m.createdAt).toDateString();
       if (day !== lastDay) { html += `<div class="day-sep">${dayLabel(m.createdAt)}</div>`; lastDay = day; prev = null; }
-      if (m.system) { html += `<div class="sys-msg"><span>${esc(m.text)}</span><time>${clock(m.createdAt)}</time></div>`; prev = null; return; }
-      const mine = m.senderId === state.me.id;
-      const inGroup = Boolean(state.activeGroup);
-      const receipt = inGroup ? (m.readTotal && m.readBy >= m.readTotal ? '<span class="receipt seen">Seen by all</span>' : m.readBy ? `<span class="receipt seen">Seen by ${m.readBy}</span>` : '<span class="receipt">Sent</span>') : `<span class="receipt ${m.seenAt ? 'seen' : ''}">${m.seenAt ? 'Seen' : 'Unseen'}</span>`;
-      const grouped = prev && prev.senderId === m.senderId && new Date(m.createdAt) - new Date(prev.createdAt) < 5 * 60 * 1000;
-      if (inGroup && !mine && !grouped) html += `<div class="msg-sender">${esc(m.senderDisplayName || m.senderUsername || "Member")}${m.isVerified ? VERIFIED : ""}</div>`;
-      html += `<div data-message-id="${esc(m.id)}" class="msg ${mine ? "mine" : "theirs"} ${grouped ? "grouped" : ""} ${m.pending ? "pending" : ""} ${isEmojiOnly(m.text) ? "big-emoji" : ""}">${m.deletedAt ? '<em>Message deleted</em>' : m.attachment ? `<a href="${esc(m.attachment.url)}?download=1" target="_blank" rel="noopener noreferrer" class="attachment-link">${icon("upload")} ${esc(m.attachment.name)} · ${(m.attachment.size/1048576).toFixed(1)} MB</a>` : esc(m.text)}<time>${m.pending ? "Sending…" : clock(m.createdAt)}${mine && !m.pending && !m.deletedAt ? ` · ${receipt}` : ""}</time>${mine && !m.pending && !m.deletedAt ? `<button type="button" class="msg-delete" data-delete-message="${esc(m.id)}" aria-label="Delete message" title="Delete message">${icon("trash")}</button>` : ""}</div>`;
+      html += messageItemHTML(m, prev);
       prev = m;
     });
     list.innerHTML = html;
@@ -1138,19 +1258,32 @@
     $("#emojiPicker").classList.add("hidden");
     if (composer._typing) { state.socket?.emit("typing:stop", { conversationId: convoId }); composer._typing = false; }
     const temp = { id: "tmp-" + Date.now(), pending: true, senderId: state.me.id, text, createdAt: new Date().toISOString(), conversationId: convoId };
-    state.messages.push(temp); renderMessages();
+    state.messages.push(temp);
+    
+    // Append single message element
+    const list = $("#msgList");
+    const stream = $("#msgStream");
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = messageItemHTML(temp, state.messages[state.messages.length - 2]);
+    while (tempDiv.firstChild) list.appendChild(tempDiv.firstChild);
+    stream.scrollTop = stream.scrollHeight;
 
     const finish = (msg) => {
       if (state.activeConvoId !== convoId) return;
       const i = state.messages.findIndex((x) => x.id === temp.id);
-      if (state.messages.some((x) => x.id === msg.id)) { if (i !== -1) state.messages.splice(i, 1); }
-      else if (i !== -1) state.messages[i] = msg;
-      renderMessages();
+      if (i !== -1) state.messages[i] = msg;
+      else state.messages.push(msg);
+      messageCache.set(convoId, state.messages.slice(-50));
+      
+      const oldEl = $(`[data-message-id="${temp.id}"]`);
+      if (oldEl) oldEl.outerHTML = messageItemHTML(msg);
+      
       const c = state.conversations.find((x) => x.id === convoId);
       if (c) { c.lastMessage = msg.text; c.lastMessageFromMe = true; c.lastAt = msg.createdAt; state.conversations.sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt)); renderConversations(); }
     };
     const rejected = (err) => {
-      state.messages = state.messages.filter((x) => x.id !== temp.id); renderMessages();
+      state.messages = state.messages.filter((x) => x.id !== temp.id);
+      $(`[data-message-id="${temp.id}"]`)?.remove();
       composer.value = text; $("#sendBtn").disabled = false;
       toast(err.error || err.message || "Message not sent", "error");
       if (err.code === "RATE_LIMITED") loadMyRestrictions();
@@ -1658,12 +1791,117 @@
     if (!document.hidden && state.activeConvoId && currentView === "messages" && state.me?.readReceiptsEnabled !== false) api(`/api/conversations/${state.activeConvoId}/read`, { method: "POST" }).catch(() => {});
   });
 
+  // Wire Landing Modals & Banners
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-open-about]")) { e.preventDefault(); openModal("aboutModal"); }
+    if (e.target.closest("[data-open-privacy]")) { e.preventDefault(); openModal("privacyModal"); }
+    const reelCard = e.target.closest("[data-open-shared-reel]");
+    if (reelCard) {
+      e.preventDefault();
+      const rid = reelCard.dataset.openSharedReel;
+      if (rid) {
+        go("reels");
+        const el = $(`[data-reel="${rid}"]`);
+        if (el) el.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+    const editBtn = e.target.closest("[data-edit-msg]");
+    if (editBtn) {
+      e.preventDefault();
+      const mid = editBtn.dataset.editMsg;
+      const el = $(`[data-message-id="${mid}"]`);
+      if (el) {
+        const bodyEl = el.querySelector(".msg-body");
+        const curText = bodyEl ? bodyEl.textContent.trim() : "";
+        el.querySelector(".msg-bubble")?.classList.add("hidden");
+        const existingForm = el.querySelector(".msg-edit-form");
+        if (existingForm) { existingForm.classList.remove("hidden"); }
+        else {
+          const form = document.createElement("form");
+          form.className = "msg-edit-form";
+          form.dataset.editForm = mid;
+          form.innerHTML = `
+            <input type="text" class="input input-sm" style="flex:1;background:#18181B;color:#fff;border:1px solid #3F3F46;border-radius:8px;padding:6px 10px;font-size:13px;" value="${esc(curText)}" required />
+            <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end;">
+              <button type="button" class="btn sm" data-cancel-edit="${mid}" style="padding:4px 8px;font-size:11px;">Cancel</button>
+              <button type="submit" class="btn btn-primary sm" style="padding:4px 10px;font-size:11px;">Save</button>
+            </div>
+          `;
+          el.appendChild(form);
+        }
+      }
+    }
+    const cancelBtn = e.target.closest("[data-cancel-edit]");
+    if (cancelBtn) {
+      e.preventDefault();
+      const mid = cancelBtn.dataset.cancelEdit;
+      const el = $(`[data-message-id="${mid}"]`);
+      if (el) {
+        el.querySelector(".msg-bubble")?.classList.remove("hidden");
+        el.querySelector(".msg-edit-form")?.classList.add("hidden");
+      }
+    }
+  });
+
+  document.addEventListener("submit", async (e) => {
+    const editForm = e.target.closest("[data-edit-form]");
+    if (editForm) {
+      e.preventDefault();
+      const mid = editForm.dataset.editForm;
+      const input = editForm.querySelector("input");
+      const text = input ? input.value.trim() : "";
+      if (!text || !state.activeConvoId) return;
+      try {
+        const d = await api(`/api/conversations/${state.activeConvoId}/messages/${mid}`, { method: "PUT", body: { text } });
+        const m = state.messages.find(x => x.id === mid);
+        if (m) { m.text = d.message.text; m.isEdited = true; m.editedAt = d.message.editedAt; }
+        renderMessages(false);
+      } catch (err) { toast(err.message, "error"); }
+    }
+  });
+
+  $("#dismissAnnouncementBtn")?.addEventListener("click", () => {
+    $("#announcementBanner")?.classList.add("hidden");
+  });
+  $("#dismissWelcomeBtn")?.addEventListener("click", () => {
+    $("#welcomeBanner")?.classList.add("hidden");
+    if (state.me) localStorage.setItem("dismissed_welcome_" + state.me.id, "true");
+  });
+
+  $("#shareReelConvoList")?.addEventListener("click", async (e) => {
+    const row = e.target.closest("[data-send-reel-convo]");
+    if (!row || !state.sharingReelId) return;
+    const convoId = row.dataset.sendReelConvo;
+    try {
+      await api(`/api/conversations/${convoId}/share-reel`, { method: "POST", body: { reelId: state.sharingReelId } });
+      closeModal("shareReelModal");
+      toast("Reel shared to chat!", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  async function loadAnnouncements() {
+    try {
+      const list = await api("/api/announcements");
+      if (list && list.length > 0) {
+        const latest = list[0];
+        const banner = $("#announcementBanner");
+        if (banner) {
+          $("#announcementText").textContent = latest.text;
+          banner.classList.remove("hidden");
+        }
+      }
+    } catch (_) {}
+  }
+
   // Shared helpers for videos.js and groups.js (loaded after this file).
   window.NoChatApp = { api, toast, esc, icon, avatar, verified, groupAvatar, openModal, closeModal, confirmDialog, go, debounce, fmtCount, timeAgo, hydrateIcons,
     state, me: () => state.me, loadConversations, renderChatHeader, refreshChat: () => { if (state.activeConvoId) openChat(state.activeConvoId); }, closeChat: () => { closeChat(true); go("messages"); } };
 
   (async function boot() {
-    try { await enterApp(); }
+    try {
+      await enterApp();
+      loadAnnouncements();
+    }
     catch (_) { showAuth(); }
   })();
 })();

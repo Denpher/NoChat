@@ -6,10 +6,7 @@ export async function cloudCall(operation, data = {}) {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.NOCHAT_BRIDGE_SECRET}` },
     body: JSON.stringify({ operation, ...data }), signal: AbortSignal.timeout(90000)
   });
-  const raw = await response.text();
-  let result;
-  try { result = raw ? JSON.parse(raw) : {}; }
-  catch { const error = new Error('Cloud bridge returned non-JSON response (HTTP ' + response.status + '): ' + raw.slice(0,300)); error.status = response.status; throw error; }
+  const result = await response.json();
   if (!response.ok) { const error = new Error(result.error || 'Cloud storage unavailable. Please try again.'); error.status = response.status; throw error; }
   return result;
 }

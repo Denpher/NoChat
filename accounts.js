@@ -67,8 +67,23 @@ export function applyAdminAction(target, action, body = {}, now = Date.now()) {
     case 'restore':
       Object.assign(target, { status: 'active', statusReason: null, statusUntil: null, deletedAt: null, statusChangedAt: iso }); break;
     case 'revoke-sessions': revoke(target, iso); break;
-    case 'verify': target.verifiedBadge = true; break;
-    case 'unverify': target.verifiedBadge = false; break;
+    case 'verify': {
+      target.verifiedBadge = true;
+      const dur = String(body.duration || 'perm');
+      if (dur === '5d') {
+        target.verifiedUntil = new Date(now + 5 * 24 * 3600_000).toISOString();
+      } else if (dur === '30d') {
+        target.verifiedUntil = new Date(now + 30 * 24 * 3600_000).toISOString();
+      } else {
+        target.verifiedUntil = null;
+      }
+      break;
+    }
+    case 'unverify': {
+      target.verifiedBadge = false;
+      target.verifiedUntil = null;
+      break;
+    }
     case 'clear-spam': target.spam = { strikes: [], mutedUntil: null }; break;
   }
   return { action, reason };

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0b0a12">
+  <meta name="theme-color" content="#0A0A0A">
   <meta name="color-scheme" content="dark">
   <meta name="format-detection" content="telephone=no">
   <meta name="mobile-web-app-capable" content="yes">
@@ -13,53 +13,121 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icon-192.png">
-  <meta property="og:title" content="NoChat — Reels, friends and private chat">
-  <meta property="og:description" content="Share short video reels, chat with friends in real time and discover new people.">
+
+  <!-- SEO & Social OpenGraph -->
+  <title>NoChat — Humans. Not Algorithms.</title>
+  <meta name="description" content="NoChat is a place for real humans, no fake likes, no ads. Built by a student from Meerut, for the Earth.">
+  <meta property="og:title" content="NoChat — Humans. Not Algorithms.">
+  <meta property="og:description" content="NoChat is a place for real humans, no fake likes, no ads. Built for authentic connection.">
   <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary">
-  <title>NoChat — Reels, videos, groups and private chat</title>
-  <meta name="description" content="Share short video reels, chat with friends in real time and discover new people. Privacy is our first policy. Powered by Denpher.">
+  <meta property="og:url" content="https://nochat.com/">
+  <meta property="og:image" content="https://nochat.com/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="NoChat — Humans. Not Algorithms.">
+  <meta name="twitter:description" content="NoChat is a place for real humans, no fake likes, no ads. Built for authentic connection.">
+  <meta name="twitter:image" content="https://nochat.com/og-image.png">
+
+  <!-- Inter & Plus Jakarta Sans typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <a class="skip-link" href="#stage">Skip to content</a>
   <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
 
-  <!-- boot -->
+  <!-- Boot Splash -->
   <div id="bootSplash" class="boot">
     <div class="brand-mark lg"><span>N</span></div>
-    <div class="spinner"></div>
+    <div class="skeleton-shimmer-pill"></div>
   </div>
 
-  <!-- auth -->
-  <section id="authView" class="auth hidden" aria-label="Sign in to NoChat">
-    <div class="auth-art" aria-hidden="true">
-      <div class="auth-art-inner">
-        <div class="brand-row">
+  <!-- LANDING PAGE & AUTH -->
+  <section id="authView" class="auth hidden" aria-label="Welcome to NoChat">
+    <!-- Sticky Blurred Navbar -->
+    <header class="landing-nav">
+      <div class="landing-nav-inner">
+        <a href="#authView" class="brand-row">
           <div class="brand-mark"><span>N</span></div>
           <span class="brand-word">NoChat<b>.</b></span>
+        </a>
+        <nav class="landing-links">
+          <a href="#features-section">Features</a>
+          <button type="button" class="nav-text-btn" id="openAboutNavBtn">About Us</button>
+          <button type="button" class="nav-text-btn" id="openPrivacyNavBtn">Privacy</button>
+        </nav>
+        <div class="landing-nav-actions">
+          <button type="button" class="btn btn-ghost sm" id="navSignInBtn">Sign in</button>
+          <button type="button" class="btn btn-primary sm" id="navJoinBtn">Join NoChat</button>
         </div>
-        <h1 class="auth-headline">Short videos.<br>Real friends.<br><em>No noise.</em></h1>
-        <p class="auth-sub">Post reels, chat in real time and find your people — on a network that keeps your data on your own server.</p>
-        <div class="phone-stack">
-          <div class="phone p1"><div class="phone-screen s1"><span class="ph-heart">♥</span><span class="ph-line w60"></span><span class="ph-line w40"></span></div></div>
-          <div class="phone p2"><div class="phone-screen s2"><span class="ph-bubble l">hey! saw your reel 🔥</span><span class="ph-bubble r">thank you!! new one tonight</span><span class="ph-bubble l">can't wait</span></div></div>
-          <div class="phone p3"><div class="phone-screen s3"><span class="ph-avatar"></span><span class="ph-line w50"></span><span class="ph-pill">Add friend</span></div></div>
-        </div>
-        <ul class="auth-points">
-          <li><i data-icon="film"></i>Vertical reels with likes and comments</li>
-          <li><i data-icon="message"></i>Live private messaging with typing</li>
-          <li><i data-icon="shield"></i>No ads, no trackers, no data selling</li>
-        </ul>
+      </div>
+    </header>
+
+    <!-- Hero Section -->
+    <div class="landing-hero">
+      <div class="hero-badge">
+        <span class="dot-live"></span>
+        <span>21+ Verified Humans Online</span>
+      </div>
+      <h1 class="hero-headline">Humans. <span class="purple-word">Not</span> Algorithms.</h1>
+      <p class="hero-sub">NoChat is a place for real humans, no fake likes, no ads. Vertical reels, zero-latency chats, and official trailers — built for genuine human connection.</p>
+      
+      <div class="hero-cta-row">
+        <button type="button" class="btn btn-primary lg" id="heroJoinBtn">Join NoChat — It's Free</button>
+        <button type="button" class="btn btn-secondary lg" id="heroStatsBtn">See Live Humans: 21+</button>
+      </div>
+
+      <!-- Live Stats Strip -->
+      <div class="stats-strip">
+        <div class="stats-item"><strong>21+</strong><span>Humans</span></div>
+        <div class="stats-sep"></div>
+        <div class="stats-item"><strong>100%</strong><span>Real</span></div>
+        <div class="stats-sep"></div>
+        <div class="stats-item"><strong>0</strong><span>Ads</span></div>
       </div>
     </div>
 
-    <div class="auth-panel">
+    <!-- 3 Premium Feature Cards -->
+    <section class="landing-features" id="features-section">
+      <div class="feature-card">
+        <div class="feature-icon"><i data-icon="film"></i></div>
+        <h3>Real Reels</h3>
+        <p>Full-screen, buttery-smooth 60fps vertical feed. Authentic creator moments with real comments and zero algorithmic deception.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-icon="message"></i></div>
+        <h3>Zero-Latency Chat</h3>
+        <p>Instant messaging, inline message editing within 15 minutes, typing indicators, and one-tap reel card sharing directly into chats.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-icon="tv"></i></div>
+        <h3>Watch Party & Trailers</h3>
+        <p>Official anime and movie trailers with instant "Where to Watch" links and dedicated group discussion rooms for true fans.</p>
+      </div>
+    </section>
+
+    <!-- Founder Section -->
+    <section class="founder-section">
+      <div class="founder-card">
+        <span class="founder-tag">Founder Note</span>
+        <blockquote class="founder-quote">“Built by a student from Meerut, for the Earth.”</blockquote>
+        <div class="founder-author">
+          <div class="founder-avatar">D</div>
+          <div>
+            <strong>Denpher</strong>
+            <small class="muted">Founder & Creator of NoChat</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Auth Modal / Card Container -->
+    <div class="auth-container" id="authContainer">
       <div class="auth-card">
-        <div class="brand-row mobile-only">
+        <div class="brand-row center-brand">
           <div class="brand-mark"><span>N</span></div>
           <span class="brand-word">NoChat<b>.</b></span>
         </div>
@@ -85,12 +153,12 @@
           <p class="form-error hidden" id="loginError" role="alert"></p>
           <button type="button" class="btn btn-ghost btn-block hidden" id="loginAppealBtn">Submit an appeal</button>
           <button type="submit" class="btn btn-primary btn-block" id="loginSubmit">Sign in</button>
-          <p class="form-hint">Need access to an older account? Contact Denpher for secure account recovery.</p>
+          <p class="form-hint">Existing user? Your account, username, and verified status are 100% preserved.</p>
         </form>
 
         <form id="registerForm" class="auth-form hidden" novalidate>
-          <h2>Create your account</h2>
-          <p class="muted">It takes 20 seconds. Always free.</p>
+          <h2>Join NoChat</h2>
+          <p class="muted">Join over 21+ real humans. Always free.</p>
           <label class="field">
             <span>Display name</span>
             <input type="text" id="regDisplayName" maxlength="50" placeholder="Alex Rivera" autocomplete="name">
@@ -119,14 +187,42 @@
           <button type="submit" class="btn btn-primary btn-block" id="registerSubmit">Create account</button>
         </form>
 
-        <p class="made-with">Made with ❤️ by Denpher </p>
-        <p class="auth-foot"><i data-icon="shield"></i> Privacy is our first policy · Version 3.3.0 · <a href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer">Powered by Denpher</a></p>
+        <div class="auth-footer-links">
+          <button type="button" class="link-btn" id="openAboutBtn">About Us</button>
+          <span>·</span>
+          <button type="button" class="link-btn" id="openPrivacyBtn">Privacy Policy</button>
+        </div>
       </div>
     </div>
+
+    <!-- Landing Footer -->
+    <footer class="landing-footer">
+      <p>Made for Humans.</p>
+      <small class="muted">NoChat v3.3.1 · Powered by Denpher Technologies</small>
+    </footer>
   </section>
 
-  <!-- app -->
+  <!-- APP SHELL -->
   <div id="appShell" class="shell hidden" data-view="reels">
+    <!-- Announcement Banner -->
+    <div id="announcementBanner" class="announcement-banner hidden">
+      <div class="announcement-content">
+        <span class="announcement-tag">Announcement</span>
+        <span id="announcementText" class="announcement-text"></span>
+      </div>
+      <button type="button" class="announcement-dismiss" id="dismissAnnouncementBtn" aria-label="Dismiss"><i data-icon="x"></i></button>
+    </div>
+
+    <!-- 24h Welcome Banner -->
+    <div id="welcomeBanner" class="welcome-banner hidden">
+      <div class="welcome-content">
+        <span class="welcome-badge" id="welcomeBadge">Human #21</span>
+        <span id="welcomeText" class="welcome-text">Welcome! You are Human #21</span>
+      </div>
+      <button type="button" class="welcome-dismiss" id="dismissWelcomeBtn" aria-label="Dismiss"><i data-icon="x"></i></button>
+    </div>
+
+    <!-- Sidebar Navigation -->
     <aside class="sidebar" aria-label="Main navigation">
       <a href="#/reels" class="brand-row sidebar-brand">
         <div class="brand-mark"><span>N</span></div>
@@ -145,12 +241,16 @@
           <span class="avatar sm" data-me-avatar></span>
           <span class="me-pill-text"><strong data-me-name>You</strong><small data-me-username>@you</small></span>
         </a>
+        <div class="sidebar-sublinks">
+          <button type="button" class="tiny-link" id="sideAboutBtn">About Us</button>
+          <span>·</span>
+          <button type="button" class="tiny-link" id="sidePrivacyBtn">Privacy</button>
+        </div>
         <p class="tiny muted"><i data-icon="shield"></i> Privacy is our first policy</p>
-        <a class="tiny denpher-link" href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer">Denpher — Websites for small businesses</a>
-        <p class="made-with sm">Made with Love by Denpher ❤️</p>
       </div>
     </aside>
 
+    <!-- Topbar for Mobile -->
     <header class="topbar">
       <a href="#/reels" class="brand-row"><div class="brand-mark sm"><span>N</span></div><span class="brand-word sm">NoChat<b>.</b></span></a>
       <div class="topbar-actions">
@@ -160,48 +260,65 @@
     </header>
 
     <main id="stage" class="stage">
-      <!-- reels -->
+      <!-- 1. REELS VIEW: Exact Instagram Full-screen Feed -->
       <section id="view-reels" class="view" aria-label="Reels">
         <div class="feed-tools">
           <button type="button" class="chip glass" data-action="toggle-sound"><i data-icon="volume-x" data-sound-icon></i><span data-sound-label>Sound off</span></button>
           <button type="button" class="chip glass" id="refreshFeed" aria-label="Refresh reels"><i data-icon="refresh"></i></button>
         </div>
         <button type="button" id="newReelsPill" class="new-pill hidden"><i data-icon="arrow-up"></i> New reels</button>
-        <div id="feed" class="feed">
-          <div id="feedLoading" class="feed-state"><div class="spinner"></div><p>Loading reels…</p></div>
+        <div id="feed" class="feed reels-snap-feed">
+          <div id="feedLoading" class="feed-state">
+            <div class="skeleton-reel">
+              <div class="skeleton-reel-bg"></div>
+              <div class="skeleton-reel-actions">
+                <div class="skeleton-circle"></div>
+                <div class="skeleton-circle"></div>
+                <div class="skeleton-circle"></div>
+              </div>
+              <div class="skeleton-reel-meta">
+                <div class="skeleton-line w50"></div>
+                <div class="skeleton-line w80"></div>
+              </div>
+            </div>
+          </div>
           <div id="feedEmpty" class="feed-state hidden">
             <div class="empty-icon"><i data-icon="film"></i></div>
             <h3>No reels yet</h3>
-            <p class="muted">Be the first to post something.</p>
+            <p class="muted">Be the first human to share a reel.</p>
             <button type="button" class="btn btn-primary" data-action="open-upload"><i data-icon="plus"></i> Upload a reel</button>
           </div>
         </div>
       </section>
 
-      <!-- videos -->
+      <!-- 2. VIDEOS / WATCH PARTY VIEW -->
       <section id="view-videos" class="view scroll" aria-label="Videos">
         <div class="page videos-page">
           <header class="videos-head">
             <div>
-              <h1 class="page-title">Videos</h1>
-              <p class="muted">Anime, movies, trailers and more — streamed from official channels.</p>
+              <h1 class="page-title">Watch Party & Trailers</h1>
+              <p class="muted">Official anime and movie trailers. Discuss in chat and find where to watch.</p>
+              <div class="disclaimer-banner">
+                <i data-icon="shield"></i>
+                <span>NoChat does not host movies, only official trailers.</span>
+              </div>
             </div>
-            <button type="button" class="btn btn-primary hidden" id="videoAddBtn"><i data-icon="plus"></i><span>Add video</span></button>
+            <button type="button" class="btn btn-primary hidden" id="videoAddBtn"><i data-icon="plus"></i><span>Add trailer</span></button>
           </header>
           <div class="videos-tools">
-            <label class="search grow"><i data-icon="search"></i><input type="search" id="videoSearch" placeholder="Search titles, channels…" aria-label="Search videos"></label>
+            <label class="search grow"><i data-icon="search"></i><input type="search" id="videoSearch" placeholder="Search official trailers, anime, movies…" aria-label="Search videos"></label>
             <select id="videoSort" class="select" aria-label="Sort videos"><option value="latest">Featured</option><option value="popular">Most viewed</option></select>
           </div>
           <div class="vchips" id="videoCats" role="tablist" aria-label="Categories"></div>
           <p class="notice hidden" id="videoNotice"><i data-icon="info"></i> View counts are paused while video storage is being enabled.</p>
           <section class="featured hidden" id="videoFeatured" aria-label="Featured video"></section>
           <div id="videoGrid" class="video-grid"></div>
-          <div id="videoMore" class="feed-state hidden"><div class="spinner"></div></div>
+          <div id="videoMore" class="feed-state hidden"><div class="skeleton-card"></div></div>
           <div id="videoSentinel" aria-hidden="true"></div>
         </div>
       </section>
 
-      <!-- messages -->
+      <!-- 3. MESSAGES VIEW: WhatsApp + Instagram Smooth -->
       <section id="view-messages" class="view" aria-label="Messages">
         <div class="chat-layout" id="chatLayout">
           <div class="convo-pane">
@@ -220,7 +337,7 @@
             <div id="chatEmpty" class="chat-empty">
               <div class="empty-icon"><i data-icon="message"></i></div>
               <h3>Your messages</h3>
-              <p class="muted">Private chats and groups with your friends, delivered instantly.</p>
+              <p class="muted">Zero-latency chats with friends, instant delivery and inline edit.</p>
               <button type="button" class="btn btn-primary" data-action="new-chat">Start a chat</button>
             </div>
             <div id="chatActive" class="chat-active hidden">
@@ -257,13 +374,13 @@
         </div>
       </section>
 
-      <!-- people -->
+      <!-- 4. PEOPLE VIEW -->
       <section id="view-people" class="view scroll" aria-label="People">
         <div class="page">
           <header class="page-head">
             <div>
               <h1 class="page-title">People</h1>
-              <p class="muted">Your friends, requests, and creators to discover.</p>
+              <p class="muted">21+ Real humans. Your friends, requests, and creators to discover.</p>
             </div>
           </header>
           <label class="search lg">
@@ -279,30 +396,37 @@
         </div>
       </section>
 
-      <!-- profile -->
+      <!-- 5. PROFILE VIEW: Polished & Premium -->
       <section id="view-profile" class="view scroll" aria-label="Your profile">
         <div class="page">
           <div class="profile-hero">
             <div class="profile-cover"></div>
             <div class="profile-main">
               <button type="button" class="profile-avatar-btn" data-action="open-avatar" aria-label="Change profile photo">
-                <span class="avatar xl" data-me-avatar></span>
+                <span class="avatar xl" id="profileBigAvatar" data-me-avatar></span>
                 <span class="avatar-cam"><i data-icon="camera"></i></span>
               </button>
               <div class="profile-id">
-                <h1 class="profile-name"><span data-me-name>You</span><span data-me-verified></span></h1>
-                <p class="muted" data-me-username>@you</p>
+                <div class="profile-title-row">
+                  <h1 class="profile-name"><span data-me-name>You</span><span data-me-verified></span></h1>
+                  <span class="member-tag" id="meMemberBadge">Human #21</span>
+                </div>
+                <p class="profile-handle" data-me-username>@you</p>
+                <div class="verified-countdown-chip hidden" id="meVerifiedCountdown">Verified • 4 days left</div>
                 <p class="profile-bio" id="meBio"></p>
+                <div class="joined-date" id="meJoinedDate"><i data-icon="clock"></i> <span>Joined Nov 2026</span></div>
               </div>
               <div class="profile-cta">
                 <button type="button" class="btn btn-soft" data-profile-tab-jump="settings"><i data-icon="edit"></i> Edit profile</button>
                 <button type="button" class="btn btn-primary" data-action="open-upload"><i data-icon="plus"></i> New reel</button>
               </div>
             </div>
-            <div class="stats">
-              <div class="stat"><strong id="meReelsCount">0</strong><span>Reels</span></div>
-              <a class="stat" href="#/people"><strong id="meFriendsCount">0</strong><span>Friends</span></a>
-              <div class="stat"><strong id="meSubsCount">0</strong><span>Subscribers</span></div>
+            
+            <!-- Clean Linear Row for Posts / Followers / Following -->
+            <div class="stats profile-stats-row">
+              <div class="stat"><strong id="meReelsCount">0</strong><span>Posts</span></div>
+              <a class="stat" href="#/people"><strong id="meFollowersCount">0</strong><span>Followers</span></a>
+              <a class="stat" href="#/people"><strong id="meFollowingCount">0</strong><span>Following</span></a>
             </div>
           </div>
 
@@ -311,7 +435,12 @@
             <button type="button" class="tab" data-profile-tab="settings"><i data-icon="settings"></i> Settings</button>
           </div>
 
-          <div class="admin-row hidden" id="adminRow"><button type="button" class="btn btn-soft" id="adminReviewBtn"><i data-icon="shield"></i> Moderation review</button><button type="button" class="btn btn-soft" id="adminConsoleBtn"><i data-icon="users"></i> Admin console</button></div>
+          <div class="admin-row hidden" id="adminRow">
+            <button type="button" class="btn btn-soft" id="adminAnnouncementBtn"><i data-icon="bell"></i> Make Announcement</button>
+            <button type="button" class="btn btn-soft" id="adminReviewBtn"><i data-icon="shield"></i> Moderation review</button>
+            <button type="button" class="btn btn-soft" id="adminConsoleBtn"><i data-icon="users"></i> Admin console</button>
+          </div>
+          
           <div id="profileReels" class="profile-tab-body">
             <div id="meReelGrid" class="reel-grid"></div>
           </div>
@@ -385,11 +514,12 @@
 
               <div class="card about-card">
                 <h3>About NoChat</h3>
-                <p class="muted small">Short videos, real friends and private messaging. Privacy is our first policy.</p>
-                <p class="muted small" id="myRestrictions"></p>
-                <div class="row-actions"><button type="button" class="btn btn-soft hidden" id="spamAppealBtn">Appeal a messaging pause</button></div>
-                <p class="made-with">Made with Love by Denpher ❤️</p>
-                <p class="muted tiny">NoChat Version 3.3.0</p>
+                <p class="muted small">Short videos, real humans and private messaging. Privacy is our first policy.</p>
+                <div class="row-actions">
+                  <button type="button" class="btn btn-soft" id="profileAboutModalBtn">About Us</button>
+                  <button type="button" class="btn btn-soft" id="profilePrivacyModalBtn">Privacy Policy</button>
+                </div>
+                <p class="muted tiny">NoChat Version 3.3.1 · Built by a student from Meerut, for the Earth.</p>
               </div>
             </div>
           </div>
@@ -397,6 +527,7 @@
       </section>
     </main>
 
+    <!-- Mobile Tabbar -->
     <nav class="tabbar" aria-label="Main navigation">
       <a href="#/reels" class="tab-item" data-nav="reels" aria-label="Reels"><i data-icon="film"></i><span>Reels</span></a>
       <a href="#/videos" class="tab-item" data-nav="videos" aria-label="Videos"><i data-icon="tv"></i><span>Videos</span></a>
@@ -407,7 +538,121 @@
     </nav>
   </div>
 
-  <!-- modals -->
+  <!-- MODALS -->
+
+  <!-- Share Reel into Chat Modal -->
+  <div class="modal hidden" id="shareReelModal" role="dialog" aria-modal="true" aria-labelledby="shareReelTitle">
+    <div class="modal-card">
+      <header class="modal-head">
+        <h2 id="shareReelTitle">Share reel</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button>
+      </header>
+      <p class="muted small" style="margin-bottom:12px">Send this reel as a card into any chat.</p>
+      <div id="shareReelConvoList" class="convo-list" style="max-height:280px;overflow-y:auto"></div>
+      <div class="row-actions end" style="margin-top:16px">
+        <button type="button" class="btn btn-soft" id="copyReelLinkBtn"><i data-icon="link"></i> Copy Link</button>
+        <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Announcement Modal for Admin -->
+  <div class="modal hidden" id="announcementModal" role="dialog" aria-modal="true" aria-labelledby="announcementModalTitle">
+    <form class="modal-card narrow" id="announcementForm">
+      <header class="modal-head">
+        <h2 id="announcementModalTitle">Make Announcement</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button>
+      </header>
+      <label class="field">
+        <span>Announcement Title</span>
+        <input type="text" id="announcementTitleInput" maxlength="100" placeholder="Important Update" required>
+      </label>
+      <label class="field">
+        <span>Message</span>
+        <textarea id="announcementMessageInput" rows="4" maxlength="500" placeholder="Write your announcement to all 21+ humans..." required></textarea>
+      </label>
+      <div class="row-actions end">
+        <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" id="publishAnnouncementBtn">Broadcast</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- About Us Modal (Instagram / Linear style) -->
+  <div class="modal hidden" id="aboutModal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <div class="modal-card info-modal-card">
+      <header class="modal-head">
+        <div class="brand-row"><div class="brand-mark sm"><span>N</span></div><h2 id="aboutTitle">About NoChat</h2></div>
+        <button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button>
+      </header>
+      <div class="info-modal-content">
+        <div class="info-hero-box">
+          <h3>Humans. Not Algorithms.</h3>
+          <p>NoChat was built with a singular vision: social connection without algorithmic manipulation, without ad trackers, and without commercial data harvesting.</p>
+        </div>
+        <div class="info-grid">
+          <div class="info-cell">
+            <strong>Real People</strong>
+            <p>Every account is a real human. No bot armies, no fake likes, no inflated counts.</p>
+          </div>
+          <div class="info-cell">
+            <strong>Zero Advertising</strong>
+            <p>Your attention is not a product. No sponsored posts or invasive behavioral targeting.</p>
+          </div>
+          <div class="info-cell">
+            <strong>Self-Hosted Core</strong>
+            <p>Runs on private cloud storage and self-hosted instances with end-to-end user data sovereignty.</p>
+          </div>
+          <div class="info-cell">
+            <strong>Student Built</strong>
+            <p>Created by a passionate young founder from Meerut, India, striving for a cleaner internet.</p>
+          </div>
+        </div>
+      </div>
+      <div class="row-actions end">
+        <button type="button" class="btn btn-primary" data-close>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Privacy Policy Modal (Instagram / Linear style) -->
+  <div class="modal hidden" id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
+    <div class="modal-card info-modal-card">
+      <header class="modal-head">
+        <div class="brand-row"><div class="brand-mark sm"><span>N</span></div><h2 id="privacyTitle">Privacy Policy</h2></div>
+        <button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button>
+      </header>
+      <div class="info-modal-content">
+        <div class="info-hero-box">
+          <h3>Privacy is our first policy.</h3>
+          <p>At NoChat, your privacy is protected by design and code, not just legal promises.</p>
+        </div>
+        <div class="policy-sections">
+          <article class="policy-item">
+            <h4>1. No Third-Party Trackers</h4>
+            <p>We do not use Google Analytics, Meta Pixel, or any third-party tracking cookies. Your browsing activity never leaves the application.</p>
+          </article>
+          <article class="policy-item">
+            <h4>2. Strict Email & Identity Confidentiality</h4>
+            <p>Your email address is strictly confidential and is only visible to you. It is never exposed in user profiles, feeds, or search APIs.</p>
+          </article>
+          <article class="policy-item">
+            <h4>3. Direct Content Control</h4>
+            <p>You can edit your messages within 15 minutes and delete your messages or reels at any time. When deleted, your media is permanently wiped from storage.</p>
+          </article>
+          <article class="policy-item">
+            <h4>4. Security by Default</h4>
+            <p>All traffic is encrypted via TLS with Strict-Transport-Security (HSTS max-age=31536000 preload), secure HttpOnly cookies, and strict CSP headers.</p>
+          </article>
+        </div>
+      </div>
+      <div class="row-actions end">
+        <button type="button" class="btn btn-primary" data-close>Understood</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Reel Upload Modal -->
   <div class="modal hidden" id="uploadModal" role="dialog" aria-modal="true" aria-labelledby="uploadTitle">
     <div class="modal-card wide">
       <header class="modal-head">
@@ -562,6 +807,7 @@
       </div>
     </div>
   </div>
+
   <div class="modal hidden" id="adminModal" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
     <div class="modal-card wide admin-card">
       <header class="modal-head"><h2 id="adminTitle">Admin console</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button></header>
@@ -586,18 +832,30 @@
       <div data-admin-pane="audit" class="hidden"><div id="adminAudit" class="admin-list"></div></div>
     </div>
   </div>
+
   <div class="modal hidden" id="adminActionModal" role="alertdialog" aria-modal="true" aria-labelledby="adminActionTitle">
     <form class="modal-card narrow" id="adminActionForm">
       <h2 id="adminActionTitle">Confirm action</h2>
       <p class="muted" id="adminActionText"></p>
       <label class="field hidden" id="adminDurationField"><span>Suspend for</span>
         <select id="adminDuration"><option value="1">1 hour</option><option value="24" selected>24 hours</option><option value="168">7 days</option><option value="720">30 days</option></select></label>
+      
+      <!-- Verified Badge Duration Selection -->
+      <label class="field hidden" id="adminVerifyDurationField"><span>Verification duration</span>
+        <select id="adminVerifyDuration">
+          <option value="5d">5 Days</option>
+          <option value="30d">30 Days</option>
+          <option value="perm" selected>Permanent</option>
+        </select>
+      </label>
+
       <label class="field" id="adminReasonField"><span>Reason (saved in the audit log)</span><textarea id="adminReason" rows="2" maxlength="500"></textarea></label>
       <label class="field" id="adminConfirmField"><span>Type <b id="adminConfirmName"></b> to confirm</span><input type="text" id="adminConfirm" autocomplete="off" spellcheck="false"></label>
       <p class="form-error hidden" id="adminActionError" role="alert"></p>
       <div class="row-actions end"><button type="button" class="btn btn-ghost" data-close>Cancel</button><button type="submit" class="btn btn-danger" id="adminActionYes">Confirm</button></div>
     </form>
   </div>
+
   <div class="modal hidden" id="appealModal" role="dialog" aria-modal="true" aria-labelledby="appealTitle">
     <form class="modal-card narrow" id="appealForm">
       <h2 id="appealTitle">Submit an appeal</h2>
@@ -607,8 +865,10 @@
       <div class="row-actions end"><button type="button" class="btn btn-ghost" data-close>Cancel</button><button type="submit" class="btn btn-primary">Send appeal</button></div>
     </form>
   </div>
+
   <div class="modal hidden" id="reviewModal" role="dialog" aria-modal="true" aria-label="Moderation review"><div class="modal-card wide"><header class="modal-head"><h2>Moderation review</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button></header><div id="reviewList"></div></div></div>
-  <!-- VIDEO PLAYER -->
+
+  <!-- VIDEO PLAYER MODAL -->
   <div class="modal player-modal hidden" id="videoPlayerModal" role="dialog" aria-modal="true" aria-labelledby="playerTitle">
     <div class="player-card">
       <button type="button" class="icon-btn modal-x glass" data-close aria-label="Close player"><i data-icon="x"></i></button>
@@ -618,30 +878,34 @@
           <span class="vchip static" id="playerCat"></span>
           <h2 id="playerTitle"></h2>
           <p class="player-meta"><strong id="playerChannel"></strong><span id="playerViews"></span></p>
+          <div class="watch-actions-row">
+            <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary sm" id="playerWatchLink"><i data-icon="tv"></i> Where to Watch</a>
+            <button type="button" class="btn btn-primary sm" id="playerDiscussBtn"><i data-icon="message"></i> Discuss in Chat</button>
+          </div>
           <p class="player-desc" id="playerDesc"></p>
         </div>
       </div>
       <aside class="player-next"><p class="section-label">Up next</p><div id="playerNext"></div></aside>
     </div>
   </div>
+
   <div class="modal hidden" id="videoManageModal" role="dialog" aria-modal="true" aria-labelledby="vmTitle">
     <form class="modal-card" id="videoManageForm" autocomplete="off">
-      <header class="modal-head"><h2 id="vmTitle">Add video</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button></header>
-      <div class="seg" id="vmModes"><button type="button" class="seg-btn active" data-vmode="link"><i data-icon="link"></i> Embed link</button><button type="button" class="seg-btn" data-vmode="upload"><i data-icon="upload"></i> Upload (max 15 min)</button></div>
-      <label class="field" id="vmLinkField"><span>YouTube or Vimeo link</span><input type="url" id="vmUrl" placeholder="https://www.youtube.com/watch?v=…"></label>
-      <label class="field hidden" id="vmFileField"><span>Video file — MP4, MOV or WebM, up to 15 minutes and 100 MB</span><input type="file" id="vmFile" accept="video/mp4,video/quicktime,video/webm"></label>
-      <label class="field"><span>Title</span><input type="text" id="vmName" maxlength="120" required></label>
+      <header class="modal-head"><h2 id="vmTitle">Add official trailer</h2><button type="button" class="icon-btn" data-close aria-label="Close"><i data-icon="x"></i></button></header>
+      <label class="field" id="vmLinkField"><span>Official YouTube trailer link</span><input type="url" id="vmUrl" placeholder="https://www.youtube.com/watch?v=…" required></label>
+      <label class="field"><span>Title</span><input type="text" id="vmName" maxlength="120" placeholder="e.g. Demon Slayer Infinity Castle Trailer" required></label>
       <div class="field-row">
         <label class="field"><span>Category</span><select id="vmCategory" class="select"></select></label>
-        <label class="field"><span>Channel / credit</span><input type="text" id="vmChannel" maxlength="80" placeholder="Official channel"></label>
+        <label class="field"><span>Channel / Studio</span><input type="text" id="vmChannel" maxlength="80" placeholder="Crunchyroll, Netflix, etc."></label>
       </div>
+      <label class="field"><span>Where to Watch URL (Netflix / Crunchyroll)</span><input type="url" id="vmWatchUrl" placeholder="https://www.crunchyroll.com/..."></label>
       <label class="field"><span>Description</span><textarea id="vmDesc" rows="3" maxlength="1000"></textarea></label>
-      <progress id="vmProgress" max="100" value="0" class="hidden" aria-label="Upload progress"></progress>
-      <p class="muted tiny">Only add videos you own or that the rights holder allows to be embedded.</p>
+      <p class="muted tiny">NoChat only hosts official trailers. Full movies are never uploaded.</p>
       <p class="form-error hidden" id="vmError" role="alert"></p>
-      <div class="row-actions end"><button type="button" class="btn btn-ghost" data-close>Cancel</button><button type="submit" class="btn btn-primary" id="vmSave">Save</button></div>
+      <div class="row-actions end"><button type="button" class="btn btn-ghost" data-close>Cancel</button><button type="submit" class="btn btn-primary" id="vmSave">Save Trailer</button></div>
     </form>
   </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="/calls.js"></script>
   <script src="/app.js"></script>

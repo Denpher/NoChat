@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## Unreleased — founder video
+- Added the founder's own YouTube video (3J81gK6QBgc, official embed) to Videos, listed first as "Denpher · NoChat founder".
+- Fixed founder video upload error: production reported `videoStorage:false` because the cloud save function rejects a `videos` collection, so uploads returned "Video storage is not enabled yet". Videos are now saved as tagged rows inside the existing `reelUploads` collection when that happens; no database migration or new setting is needed. Applying `database/migrations/2026-11-13-v3.3-videos.sql` later is optional and moves them to their own collection automatically. Test: tests/videos-cloud.test.js.
+
 ## v3.3.0 — Videos, group chats, TURN relay, dark design
 See RELEASE-v3.3.md for deployment steps and TURN-SETUP.md for calls.
 

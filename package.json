@@ -1,6 +1,6 @@
 {
   "name": "nochat",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "private": true,
   "type": "module",
   "description": "NoChat - Real-time messaging by Denpher Technologies",

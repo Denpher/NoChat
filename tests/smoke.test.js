@@ -1,4 +1,4 @@
-// Run: npm test  — starts NoChat on a temp folder and checks the core flows.
+// testing the code in npm local server
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";

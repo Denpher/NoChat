@@ -3,6 +3,8 @@
 // Movies are complete Blender Foundation / Blender Studio open movies (Creative Commons). Everything else is an
 // official trailer, clip or episode published by the rights holder's own channel.
 export const SEED_VIDEOS = [
+  // Founder's own video (official YouTube embed from @denpher_ai). Listed first.
+  {"id": "yt-3J81gK6QBgc", "category": "Entertainment", "provider": "youtube", "embedId": "3J81gK6QBgc", "title": "I Started Startup at 14 with my friends … 🚀", "channel": "Denpher · NoChat founder", "description": "From the NoChat founder's own YouTube channel (@denpher_ai)."},
   {"id": "yt-wyiZWYMilgk", "category": "Anime", "provider": "youtube", "embedId": "wyiZWYMilgk", "title": "Demon Slayer: Kimetsu no Yaiba Infinity Castle · Official Trailer", "channel": "Crunchyroll", "description": "Official trailer for the Infinity Castle arc of Demon Slayer from Crunchyroll."},
   {"id": "yt-pkKu9hLT-t8", "category": "Anime", "provider": "youtube", "embedId": "pkKu9hLT-t8", "title": "JUJUTSU KAISEN · OFFICIAL TRAILER", "channel": "Crunchyroll", "description": "Official trailer for JUJUTSU KAISEN, the cursed-energy action series, from Crunchyroll."},
   {"id": "yt-ofXigq9aIpo", "category": "Anime", "provider": "youtube", "embedId": "ofXigq9aIpo", "title": "SPY x FAMILY · MAIN TRAILER", "channel": "Crunchyroll", "description": "Main trailer for SPY x FAMILY — a spy, an assassin and a telepath pretend to be a family."},

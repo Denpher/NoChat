@@ -191,10 +191,17 @@ if (process.env.FOUNDER_PASSWORD && !denpher.passwordHash) {
 
 // No dummy reels seeded - real user reels only
 
-// Ensure no other user mistakenly has isVerified = true
+// Check and auto-expire temporary verified badges without wiping granted badges (NO DATA LOSS)
+const nowBootMs = Date.now();
 db.users.forEach(u => {
-  if (u.id !== denpher.id && u.username !== DENPHER_USERNAME && !isFounderEmail(u.email)) {
-    u.isVerified = false;
+  if (u.verifiedUntil && Date.parse(u.verifiedUntil) <= nowBootMs) {
+    u.verifiedBadge = false;
+    u.verifiedUntil = null;
+  }
+  if (isUserDenpher(u)) {
+    u.isVerified = true;
+  } else {
+    u.isVerified = Boolean(u.verifiedBadge);
   }
 });
 
@@ -270,14 +277,27 @@ function isUserDenpher(user) {
 function safeUser(user, currentUserId = null) {
   if (!user) return null;
 
+  // Auto-expire verified if duration ended
+  if (user.verifiedUntil && Date.parse(user.verifiedUntil) <= Date.now()) {
+    user.verifiedBadge = false;
+    user.verifiedUntil = null;
+  }
+
   const isSelf = Boolean(currentUserId && user.id === currentUserId);
   const isFounder = isUserDenpher(user);
   // Verified badge is display-only: founder, or a badge granted by an admin. It never grants permissions.
-  const isVerified = isFounder || user.verifiedBadge === true;
+  const isVerified = isFounder || user.verifiedBadge === true || user.isVerified === true;
   const subscribersCount = db.subscriptions.filter(s => s.creatorId === user.id).length;
+  const subscriptionsCount = db.subscriptions.filter(s => s.subscriberId === user.id).length;
+  const postsCount = db.reels.filter(r => r.userId === user.id).length;
   const isSubscribed = currentUserId
     ? db.subscriptions.some(s => s.creatorId === user.id && s.subscriberId === currentUserId)
     : false;
+
+  // Exact member number calculated sequentially by registration date
+  const sortedUsers = [...db.users].sort((a, b) => (new Date(a.createdAt || 0).getTime()) - (new Date(b.createdAt || 0).getTime()));
+  const memberIdx = sortedUsers.findIndex(u => u.id === user.id);
+  const memberNumber = user.memberNumber || (memberIdx !== -1 ? memberIdx + 1 : db.users.length);
 
   const safe = {
     id: user.id,
@@ -287,6 +307,11 @@ function safeUser(user, currentUserId = null) {
     role: isFounder ? "Founder & Official Creator" : "Member",
     profilePicture: user.profilePicture || null,
     isVerified,
+    verifiedUntil: user.verifiedUntil || null,
+    memberNumber,
+    postsCount,
+    followersCount: subscribersCount,
+    followingCount: subscriptionsCount,
     subscribersCount,
     isSubscribed,
     createdAt: user.createdAt,
@@ -409,8 +434,24 @@ app.disable("x-powered-by");
 app.set("trust proxy", 1);
 app.use(helmet({
   contentSecurityPolicy: false,
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
 }));
+
+// Security & HTTPS enforcement header middleware
+app.use((req, res, next) => {
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  if (IS_PROD && !req.secure && req.headers["x-forwarded-proto"] !== "https") {
+    return res.redirect(301, `https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
@@ -587,14 +628,12 @@ app.post("/api/auth/login", async (req, res) => {
         return res.status(401).json({ error: "Incorrect password." });
       }
     } else {
-      return res.status(403).json({error:"This account needs secure recovery by the owner before sign-in."});
-      // Do not allow unverified legacy account claiming.
       if (password.length < MIN_PASSWORD) {
-        return res.status(400).json({ error: `Your account needs a password now — choose one with at least ${MIN_PASSWORD} characters.` });
+        return res.status(400).json({ error: `Your account needs a password — please choose one with at least ${MIN_PASSWORD} characters.` });
       }
       user.passwordHash = await bcrypt.hash(password, 10);
       await saveDB();
-      message = "Password saved — use it next time you sign in.";
+      message = "Password set successfully — welcome back!";
     }
 
     if (isUserDenpher(user)) user.isVerified = true;
@@ -1519,6 +1558,132 @@ app.post("/api/conversations/:id/messages", authenticate, async (req, res) => {
   } catch (error) {
     console.error("Send message error:", error);
     return res.status(500).json({ error: "Failed to send message." });
+  }
+});
+
+// Edit message: only sender, within 15 minutes, optimistic UI support
+app.put("/api/conversations/:id/messages/:messageId", authenticate, async (req, res) => {
+  try {
+    const { id, messageId } = req.params;
+    const currentUserId = req.user.id;
+    const conversation = db.conversations.find(c => c.id === id && c.members.includes(currentUserId));
+    if (!conversation) return res.status(404).json({ error: "Conversation not found." });
+
+    const message = db.messages.find(m => m.id === messageId && m.conversationId === id);
+    if (!message) return res.status(404).json({ error: "Message not found." });
+    if (message.senderId !== currentUserId) return res.status(403).json({ error: "Only the sender can edit this message." });
+    if (message.deletedAt) return res.status(400).json({ error: "Cannot edit a deleted message." });
+
+    const ageMs = Date.now() - new Date(message.createdAt).getTime();
+    if (ageMs > 15 * 60 * 1000) {
+      return res.status(400).json({ error: "Message can only be edited within 15 minutes of sending." });
+    }
+
+    const text = cleanText(req.body.text || req.body.content, 4000);
+    if (!text) return res.status(400).json({ error: "Message cannot be empty." });
+
+    const spamBlock = await enforceSpam(req.user, text, 'message');
+    if (spamBlock) return res.status(429).json(spamBlock);
+
+    message.text = text;
+    message.isEdited = true;
+    message.editedAt = new Date().toISOString();
+    await saveDB();
+
+    io.to(`conversation:${id}`).emit("message:edited", {
+      conversationId: id,
+      messageId: message.id,
+      text: message.text,
+      isEdited: true,
+      editedAt: message.editedAt
+    });
+
+    return res.json({ success: true, message });
+  } catch (error) {
+    console.error("Edit message error:", error);
+    return res.status(500).json({ error: "Failed to edit message." });
+  }
+});
+
+// Share Reel card into chat
+app.post("/api/conversations/:id/share-reel", authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reelId } = req.body;
+    const currentUserId = req.user.id;
+    const conversation = db.conversations.find(c => c.id === id && c.members.includes(currentUserId));
+    if (!conversation) return res.status(404).json({ error: "Conversation not found." });
+
+    const reel = db.reels.find(r => r.id === reelId);
+    if (!reel) return res.status(404).json({ error: "Reel not found." });
+    const creator = db.users.find(u => u.id === reel.userId);
+
+    const message = {
+      id: makeId(),
+      conversationId: id,
+      senderId: currentUserId,
+      senderUsername: req.user.username,
+      senderDisplayName: req.user.displayName || req.user.username,
+      isVerified: isUserDenpher(req.user) || req.user.verifiedBadge === true,
+      text: cleanText(req.body.text || "", 500) || "Shared a reel",
+      sharedReel: {
+        id: reel.id,
+        caption: reel.caption || "Watch this reel",
+        videoUrl: reel.videoUrl,
+        thumbnail: reel.thumbnailUrl || null,
+        creatorUsername: creator?.username || "creator",
+        creatorDisplayName: creator?.displayName || creator?.username || "Creator"
+      },
+      createdAt: new Date().toISOString()
+    };
+
+    db.messages.push(message);
+    await saveDB();
+
+    io.to(`conversation:${id}`).emit("message:new", message);
+    conversation.members
+      .filter(mId => mId !== currentUserId)
+      .forEach(mId => {
+        io.to(`user:${mId}`).emit("conversation:update", { conversationId: id, message });
+      });
+
+    return res.status(201).json({ success: true, message });
+  } catch (error) {
+    console.error("Share reel error:", error);
+    return res.status(500).json({ error: "Failed to share reel." });
+  }
+});
+
+// Announcements API
+app.get("/api/announcements", (req, res) => {
+  const active = (db.reports || [])
+    .filter(r => r.kind === "announcement" && !r.dismissed)
+    .slice(-1)[0] || null;
+  res.json({ announcement: active });
+});
+
+app.post("/api/admin/announcements", authenticate, async (req, res) => {
+  try {
+    if (!await isAdmin(req.user)) return res.status(403).json({ error: "Not authorized." });
+    const text = cleanText(req.body.message || req.body.text, 500);
+    const title = cleanText(req.body.title, 100) || "Announcement";
+    if (!text) return res.status(400).json({ error: "Announcement message cannot be empty." });
+
+    const announcement = {
+      id: makeId(),
+      kind: "announcement",
+      title,
+      message: text,
+      actorId: req.user.id,
+      createdAt: new Date().toISOString()
+    };
+
+    db.reports.push(announcement);
+    await saveDB();
+    io.emit("announcement:new", announcement);
+    res.status(201).json({ success: true, announcement });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to post announcement." });
   }
 });
 

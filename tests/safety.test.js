@@ -84,8 +84,7 @@ test('founder email is never written in plain text in shipped code', async () =>
   const fs = await import('node:fs');
   const path = await import('node:path');
   const crypto = await import('node:crypto');
- const { fileURLToPath } = await import('node:url');
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
   const src = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
   const fp = src.match(/FOUNDER_EMAIL_SHA256 = "([a-f0-9]{64})"/)[1];
   const files = ['server.js','admin.js','accounts.js','features.js','antispam.js','policies.js','moderation.js','cloud.js','public/app.js','public/index.html','public/calls.js','videos.js','videos-catalog.js','groups.js','turn.js','public/videos.js','public/groups.js']

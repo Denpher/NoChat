@@ -14,6 +14,8 @@
 
   // ---------- browsing ----------
   function card(v) {
+    const watchUrl = v.watchUrl || (v.category === "Anime" ? "https://www.crunchyroll.com/" : "https://www.netflix.com/");
+    const providerName = v.category === "Anime" ? "Crunchyroll" : "Netflix";
     return `<article class="vcard" data-video="${esc(v.id)}">
       <button type="button" class="vcard-media" data-open-video="${esc(v.id)}" aria-label="Play ${esc(v.title)}">
         ${thumb(v)}<span class="vcard-play">${icon("play")}</span>
@@ -22,9 +24,13 @@
       </button>
       <div class="vcard-body">
         <h3 class="vcard-title" title="${esc(v.title)}">${esc(v.title)}</h3>
-        <p class="vcard-meta"><span>${esc(v.channel)}</span>${viewsText(v) ? `<span data-views="${esc(v.id)}">${viewsText(v)}</span>` : ""}</p>
+        <p class="vcard-meta"><span>${esc(v.channel)}</span>${viewsText(v) ? ` · <span data-views="${esc(v.id)}">${viewsText(v)}</span>` : ""}</p>
+        <div class="watch-actions-row">
+          <a href="${esc(watchUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary sm" style="font-size:12px;padding:0 10px;height:30px">${icon("tv")} ${providerName}</a>
+          <button type="button" class="btn btn-primary sm" data-discuss-video="${esc(v.id)}" style="font-size:12px;padding:0 10px;height:30px">${icon("message")} Discuss</button>
+        </div>
       </div>
-      ${S.canManage ? `<div class="vcard-admin"><button type="button" class="icon-btn glass sm" data-edit-video="${esc(v.id)}" aria-label="Edit">${icon("edit")}</button><button type="button" class="icon-btn glass sm" data-delete-video="${esc(v.id)}" aria-label="Delete">${icon("trash")}</button></div>` : ""}
+      ${S.canManage ? `<div class="vcard-admin" style="padding:0 14px 10px"><button type="button" class="icon-btn glass sm" data-edit-video="${esc(v.id)}" aria-label="Edit">${icon("edit")}</button><button type="button" class="icon-btn glass sm" data-delete-video="${esc(v.id)}" aria-label="Delete">${icon("trash")}</button></div>` : ""}
     </article>`;
   }
   function renderFeatured() {
@@ -75,6 +81,7 @@
     if (e.target.closest("#videoRetry")) load(true);
     const ed = e.target.closest("[data-edit-video]"); if (ed) openManage(S.items.find((v) => v.id === ed.dataset.editVideo));
     const del = e.target.closest("[data-delete-video]"); if (del) removeVideo(del.dataset.deleteVideo);
+    const disc = e.target.closest("[data-discuss-video]"); if (disc) { go("messages"); }
   });
 
   // ---------- player ----------
@@ -111,6 +118,19 @@
     S.current = { id: v.id, counted: false };
     $("#playerTitle").textContent = v.title; $("#playerChannel").textContent = v.channel; $("#playerCat").textContent = v.category;
     $("#playerViews").textContent = viewsText(v); $("#playerDesc").textContent = v.description || "";
+    const watchLink = $("#playerWatchLink");
+    if (watchLink) {
+      const wUrl = v.watchUrl || (v.category === "Anime" ? "https://www.crunchyroll.com/" : "https://www.netflix.com/");
+      watchLink.href = wUrl;
+      watchLink.innerHTML = `${icon("tv")} Where to Watch (${v.category === "Anime" ? "Crunchyroll" : "Netflix"})`;
+    }
+    const discussBtn = $("#playerDiscussBtn");
+    if (discussBtn) {
+      discussBtn.onclick = () => {
+        closeModal("videoPlayerModal");
+        go("messages");
+      };
+    }
     const frame = $("#playerFrame");
     if (v.provider === "upload") {
       frame.innerHTML = `<video controls playsinline preload="metadata" ${v.thumbnail ? `poster="${esc(v.thumbnail)}"` : ""} src="${esc(v.fileUrl)}"></video>`;

@@ -93,3 +93,12 @@ test('view deduper window', () => {
   assert.equal(d.shouldCount('u', 'v', 0), true); assert.equal(d.shouldCount('u', 'v', 999), false);
   assert.equal(d.shouldCount('u2', 'v', 10), true); assert.equal(d.shouldCount('u', 'v', 1000), true);
 });
+
+test('founder YouTube video is in the catalog as an official embed and listed first', async () => {
+  const v = SEED_VIDEOS[0];
+  assert.equal(v.embedId, '3J81gK6QBgc'); assert.equal(v.provider, 'youtube');
+  assert.match(v.channel, /founder/i);
+  assert.match(embedUrl(v), /^https:\/\/www\.youtube-nocookie\.com\/embed\/3J81gK6QBgc\?/);
+  const first = await S.call('/api/videos?limit=1', { cookie: alice.cookie });
+  assert.equal(first.data.videos[0].embedId, '3J81gK6QBgc');
+});
