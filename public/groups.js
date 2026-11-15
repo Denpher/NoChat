@@ -50,7 +50,7 @@
   async function openCreate() {
     picked = new Set(); photo = null; $("#groupName").value = ""; $("#groupPickSearch").value = "";
     $("#groupPhotoPreview").innerHTML = icon("camera"); $("#groupCreateError").classList.add("hidden");
-    $("#groupPickList").innerHTML = `<div class="feed-state"><div class="spinner"></div></div>`;
+    $("#groupPickList").innerHTML = `<div class="feed-state" style="padding:16px"><div class="skeleton" style="width:100%;height:44px;border-radius:10px"></div></div>`;
     openModal("groupCreateModal");
     try { await loadFriends(); renderPick(); } catch (e) { $("#groupPickList").innerHTML = `<p class="muted pad">${e.silent ? "" : esc(e.message)}</p>`; }
   }

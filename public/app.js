@@ -294,10 +294,11 @@
   });
 
   function showAuth() {
-    $("#bootSplash").classList.add("hidden");
+    const b = $("#bootSplash");
+    if (b) { b.classList.add("hidden"); b.style.display = "none"; }
     $("#appShell").classList.add("hidden");
     $("#authView").classList.remove("hidden");
-    setTimeout(() => $("#loginIdentifier").focus(), 50);
+    setTimeout(() => $("#loginIdentifier")?.focus(), 50);
   }
 
   function handleSignedOut(fromServer) {
@@ -392,8 +393,7 @@
     $("#meReelsCount").textContent = fmtCount(u.postsCount ?? state.stats.reelsCount ?? 0);
     if ($("#meFollowersCount")) $("#meFollowersCount").textContent = fmtCount(u.followersCount ?? state.stats.subscribersCount ?? 0);
     if ($("#meFollowingCount")) $("#meFollowingCount").textContent = fmtCount(u.followingCount ?? state.stats.friendsCount ?? 0);
-    const meSubsCount = $("#meSubsCount");
-    if (meSubsCount) meSubsCount.textContent = fmtCount(u.subscribersCount ?? state.stats.subscribersCount);
+    $("#meSubsCount").textContent = fmtCount(u.subscribersCount ?? state.stats.subscribersCount);
 
     // 24h Welcome Banner
     const welcome = $("#welcomeBanner");
@@ -889,7 +889,7 @@
   }
   async function openComments(reelId) {
     state.commentsReelId = reelId;
-    $("#commentList").innerHTML = `<div class="feed-state"><div class="spinner"></div></div>`;
+    $("#commentList").innerHTML = `<div class="feed-state" style="padding:16px"><div class="skeleton" style="width:100%;height:40px;border-radius:10px;margin-bottom:8px"></div><div class="skeleton" style="width:75%;height:30px;border-radius:10px"></div></div>`;
     $("#commentsCount").textContent = "…";
     openModal("commentsModal");
     try {
@@ -1015,7 +1015,7 @@
   $("#soundSearch").addEventListener("input", debounce((e) => loadSounds(e.target.value), 250));
   $("#soundsModal").addEventListener("closed", () => { previewAudio.pause(); playingTrack = null; });
   async function loadSounds(q) {
-    $("#soundList").innerHTML = `<div class="feed-state"><div class="spinner"></div></div>`;
+    $("#soundList").innerHTML = `<div class="feed-state" style="padding:16px"><div class="skeleton" style="width:100%;height:40px;border-radius:10px"></div></div>`;
     try {
       const data = await api("/api/audio/search?q=" + encodeURIComponent(q || ""));
       if (!data.tracks.length) { $("#soundList").innerHTML = `<p class="muted" style="padding:16px;text-align:center">No sounds match “${esc(q)}”.</p>`; return; }
@@ -1326,7 +1326,7 @@
   async function openPicker() {
     openModal("pickerModal");
     $("#pickerSearch").value = "";
-    $("#pickerList").innerHTML = `<div class="feed-state"><div class="spinner"></div></div>`;
+    $("#pickerList").innerHTML = `<div class="feed-state" style="padding:16px"><div class="skeleton" style="width:100%;height:44px;border-radius:10px;margin-bottom:8px"></div><div class="skeleton" style="width:100%;height:44px;border-radius:10px"></div></div>`;
     try {
       const data = await api("/api/friends");
       state.friends = data.friends || [];
@@ -1619,17 +1619,15 @@
       closeModal("appealModal"); toast(d.message || "Appeal submitted", "success"); loadMyRestrictions();
     } catch (err) { showFormError("#appealError", err.message); }
   });
-  $("#spamAppealBtn")?.addEventListener("click", () => openAppeal({ type: "spam", text: "Explain why the messaging pause was a mistake." }));
+  $("#spamAppealBtn").addEventListener("click", () => openAppeal({ type: "spam", text: "Explain why the messaging pause was a mistake." }));
   async function loadMyRestrictions() {
     if (!state.me) return;
     const muted = state.me.mutedUntil && new Date(state.me.mutedUntil) > new Date();
     try {
       const d = await api("/api/appeals/mine");
       const open = d.appeals.filter((a) => a.status === "open");
-      const restrictionsEl = $("#myRestrictions");
-      const spamAppealBtn = $("#spamAppealBtn");
-      if (restrictionsEl) restrictionsEl.textContent = open.length ? `You have ${open.length} appeal${open.length > 1 ? "s" : ""} waiting for review.` : (muted ? "Messaging is paused for a short time because of anti-spam protection." : "");
-      if (spamAppealBtn) spamAppealBtn.classList.toggle("hidden", !(state.me.spamStrikes > 0 || muted) || open.some((a) => a.targetType === "spam"));
+      $("#myRestrictions").textContent = open.length ? `You have ${open.length} appeal${open.length > 1 ? "s" : ""} waiting for review.` : (muted ? "Messaging is paused for a short time because of anti-spam protection." : "");
+      $("#spamAppealBtn").classList.toggle("hidden", !(state.me.spamStrikes > 0 || muted) || open.some((a) => a.targetType === "spam"));
     } catch (_) { /* optional */ }
   }
 
@@ -1793,6 +1791,28 @@
     else if (currentView === "reels" && !state.viewerOpen) playVisibleReel();
     if (!document.hidden && state.activeConvoId && currentView === "messages" && state.me?.readReceiptsEnabled !== false) api(`/api/conversations/${state.activeConvoId}/read`, { method: "POST" }).catch(() => {});
   });
+
+  // Wire Landing Navigation & Buttons
+  $("#navSignInBtn")?.addEventListener("click", () => {
+    setAuthTab("login");
+    $("#authContainer")?.scrollIntoView({ behavior: "smooth" });
+    setTimeout(() => $("#loginIdentifier")?.focus(), 300);
+  });
+  const scrollToRegister = () => {
+    setAuthTab("register");
+    $("#authContainer")?.scrollIntoView({ behavior: "smooth" });
+    setTimeout(() => $("#regUsername")?.focus(), 300);
+  };
+  $("#navJoinBtn")?.addEventListener("click", scrollToRegister);
+  $("#heroJoinBtn")?.addEventListener("click", scrollToRegister);
+  $("#heroStatsBtn")?.addEventListener("click", scrollToRegister);
+  $("#heroHumansBtn")?.addEventListener("click", scrollToRegister);
+  $("#openAboutNavBtn")?.addEventListener("click", () => openModal("aboutModal"));
+  $("#openAboutBtn")?.addEventListener("click", () => openModal("aboutModal"));
+  $("#profileAboutModalBtn")?.addEventListener("click", () => openModal("aboutModal"));
+  $("#openPrivacyNavBtn")?.addEventListener("click", () => openModal("privacyModal"));
+  $("#openPrivacyBtn")?.addEventListener("click", () => openModal("privacyModal"));
+  $("#profilePrivacyModalBtn")?.addEventListener("click", () => openModal("privacyModal"));
 
   // Wire Landing Modals & Banners
   document.addEventListener("click", (e) => {

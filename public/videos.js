@@ -112,7 +112,7 @@
     destroyPlayer();
     let v = S.items.find((x) => x.id === id);
     openModal("videoPlayerModal");
-    $("#playerFrame").innerHTML = `<div class="player-loading"><div class="spinner"></div></div>`;
+    $("#playerFrame").innerHTML = `<div class="player-loading" style="padding:40px"><div class="skeleton" style="width:100%;height:320px;border-radius:14px"></div></div>`;
     try { if (!v) v = (await api("/api/videos/" + encodeURIComponent(id))).video; }
     catch (e) { closeModal("videoPlayerModal"); e.silent || toast("That video isn't available.", "error"); history.replaceState(null, "", "#/videos"); return; }
     S.current = { id: v.id, counted: false };
