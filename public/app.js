@@ -392,7 +392,8 @@
     $("#meReelsCount").textContent = fmtCount(u.postsCount ?? state.stats.reelsCount ?? 0);
     if ($("#meFollowersCount")) $("#meFollowersCount").textContent = fmtCount(u.followersCount ?? state.stats.subscribersCount ?? 0);
     if ($("#meFollowingCount")) $("#meFollowingCount").textContent = fmtCount(u.followingCount ?? state.stats.friendsCount ?? 0);
-    $("#meSubsCount").textContent = fmtCount(u.subscribersCount ?? state.stats.subscribersCount);
+    const meSubsCount = $("#meSubsCount");
+    if (meSubsCount) meSubsCount.textContent = fmtCount(u.subscribersCount ?? state.stats.subscribersCount);
 
     // 24h Welcome Banner
     const welcome = $("#welcomeBanner");
@@ -1618,15 +1619,17 @@
       closeModal("appealModal"); toast(d.message || "Appeal submitted", "success"); loadMyRestrictions();
     } catch (err) { showFormError("#appealError", err.message); }
   });
-  $("#spamAppealBtn").addEventListener("click", () => openAppeal({ type: "spam", text: "Explain why the messaging pause was a mistake." }));
+  $("#spamAppealBtn")?.addEventListener("click", () => openAppeal({ type: "spam", text: "Explain why the messaging pause was a mistake." }));
   async function loadMyRestrictions() {
     if (!state.me) return;
     const muted = state.me.mutedUntil && new Date(state.me.mutedUntil) > new Date();
     try {
       const d = await api("/api/appeals/mine");
       const open = d.appeals.filter((a) => a.status === "open");
-      $("#myRestrictions").textContent = open.length ? `You have ${open.length} appeal${open.length > 1 ? "s" : ""} waiting for review.` : (muted ? "Messaging is paused for a short time because of anti-spam protection." : "");
-      $("#spamAppealBtn").classList.toggle("hidden", !(state.me.spamStrikes > 0 || muted) || open.some((a) => a.targetType === "spam"));
+      const restrictionsEl = $("#myRestrictions");
+      const spamAppealBtn = $("#spamAppealBtn");
+      if (restrictionsEl) restrictionsEl.textContent = open.length ? `You have ${open.length} appeal${open.length > 1 ? "s" : ""} waiting for review.` : (muted ? "Messaging is paused for a short time because of anti-spam protection." : "");
+      if (spamAppealBtn) spamAppealBtn.classList.toggle("hidden", !(state.me.spamStrikes > 0 || muted) || open.some((a) => a.targetType === "spam"));
     } catch (_) { /* optional */ }
   }
 
