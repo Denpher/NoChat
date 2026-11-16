@@ -120,7 +120,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
       <section style="padding: 0 24px;">
         <div class="founder-card">
           <div style="width:64px; height:64px; border-radius:50%; background:var(--card); border:2px solid var(--accent-blue); margin:0 auto 16px; overflow:hidden;">
-            <img src="/icons/icon-192.png" alt="Denpher" style="width:100%; height:100%; object-fit:cover;" />
+            <img src="/icons/nochat-mark.svg" alt="Denpher" style="width:100%; height:100%; object-fit:cover;" />
           </div>
           <p class="founder-quote">"Built for humans, by a human, for the Earth."</p>
           <p class="founder-author">— Denpher, Founder of NoChat & Denpher Technologies</p>

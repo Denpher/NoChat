@@ -16,7 +16,7 @@ export function renderSidebar(user, currentRoute = 'home', unreadCount = 0) {
   return `
     <aside class="sidebar">
       <a href="#/" class="sidebar-logo" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
-        <img src="/icons/nochat-logo.jpg" alt="NoChat" style="width:34px; height:34px; border-radius:10px; object-fit:cover; box-shadow:0 0 10px rgba(0,149,246,0.3);" />
+        <img src="/icons/nochat-mark.svg" alt="NoChat" style="width:34px; height:34px; border-radius:10px; object-fit:cover; box-shadow:0 0 10px rgba(0,149,246,0.3);" />
         <span style="font-weight:800; font-size:20px; letter-spacing:-0.5px; color:#fff;">NoChat</span>
       </a>
       

@@ -7,7 +7,7 @@ export function renderNavbar(currentUser = null) {
     <nav class="landing-nav">
       <div class="landing-nav-inner">
         <a href="#/" class="logo" style="display:flex; align-items:center; gap:10px; font-size:22px; font-weight:800; letter-spacing:-0.5px; text-decoration:none; color:#fff;">
-          <img src="/icons/nochat-logo.jpg" alt="NoChat" style="width:32px; height:32px; border-radius:8px; object-fit:cover;" />
+          <img src="/icons/nochat-mark.svg" alt="NoChat" style="width:32px; height:32px; border-radius:8px; object-fit:cover;" />
           <span>NoChat</span>
         </a>
         <div class="landing-links">

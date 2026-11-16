@@ -59,7 +59,7 @@ export function renderAboutPage() {
         <!-- Founder Spotlight Card -->
         <div class="founder-card" style="margin:40px auto 24px; border:1px solid var(--border-light); background:var(--card);">
           <div style="width:72px; height:72px; border-radius:50%; background:var(--surface); border:2px solid var(--accent-blue); margin:0 auto 16px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-            <img src="/icons/icon-192.png" alt="Denpher" style="width:100%; height:100%; object-fit:cover;" />
+            <img src="/icons/nochat-mark.svg" alt="Denpher" style="width:100%; height:100%; object-fit:cover;" />
           </div>
           <h3 style="font-size:18px; font-weight:700; margin-bottom:4px;">Denpher</h3>
           <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">Founder & Official Creator · NoChat & Denpher Technologies</p>
