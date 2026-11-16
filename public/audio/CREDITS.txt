@@ -1,4 +1,0 @@
-Audio library previews (track-1.mp3 … track-8.mp3) are short excerpts of
-"SoundHelix Song 1–8" by T. Schürger, https://www.soundhelix.com — free to use.
-They are bundled inside the app so previews never break because of a third-party link.
-Replace any file with your own MP3 of the same name to change a track.

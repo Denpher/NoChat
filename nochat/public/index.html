@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#0A0A0A" />
+  <meta name="description" content="NoChat is a place for real humans. No fake likes, no ads, no algorithm deciding what you see." />
+  <meta property="og:title" content="NoChat - Humans. Not Algorithms." />
+  <meta property="og:description" content="NoChat is a place for real humans. No fake likes, no ads, no algorithm deciding what you see." />
+  <meta property="og:image" content="https://nochat.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://nochat.com" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="NoChat - Humans. Not Algorithms." />
+  <meta name="twitter:description" content="NoChat is a place for real humans. No fake likes, no ads, no algorithm deciding what you see." />
+  <meta name="twitter:image" content="https://nochat.com/og-image.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <title>NoChat — Humans. Not Algorithms.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Landing (unauthenticated) -->
+    <div id="landing" class="page landing hidden">
+      <nav class="nav-landing">
+        <div class="nav-inner">
+          <a href="#/" class="logo">NoChat</a>
+          <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#humans">Humans</a>
+            <a href="#watch">Watch Party</a>
+          </div>
+          <button class="btn btn-primary btn-sm" data-action="open-auth">Join NoChat</button>
+        </div>
+      </nav>
+      <section class="hero">
+        <div class="pill">21+ Real Humans Already Inside</div>
+        <h1>Humans. <span class="accent">Not Algorithms.</span></h1>
+        <p class="hero-sub">NoChat is a place for real humans. No fake likes, no ads, no algorithm deciding what you see.</p>
+        <div class="hero-cta">
+          <button class="btn btn-primary" data-action="open-auth">Join NoChat — It's Free</button>
+          <button class="btn btn-secondary" data-action="open-auth">See Live Humans: 21+</button>
+        </div>
+        <div class="stats-row">
+          <div class="stat"><strong>21+</strong><span>Humans</span></div>
+          <div class="stat"><strong>100%</strong><span>Real</span></div>
+          <div class="stat"><strong>0</strong><span>Ads</span></div>
+        </div>
+      </section>
+      <section id="features" class="section">
+        <h2>Built for real connection</h2>
+        <div class="feature-grid">
+          <article class="card feature-card">
+            <div class="icon-wrap"><i data-lucide="users"></i></div>
+            <h3>Real Humans Only</h3>
+            <p>Every account is a person. No bots, no ghost followers, no engagement farms.</p>
+          </article>
+          <article class="card feature-card">
+            <div class="icon-wrap"><i data-lucide="message-circle"></i></div>
+            <h3>Chat + Edit</h3>
+            <p>Private and group chats with edit within 15 minutes, delete for everyone, and read receipts you control.</p>
+          </article>
+          <article class="card feature-card">
+            <div class="icon-wrap"><i data-lucide="clapperboard"></i></div>
+            <h3>Reels Feed</h3>
+            <p>Full-screen vertical reels. Swipe, double-tap to like, music, captions — Instagram-smooth.</p>
+          </article>
+          <article class="card feature-card">
+            <div class="icon-wrap"><i data-lucide="share-2"></i></div>
+            <h3>Reels in Chat</h3>
+            <p>Share any reel into a conversation as a beautiful card. One tap opens it full-screen.</p>
+          </article>
+          <article class="card feature-card">
+            <div class="icon-wrap"><i data-lucide="tv"></i></div>
+            <h3>Watch Party</h3>
+            <p>Official trailers only. Discuss the film in a dedicated group chat. NoChat hosts nothing.</p>
+          </article>
+          <article class="card feature-card">
+            <div class="icon-wrap"><i data-lucide="badge-check"></i></div>
+            <h3>Verified Humans</h3>
+            <p>Verified badge is display-only. Temporary or permanent — always visible, never a permission.</p>
+          </article>
+        </div>
+      </section>
+      <section id="humans" class="section how">
+        <h2>How it works</h2>
+        <div class="steps">
+          <div class="step"><span class="step-num">1</span><h3>Join as Human</h3><p>Create your account. No algorithm profile, no interest quiz.</p></div>
+          <div class="step"><span class="step-num">2</span><h3>Get Your Member Number</h3><p>You receive a sequential human number. You are #N — forever.</p></div>
+          <div class="step"><span class="step-num">3</span><h3>Chat, Watch, Vibe</h3><p>Talk to people. Watch trailers together. Post reels when you want.</p></div>
+        </div>
+      </section>
+      <section id="watch" class="section">
+        <h2>Watch Party</h2>
+        <p class="section-sub">Official trailers from the rights holders. NoChat does not host movies.</p>
+        <div class="watch-grid" id="landing-watch">
+          <!-- populated by JS -->
+        </div>
+      </section>
+      <section class="section founder">
+        <div class="card founder-card">
+          <p class="founder-quote">Built for humans, by a human, for the Earth.</p>
+          <p class="founder-name">— Denpher, Founder</p>
+        </div>
+      </section>
+      <footer class="landing-footer">
+        <div class="footer-inner">
+          <a href="#/" class="logo">NoChat</a>
+          <p>Made for Humans</p>
+          <div class="footer-links">
+            <a href="#/privacy">Privacy</a>
+            <a href="#/terms">Terms</a>
+            <a href="mailto:hello@nochat.com">Contact</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Auth modal -->
+    <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-backdrop" data-action="close-auth"></div>
+      <div class="modal-panel card">
+        <button class="modal-close" data-action="close-auth" aria-label="Close"><i data-lucide="x"></i></button>
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-auth="signin">Sign in</button>
+          <button class="auth-tab" data-auth="signup">Join</button>
+        </div>
+        <form id="auth-form" class="auth-form">
+          <div class="field">
+            <label for="auth-identifier">Username or email</label>
+            <input id="auth-identifier" name="identifier" type="text" autocomplete="username" required />
+          </div>
+          <div class="field signup-only hidden">
+            <label for="auth-username">Username</label>
+            <input id="auth-username" name="username" type="text" autocomplete="username" maxlength="24" />
+          </div>
+          <div class="field">
+            <label for="auth-password">Password</label>
+            <input id="auth-password" name="password" type="password" autocomplete="current-password" required />
+          </div>
+          <p id="auth-error" class="form-error hidden"></p>
+          <button type="submit" class="btn btn-primary btn-block">Continue</button>
+        </form>
+        <p class="auth-footer">Made with care by Denpher</p>
+      </div>
+    </div>
+
+    <!-- Main app shell (authenticated) -->
+    <div id="shell" class="shell hidden">
+      <aside class="sidebar">
+        <a href="#/" class="logo sidebar-logo">NoChat</a>
+        <nav class="side-nav">
+          <a href="#/" class="nav-item" data-route="home"><i data-lucide="home"></i><span>Home</span></a>
+          <a href="#/reels" class="nav-item" data-route="reels"><i data-lucide="clapperboard"></i><span>Reels</span></a>
+          <a href="#/chat" class="nav-item" data-route="chat"><i data-lucide="message-circle"></i><span>Chat</span><span class="badge unread-badge hidden">0</span></a>
+          <a href="#/videos" class="nav-item" data-route="videos"><i data-lucide="tv"></i><span>Watch</span></a>
+          <a href="#/profile" class="nav-item" data-route="profile"><i data-lucide="user"></i><span>Profile</span></a>
+          <a href="#/admin" class="nav-item admin-only hidden" data-route="admin"><i data-lucide="shield"></i><span>Admin</span></a>
+        </nav>
+        <div class="sidebar-footer">
+          <button class="btn btn-ghost btn-sm" data-action="logout"><i data-lucide="log-out"></i> Sign out</button>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <button class="btn-icon mobile-only" data-action="toggle-nav" aria-label="Menu"><i data-lucide="menu"></i></button>
+          <h1 class="page-title">Home</h1>
+          <div class="topbar-actions">
+            <button class="btn-icon" data-action="open-compose" aria-label="New reel"><i data-lucide="plus"></i></button>
+          </div>
+        </header>
+        <div id="view" class="view"></div>
+      </main>
+      <nav class="tabbar mobile-only">
+        <a href="#/" class="tab" data-route="home"><i data-lucide="home"></i></a>
+        <a href="#/reels" class="tab" data-route="reels"><i data-lucide="clapperboard"></i></a>
+        <a href="#/chat" class="tab" data-route="chat"><i data-lucide="message-circle"></i><span class="badge unread-badge hidden">0</span></a>
+        <a href="#/videos" class="tab" data-route="videos"><i data-lucide="tv"></i></a>
+        <a href="#/profile" class="tab" data-route="profile"><i data-lucide="user"></i></a>
+      </nav>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast hidden" role="status"></div>
+  </div>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
