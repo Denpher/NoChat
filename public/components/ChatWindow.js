@@ -33,7 +33,7 @@ export function renderChatWindow(conversation, messages = [], currentUserId = nu
               <span>${recipientName}</span>
               ${recipient.isVerified ? `<i data-lucide="badge-check" style="width:16px;height:16px;color:var(--verified-mint);"></i>` : ''}
             </div>
-            <div style="font-size:12px; color:${isRecipientOnline ? 'var(--verified-mint)' : 'var(--muted)'};">
+            <div class="chat-presence-label ${isRecipientOnline ? 'is-online' : ''}" style="font-size:12px; color:${isRecipientOnline ? 'var(--verified-mint)' : 'var(--muted)'};">
               ${isRecipientOnline ? 'Online now' : 'Offline'}
             </div>
           </div>

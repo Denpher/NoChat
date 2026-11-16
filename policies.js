@@ -3,6 +3,18 @@ export const DEFAULT_REEL_LIMIT = 2;
 export function reelLimit(value = process.env.DAILY_REEL_LIMIT) { const n = Number(value ?? DEFAULT_REEL_LIMIT); if (!Number.isInteger(n) || n < 1 || n > 100) throw new Error('DAILY_REEL_LIMIT must be between 1 and 100.'); return n; }
 export function dayKey(date = new Date()) { return date.toISOString().slice(0, 10); }
 export function canDeleteContent(ownerId, actorId, admin) { return ownerId === actorId || admin === true; }
+export function canViewReel(reel, viewerId, creatorListed = true) {
+  if (!reel || reel.isDeleted || !creatorListed) return false;
+  const status = reel.moderationStatus || 'approved';
+  return status === 'approved' || (status === 'pending' && String(reel.userId) === String(viewerId));
+}
+export function canViewStory(story, viewerId, closeFriendRows = [], now = Date.now()) {
+  if (!story || story.kind !== 'nochat-story' || story.isDeleted) return false;
+  const expiresAt = typeof story.expiresAt === 'number' ? story.expiresAt : Date.parse(story.expiresAt || '');
+  if (!Number.isFinite(expiresAt) || expiresAt <= now) return false;
+  if (!story.closeFriendsOnly || String(story.userId) === String(viewerId)) return true;
+  return closeFriendRows.some(row => row?.kind === 'nochat-close-friend' && String(row.userId) === String(story.userId) && String(row.friendUserId) === String(viewerId));
+}
 export function unseen(message, conversation, readerId) { return !message.system && message.senderId !== readerId && !message.deletedAt && message.createdAt > (conversation.lastRead?.[readerId] || ''); }
 export function seenAt(message, conversation) { const other = conversation.members.find(id => id !== message.senderId); const last = conversation.lastRead?.[other]; return last && last >= message.createdAt ? last : null; }
 export function blockedText(value) {

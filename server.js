@@ -15,7 +15,7 @@ import multer from "multer";
 import { Server } from "socket.io";
 import dotenv from "dotenv";
 import { cloudCall, cloudEnabled, storeFile } from './cloud.js';
-import { reelLimit, dayKey, canDeleteContent, unseen, seenAt, blockedText, validateFile } from './policies.js';
+import { reelLimit, dayKey, canDeleteContent, canViewReel, canViewStory, unseen, seenAt, blockedText, validateFile } from './policies.js';
 import { reviewReel } from './moderation.js';
 import { mountFeatures } from './features.js';
 import { mountAdmin, addLog } from './admin.js';
@@ -901,7 +901,7 @@ app.get("/api/friends", authenticate, (req, res) => {
     .filter(Boolean)
     .map(u => ({
       ...safeUser(u, currentUserId),
-      isOnline: onlineUsers.has(u.id)
+      isOnline: isUserOnline(u.id)
     }));
 
   return res.json({ friends });
@@ -1084,7 +1084,7 @@ app.get("/api/users/search", authenticate, (req, res) => {
   const currentUserId = req.user.id;
 
   if (!query || query.length < 1) {
-    const users=db.users.filter(u=>u.id!==currentUserId&&isListed(u)).slice(0,25).map(u=>({...safeUser(u,currentUserId),friendshipStatus:getFriendshipStatus(currentUserId,u.id),isOnline:onlineUsers.has(u.id)}));
+    const users=db.users.filter(u=>u.id!==currentUserId&&isListed(u)).slice(0,25).map(u=>({...safeUser(u,currentUserId),friendshipStatus:getFriendshipStatus(currentUserId,u.id),isOnline:isUserOnline(u.id)}));
     return res.json({ users });
   }
 
@@ -1097,7 +1097,7 @@ app.get("/api/users/search", authenticate, (req, res) => {
     .map(u => ({
       ...safeUser(u, currentUserId),
       friendshipStatus: getFriendshipStatus(currentUserId, u.id),
-      isOnline: onlineUsers.has(u.id)
+      isOnline: isUserOnline(u.id)
     }));
 
   return res.json({ users: matches });
@@ -1109,22 +1109,21 @@ app.get("/api/recommendations", authenticate, (req, res) => {
   const followingIds = new Set(db.subscriptions.filter(s => String(s.subscriberId) === String(currentUserId)).map(s => String(s.creatorId)));
   const followedByPeers = new Set(db.subscriptions.filter(s => followingIds.has(String(s.creatorId))).map(s => String(s.subscriberId)));
   const activeStoryIds = new Set(storyRows()
-    .filter(story => !story.isDeleted && Date.parse(story.expiresAt) > now)
-    .filter(story => !story.closeFriendsOnly || String(story.userId) === String(currentUserId) || db.reelUploads.some(row => row?.kind === "nochat-close-friend" && String(row.userId) === String(story.userId) && String(row.friendUserId) === String(currentUserId)))
+    .filter(story => canViewStory(story, currentUserId, db.reelUploads, now))
     .map(story => String(story.userId)));
   const candidates = db.users
     .filter(u => String(u.id) !== String(currentUserId) && isListed(u) && !areFriends(currentUserId, u.id) && !db.subscriptions.some(s => String(s.creatorId) === String(u.id) && String(s.subscriberId) === String(currentUserId)))
     .map(user => {
       const id = String(user.id);
       const recentReel = db.reels.some(reel => {
-        if (String(reel.userId) !== id || reel.isDeleted) return false;
+        if (String(reel.userId) !== id || reel.isDeleted || (reel.moderationStatus && reel.moderationStatus !== "approved")) return false;
         const createdAt = Number.isFinite(Number(reel.createdAt)) && reel.createdAt !== null && reel.createdAt !== "" ? Number(reel.createdAt) : Date.parse(reel.createdAt || "");
         const age = now - createdAt;
         return Number.isFinite(createdAt) && age >= 0 && age < 7 * 86400000;
       });
       const sharedFollowing = db.subscriptions.filter(s => String(s.subscriberId) === id && followingIds.has(String(s.creatorId))).length;
       const followsYou = db.subscriptions.some(s => String(s.subscriberId) === id && String(s.creatorId) === String(currentUserId));
-      const isOnline = onlineUsers.has(user.id);
+      const isOnline = isUserOnline(user.id);
       const hasStory = activeStoryIds.has(id);
       const score = (followsYou ? 8 : 0) + Math.min(sharedFollowing, 4) * 3 + (isOnline ? 2 : 0) + (hasStory ? 2 : 0) + (recentReel ? 3 : 0) + (followedByPeers.has(id) ? 1 : 0);
       const recommendationReason = followsYou ? "Follows you" : isOnline ? "Online now" : sharedFollowing ? "You follow similar creators" : hasStory ? "New story" : recentReel ? "Posted recently" : "Suggested for you";
@@ -1160,7 +1159,7 @@ app.get("/api/users/profile/:userId", authenticate, (req, res) => {
   return res.json({
     user: safeUser(targetUser, req.user.id),
     friendshipStatus: getFriendshipStatus(req.user.id, targetUser.id),
-    isOnline: onlineUsers.has(targetUser.id),
+    isOnline: isUserOnline(targetUser.id),
     isSubscribed,
     stats: {
       friendsCount,
@@ -1200,7 +1199,7 @@ function formatReel(reel, currentUserId) {
 function storyRows() { return db.reelUploads.filter(r => r?.kind === "nochat-story"); }
 app.get("/api/stories", authenticate, (req, res) => {
   const now=Date.now();
-  const stories=storyRows().filter(story => new Date(story.expiresAt).getTime()>now && !story.isDeleted && (!story.closeFriendsOnly || story.userId===req.user.id || db.reelUploads.some(r=>r?.kind==="nochat-close-friend"&&r.userId===story.userId&&r.friendUserId===req.user.id)))
+  const stories=storyRows().filter(story => canViewStory(story, req.user.id, db.reelUploads, now))
     .map(story=>({...story,user:safeUser(db.users.find(u=>u.id===story.userId),req.user.id)}));
   return res.json({stories});
 });
@@ -1246,7 +1245,7 @@ app.get("/api/reels", authenticate, (req, res) => {
   const currentUserId = req.user.id;
 
   const reels = db.reels
-    .filter(reel => !reel.isDeleted && isListed(db.users.find(u => u.id === reel.userId)) && (!reel.moderationStatus || reel.moderationStatus === "approved"))
+    .filter(reel => canViewReel(reel, currentUserId, isListed(db.users.find(u => u.id === reel.userId))))
     .map(reel => formatReel(reel, currentUserId))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -1526,7 +1525,7 @@ app.get("/api/conversations", authenticate, (req, res) => {
   const currentUserId = req.user.id;
 
   const convos = db.conversations
-    .filter(c => c.members.includes(currentUserId) && !(c.hiddenFor || []).includes(currentUserId))
+    .filter(c => c.members.includes(currentUserId) && (!isGroup(c) || !(c.hiddenFor || []).includes(currentUserId)))
     .map(c => {
       if (isGroup(c)) {
         const last = db.messages.filter(m => m.conversationId === c.id).at(-1);
@@ -1538,22 +1537,23 @@ app.get("/api/conversations", authenticate, (req, res) => {
           lastMessageFromMe: Boolean(last && last.senderId === currentUserId),
           lastAt: last ? last.createdAt : c.createdAt,
           unreadCount: unreadCountFor(c, currentUserId),
-          onlineCount: c.members.filter(id => id !== currentUserId && onlineUsers.has(id)).length
+          onlineCount: c.members.filter(id => id !== currentUserId && isUserOnline(id)).length
         };
       }
       const otherId = c.members.find(id => id !== currentUserId);
       const otherUser = db.users.find(u => u.id === otherId);
+      const clearedAt = c.clearedAtByUser?.[currentUserId] || '';
       const lastMessage = db.messages
-        .filter(m => m.conversationId === c.id)
+        .filter(m => m.conversationId === c.id && (!clearedAt || m.createdAt > clearedAt))
         .at(-1);
 
       return {
         id: c.id,
         user: safeUser(otherUser, currentUserId),
-        isOnline: Boolean(otherId && onlineUsers.has(otherId)),
+        isOnline: Boolean(otherId && isUserOnline(otherId)),
         lastMessage: lastMessage ? (lastMessage.deletedAt ? "Message deleted" : lastMessage.text || lastMessage.attachment?.name || "") : "",
         lastMessageFromMe: Boolean(lastMessage && lastMessage.senderId === currentUserId),
-        lastAt: lastMessage ? lastMessage.createdAt : c.createdAt,
+        lastAt: lastMessage ? lastMessage.createdAt : clearedAt || c.createdAt,
         unreadCount: unreadCountFor(c, currentUserId)
       };
     })
@@ -1606,10 +1606,12 @@ app.post("/api/conversations/:id/hide", authenticate, async (req,res) => {
   const conversation=db.conversations.find(c=>c.id===req.params.id&&c.members.includes(req.user.id));
   if(!conversation) return res.status(404).json({error:"Chat not found."});
   if(isGroup(conversation)) return res.status(400).json({error:"This action is only available in personal chats."});
-  conversation.hiddenFor=Array.isArray(conversation.hiddenFor)?conversation.hiddenFor:[];
-  if(!conversation.hiddenFor.includes(req.user.id)) conversation.hiddenFor.push(req.user.id);
+  // Clear this person's history while keeping the contact/conversation in their list.
   conversation.clearedAtByUser=conversation.clearedAtByUser||{};
-  conversation.clearedAtByUser[req.user.id]=new Date().toISOString();
+  const clearedAt=new Date().toISOString();
+  conversation.clearedAtByUser[req.user.id]=clearedAt;
+  conversation.lastRead=conversation.lastRead||{};
+  conversation.lastRead[req.user.id]=clearedAt;
   await saveDB();
   return res.json({success:true});
 });
@@ -1619,7 +1621,7 @@ app.get("/api/conversations/:id/messages", authenticate, (req, res) => {
   const currentUserId = req.user.id;
 
   const conversation = db.conversations.find(
-    c => c.id === id && c.members.includes(currentUserId) && !(c.hiddenFor||[]).includes(currentUserId)
+    c => c.id === id && c.members.includes(currentUserId) && (!isGroup(c) || !(c.hiddenFor||[]).includes(currentUserId))
   );
 
   if (!conversation) {
@@ -1916,6 +1918,7 @@ app.post("/api/admin/announcements", authenticate, async (req, res) => {
 ========================================================= */
 
 const onlineUsers = new Map();
+const isUserOnline = userId => onlineUsers.has(String(userId));
 
 io.use((socket, next) => {
   const origin=socket.handshake.headers.origin;
@@ -1943,7 +1946,7 @@ io.use((socket, next) => {
 });
 
 io.on("connection", socket => {
-  const userId = socket.user.id;
+  const userId = String(socket.user.id);
   socket.use((_packet,next)=>{
     try { const current=db.users.find(u=>u.id===userId); if(storageFailed || !current) return next(new Error('Unavailable'));
       const cookies=socket.handshake.headers.cookie||'';const raw=cookies.split(';').map(c=>c.trim()).find(c=>c.startsWith('nochat_session='));
@@ -1959,16 +1962,21 @@ io.on("connection", socket => {
   onlineUsers.get(userId).add(socket.id);
   socket.join(`user:${userId}`);
 
+  socket.emit('presence:snapshot', { userIds: [...onlineUsers.keys()] });
+
   io.emit("presence:update", { userId, isOnline: true });
 
   const canSignal = (conversationId, targetUserId) => {
     const c=db.conversations.find(item=>item.id===String(conversationId||"")&&item.members.includes(userId)&&item.members.includes(String(targetUserId||"")));
     return Boolean(c);
   };
-  socket.on("call:invite", (payload={}) => {
+  socket.on("call:invite", (payload={}, callback) => {
     const targetUserId=String(payload.targetUserId||""); const conversationId=String(payload.conversationId||"");
-    if(!canSignal(conversationId,targetUserId)) return;
+    const ack=typeof callback==='function'?callback:()=>{};
+    if(!canSignal(conversationId,targetUserId)) return ack({error:'Calls are available only in your one-to-one chats.'});
+    if(!onlineUsers.has(targetUserId)) return ack({error:'This person is offline right now.'});
     io.to("user:"+targetUserId).emit("call:incoming",{conversationId,callerId:userId,caller:safeUser(socket.user,targetUserId),video:Boolean(payload.video)});
+    ack({success:true});
   });
   socket.on("call:accept", payload=>{const target=String(payload?.targetUserId||"");if(canSignal(payload?.conversationId,target))io.to("user:"+target).emit("call:accepted",{conversationId:payload.conversationId,fromUserId:userId});});
   socket.on("call:decline", payload=>{const target=String(payload?.targetUserId||"");if(canSignal(payload?.conversationId,target))io.to("user:"+target).emit("call:declined",{conversationId:payload.conversationId,fromUserId:userId});});

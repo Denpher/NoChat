@@ -10,11 +10,13 @@ export function renderReelItem(reel, currentUser = null, isFollowing = false) {
   const avatar = reel.user?.profilePicture || `https://api.dicebear.com/7.x/identicon/svg?seed=${reel.user?.username || 'user'}`;
   const username = escapeHtml(reel.user?.username || 'creator');
   const isVerified = Boolean(reel.user?.isVerified || reel.user?.verifiedBadge);
+  const isOwnPending = String(reel.userId) === String(currentUser?.id) && reel.moderationStatus === 'pending';
   const audioTitle = escapeHtml(reel.audioTitle || 'Original Audio · Denpher Beats');
 
   return `
     <div class="reel-item" data-reel-id="${reel.id}">
       <video src="${reel.videoUrl}" loop muted playsinline class="reel-video" preload="metadata"></video>
+      ${isOwnPending ? '<div class="reel-review-state" role="status">Uploaded · under review · only you can see this</div>' : ''}
       <div class="heart-burst"><i data-lucide="heart" style="width:80px;height:80px;fill:var(--like-red);"></i></div>
 
       <div class="reel-actions-column">

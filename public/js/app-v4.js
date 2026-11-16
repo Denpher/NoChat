@@ -19,6 +19,7 @@ import { ensureNoChatFixStyles, installNoChatInteractionLayer } from './app-noch
 import { renderSidebar } from '../components/Sidebar.js';
 import { renderBottomNav } from '../components/BottomNav.js';
 import { renderCommentSheet } from '../components/CommentSheet.js';
+import { renderChatWindow } from '../components/ChatWindow.js';
 import { renderReelUploadModal } from '../components/ReelUploadModal.js';
 import { renderWebcamModal } from '../components/WebcamModal.js';
 
@@ -49,6 +50,7 @@ const state = {
   videos: [],
   announcement: null,
   onlineUsers: new Set(),
+  reviewReels: [],
   activeWatchCategory: 'All',
   replyingToMessage: null,
   editingMessageId: null,
@@ -70,7 +72,7 @@ let reelsMediaObserver=null;
 async function initApp() {
   if (window.__nochat_init) return;
   window.__nochat_init = true;
-  const dispatchActionsV3 = installActionsV3({ getState: () => state, toast, onDelete: id => { state.posts=state.posts.filter(x=>String(x.id)!==String(id)); state.reels=state.reels.filter(x=>String(x.id)!==String(id)); }, onAvatarUpdated: user => { state.user=user; state.profileUser=user; if(state.route==='profile')renderApp(); }, onChatDeleted: id => { state.conversations=state.conversations.filter(c=>String(c.id)!==String(id)); if(String(state.activeConvo?.id)===String(id)){state.activeConvo=null;state.messages=[];} renderApp(); } });
+  const dispatchActionsV3 = installActionsV3({ getState: () => state, toast, onDelete: id => { state.posts=state.posts.filter(x=>String(x.id)!==String(id)); state.reels=state.reels.filter(x=>String(x.id)!==String(id)); }, onAvatarUpdated: user => { state.user=user; state.profileUser=user; if(state.route==='profile')renderApp(); }, onChatDeleted: id => { if(String(state.activeConvo?.id)===String(id)){state.messages=[];setCachedMessages(id,[]);} renderApp(); } });
   installNoChatInteractionLayer((event, button, action) => {
     handleDelegatedAction(event, button, action);
     handleFeedbackAction(event, button);
@@ -81,7 +83,9 @@ async function initApp() {
   document.addEventListener('submit', handlePostSubmit);
   document.addEventListener('submit', handleCommentSubmit);
   document.addEventListener('submit', handleVideoCatalogSubmit);
+  document.addEventListener('submit', handleAnnouncementSubmit);
   document.addEventListener('submit', handleFeedbackSubmit);
+  document.addEventListener('keydown', handleAppEscape);
   document.addEventListener('visibilitychange',()=>{if(document.hidden)document.querySelectorAll('.post-video,.reel-video').forEach(video=>{video.pause();video.muted=true;});});
   window.addEventListener('online', flushOfflineLikes);
   wireStoryPreview();
@@ -121,8 +125,16 @@ function setupGlobalRealtime() {
   if(!socket||wiredRealtimeSocket===socket)return;
   wiredRealtimeSocket=socket;
   onSocketEvent('presence:update', ({ userId, isOnline }) => {
-    if (isOnline) state.onlineUsers.add(userId);
-    else state.onlineUsers.delete(userId);
+    if (isOnline) state.onlineUsers.add(String(userId));
+    else state.onlineUsers.delete(String(userId));
+    updatePresenceBadges();
+  });
+  onSocketEvent('presence:snapshot', ({ userIds = [] } = {}) => {
+    state.onlineUsers = new Set(userIds.map(String));
+    state.conversations.forEach(convo => {
+      const id=convo.otherUser?.id;
+      if(id!=null) convo.isOnline=state.onlineUsers.has(String(id));
+    });
     updatePresenceBadges();
   });
 
@@ -159,6 +171,10 @@ function setupGlobalRealtime() {
 
   onSocketEvent('post:new', post => { state.posts.unshift(post); state.reels.unshift(post); if(state.route==='home') renderApp(); });
   onSocketEvent('reel:new', reel => { state.reels.unshift(reel); state.posts.unshift(reel); if(String(reel.userId)!==String(state.user?.id)) addV4Notification({text:`New reel from ${reel.user?.displayName||reel.user?.username||'a creator'}`,avatar:reel.user?.profilePicture,userId:reel.userId}); if(state.route==='home') renderApp(); });
+  onSocketEvent('reel:moderation-updated', ({reelId,status}) => {
+    if(status==='blocked') { state.reels=state.reels.filter(reel=>String(reel.id)!==String(reelId));state.posts=state.posts.filter(post=>String(post.id)!==String(reelId)); }
+    if(['home','reels','profile'].includes(state.route)) { void loadReelsData().then(()=>{state.posts=state.reels;if(state.route==='home'||state.route==='reels'||state.route==='profile')renderApp();}); }
+  });
   onSocketEvent('story:new',story=>{if(!state.stories.some(item=>String(item.id)===String(story.id)))state.stories.push(story);if(state.route==='home')renderApp();});
   onSocketEvent('reel:liked', ({ user, reelId }) => { if(String(state.reels.find(r=>r.id===reelId)?.userId)===String(state.user?.id)) addV4Notification({text:`${user?.displayName||user?.username||'Someone'} liked your post`,avatar:user?.profilePicture,userId:user?.id}); });
   onSocketEvent('user:subscribed', ({ subscriber }) => addV4Notification({text:`${subscriber?.displayName||subscriber?.username||'Someone'} started following you`,avatar:subscriber?.profilePicture,userId:subscriber?.id}));
@@ -168,11 +184,20 @@ function setupGlobalRealtime() {
   onSocketEvent('call:declined', () => { toast('Call declined'); endPeerCall(false); });
   onSocketEvent('call:offer', async payload => { if(!activeCall || payload.conversationId!==activeCall.conversationId) return; try { await activeCall.pc.setRemoteDescription(payload.signal); await flushCallIce(); const answer=await activeCall.pc.createAnswer(); await activeCall.pc.setLocalDescription(answer); emitSocketEvent('call:answer',{conversationId:activeCall.conversationId,targetUserId:activeCall.peerId,signal:activeCall.pc.localDescription}); } catch(e) { toast('Could not connect call: '+e.message); endPeerCall(true); } });
   onSocketEvent('call:answer', async payload => { if(activeCall && payload.conversationId===activeCall.conversationId) { try { await activeCall.pc.setRemoteDescription(payload.signal); await flushCallIce(); } catch(e) { toast('Call connection failed'); endPeerCall(true); } } });
-  onSocketEvent('call:ice', async payload => { if(!activeCall || payload.conversationId!==activeCall.conversationId) return; if(activeCall.pc.remoteDescription) activeCall.pc.addIceCandidate(payload.signal).catch(()=>{}); else activeCall.pendingIce.push(payload.signal); });
+  onSocketEvent('call:ice', async payload => {
+    const convoId=String(payload.conversationId||'');
+    if(activeCall && String(activeCall.conversationId)===convoId) {
+      if(activeCall.pc?.remoteDescription) activeCall.pc.addIceCandidate(payload.signal).catch(()=>{});
+      else activeCall.pendingIce.push(payload.signal);
+      return;
+    }
+    const queued=pendingCallIce.get(convoId)||[];
+    if(queued.length<64){queued.push(payload.signal);pendingCallIce.set(convoId,queued);}
+  });
   onSocketEvent('call:end', payload => { if(activeCall && payload.conversationId===activeCall.conversationId) { toast('Call ended'); endPeerCall(false); } });
   onSocketEvent('announcement:new', (announcement) => {
     state.announcement = announcement;
-    toast(`📢 New Announcement: ${announcement.title}`);
+    if (String(announcement.actorId) !== String(state.user?.id)) toast(`📢 New Announcement: ${announcement.title}`);
     if (state.route === 'home') renderApp();
   });
 }
@@ -180,10 +205,10 @@ function setupGlobalRealtime() {
 function updatePresenceBadges() {
   $$('.chat-row').forEach(row => {
     const cid = row.dataset.convoId;
-    const convo = state.conversations.find(c => c.id === cid);
+    const convo = state.conversations.find(c => String(c.id) === String(cid));
     const otherId = convo?.otherUser?.id;
     const dot = row.querySelector('.online-dot');
-    if (otherId && state.onlineUsers.has(otherId)) {
+    if (otherId != null && state.onlineUsers.has(String(otherId))) {
       if (!dot) {
         const wrap = row.querySelector('.chat-avatar-wrap');
         wrap?.insertAdjacentHTML('beforeend', '<div class="online-dot"></div>');
@@ -192,6 +217,9 @@ function updatePresenceBadges() {
       dot?.remove();
     }
   });
+  const label=$('.chat-presence-label');
+  const otherId=state.activeConvo?.otherUser?.id;
+  if(label&&otherId!=null){const online=state.onlineUsers.has(String(otherId));label.textContent=online?'Online now':'Offline';label.classList.toggle('is-online',online);}
 }
 
 /* ---------- Main Render Dispatcher ---------- */
@@ -352,6 +380,7 @@ async function renderApp() {
       await loadAdminData();
       container.innerHTML = renderAdminPage({
         users: state.users,
+        reviewReels: state.reviewReels,
         currentUser: state.user
       });
       bindAdminEvents();
@@ -385,6 +414,44 @@ function notificationPanel() { document.querySelector('.v4-notification-panel')?
 function closeV4Notifications() { document.querySelector('.v4-notification-panel')?.remove(); }
 function scheduleFeedbackPrompt(){if(!state.user)return;let last=0;try{last=Number(localStorage.getItem('nochat:feedback:last')||0);}catch{}if(Date.now()-last<7*86400000)return;setTimeout(()=>{if(document.hidden||!state.user||document.querySelector('.v4-feedback-modal'))return;document.body.insertAdjacentHTML('beforeend','<div class="v4-feedback-modal" role="dialog" aria-modal="true" aria-labelledby="v4-feedback-title"><form class="v4-feedback-form"><button type="button" class="v4-feedback-close" data-action="dismiss-feedback" aria-label="Close">×</button><span class="v4-feedback-kicker">Help shape NoChat</span><h2 id="v4-feedback-title">How can we improve?</h2><p>Your feedback helps us make the app better for everyone.</p><label>Email for a follow-up<input name="email" type="email" maxlength="100" required value="'+escapeHtml(state.user.email||'')+'" placeholder="you@example.com"></label><label>What should we improve?<textarea name="message" rows="4" maxlength="1500" required placeholder="Tell us what works or what needs fixing…"></textarea></label><button type="submit" class="btn btn-primary">Send feedback</button><button type="button" class="v4-feedback-later" data-action="dismiss-feedback">Maybe later</button></form></div>');try{localStorage.setItem('nochat:feedback:last',String(Date.now()));}catch{}},45000);}
 function handleFeedbackAction(event){if(!event.target.closest('[data-action="dismiss-feedback"]'))return;document.querySelector('.v4-feedback-modal')?.remove();}
+function openAnnouncementModal() {
+  document.querySelector('.v4-announcement-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', '<div class="v4-announcement-modal" role="dialog" aria-modal="true" aria-labelledby="v4-announcement-title"><form class="v4-announcement-form"><header><h2 id="v4-announcement-title">Post announcement</h2><button type="button" data-action="close-announcement-modal" aria-label="Close">×</button></header><label>Title<input name="title" type="text" maxlength="100" placeholder="Announcement title"></label><label>Message<textarea name="message" rows="5" maxlength="500" required placeholder="Write an update for NoChat users…"></textarea></label><p class="v4-announcement-error" data-announcement-error hidden></p><footer><button type="button" class="btn btn-secondary" data-action="close-announcement-modal">Cancel</button><button type="submit" class="btn btn-primary">Post to everyone</button></footer></form></div>');
+  const modal=document.querySelector('.v4-announcement-modal');
+  modal?.addEventListener('click',event=>{if(event.target===modal)modal.remove();});
+  modal?.querySelector('[name="title"]')?.focus();
+}
+async function handleAnnouncementSubmit(event) {
+  const form=event.target;
+  if(!form.matches('.v4-announcement-form'))return;
+  event.preventDefault();
+  const submit=form.querySelector('[type="submit"]');
+  const errorEl=form.querySelector('[data-announcement-error]');
+  if(submit)submit.disabled=true;
+  if(errorEl){errorEl.hidden=true;errorEl.textContent='';}
+  try {
+    const result=await api.post('/api/admin/announcements',{title:form.elements.namedItem('title').value.trim(),message:form.elements.namedItem('message').value.trim()});
+    state.announcement=result.announcement||null;
+    document.querySelector('.v4-announcement-modal')?.remove();
+    toast('Announcement posted to NoChat');
+    if(state.route==='home')renderApp();
+  } catch(error) {
+    const message=error.status===401?'Login again':error.message||'Announcement could not be posted.';
+    if(errorEl){errorEl.textContent=message;errorEl.hidden=false;}
+    toast(message);
+  } finally {if(submit?.isConnected)submit.disabled=false;}
+}
+function handleAppEscape(event) {
+  if(event.key!=='Escape')return;
+  const player=$('#video-player-modal');
+  if(player&&!player.classList.contains('hidden')){closeWatchVideo();return;}
+  const announcement=document.querySelector('.v4-announcement-modal');if(announcement){announcement.remove();return;}
+  const libraryUpload=document.querySelector('[data-video-upload-modal]:not([hidden])');if(libraryUpload){libraryUpload.setAttribute('hidden','');return;}
+  const storyViewer=document.querySelector('.v4-story-viewer');if(storyViewer){closeV4StoryViewer();return;}
+  const storyComposer=document.querySelector('.v4-story-modal');if(storyComposer){storyComposer.remove();return;}
+  const comments=$('#comment-sheet');if(comments){comments.remove();return;}
+  document.querySelector('.v3-action-backdrop')?.remove();
+}
 async function handleFeedbackSubmit(event){if(!event.target.matches('.v4-feedback-form'))return;event.preventDefault();const form=event.target;const btn=form.querySelector('[type="submit"]');btn.disabled=true;try{const name=state.user?.displayName||state.user?.username||'NoChat user';await api.post('/api/contact',{name,email:form.email.value.trim(),message:`App feedback: ${form.message.value.trim()}`});form.innerHTML='<div class="v4-feedback-success"><span>✓</span><h2>Thanks for helping improve NoChat.</h2><p>Your feedback was received.</p></div>';setTimeout(()=>document.querySelector('.v4-feedback-modal')?.remove(),1800);}catch(error){toast('Feedback could not send: '+error.message);btn.disabled=false;}}
 async function loadV4Stories() { try { const r=await api.get('/api/stories'); state.stories=r.stories||[]; } catch(e) { state.stories=[]; } }
 function decorateYourStory(root) { const row=root.querySelector('.stories-bar'); if(!row) return; const circles=[...row.querySelectorAll('.story-circle')]; const old=circles[0]; if(old) { const own=state.stories.filter(s=>String(s.userId)===String(state.user?.id)); const story=own.at(-1); const avatar=state.user?.profilePicture||'/icons/icon-192.png'; const box=document.createElement('div'); box.className='story-circle v4-your-story'; box.dataset.action=story?'view-own-story':'add-story'; box.innerHTML='<div class="story-ring '+(story?'v4-story-ring-live':'v4-story-ring-empty')+'"><img src="'+escapeHtml(avatar)+'" alt="Your Story" class="story-avatar"></div><button type="button" class="v4-story-plus" data-action="add-story" aria-label="Add story">+</button><span class="story-username">Your Story</span><small class="v4-add-story-label">'+(story?'Add story':'Add Story')+'</small>'; old.replaceWith(box); }
@@ -509,6 +576,12 @@ async function loadChatData() {
   try {
     const res = await api.get('/api/conversations');
     state.conversations = (res.conversations || []).map(c => ({...c, otherUser: c.user || c.otherUser || null}));
+    state.conversations.forEach(convo => {
+      const id=convo.otherUser?.id;
+      if(id==null)return;
+      if(convo.isOnline)state.onlineUsers.add(String(id));
+      else state.onlineUsers.delete(String(id));
+    });
     if (!state.activeConvo && state.conversations.length > 0) {
       state.activeConvo = state.conversations[0];
     }
@@ -578,10 +651,29 @@ async function loadProfileData(userId) {
 
 async function loadAdminData() {
   try {
-    const res = await api.get('/api/admin/users');
-    state.users = res.users || [];
+    const [users, review] = await Promise.all([api.get('/api/admin/users'),api.get('/api/admin/review')]);
+    state.users = users.users || [];
+    state.reviewReels = review.reels || [];
   } catch (e) {
+    state.users=[];state.reviewReels=[];
     toast(e.message || 'Restricted to founder denpherai@gmail.com');
+  }
+}
+
+async function moderateQueuedReel(button) {
+  const id=button.dataset.reelId,status=button.dataset.status;
+  if(!id||!['approved','blocked'].includes(status))return;
+  button.disabled=true;
+  try {
+    await api.post(`/api/admin/reels/${encodeURIComponent(id)}/review`,{status});
+    state.reviewReels=state.reviewReels.filter(reel=>String(reel.id)!==String(id));
+    if(status==='blocked'){state.reels=state.reels.filter(reel=>String(reel.id)!==String(id));state.posts=state.posts.filter(reel=>String(reel.id)!==String(id));}
+    else await loadReelsData();
+    toast(status==='approved'?'Reel approved and visible to the community':'Reel blocked');
+    renderApp();
+  } catch(error) {
+    button.disabled=false;
+    toast(error.status===401?'Login again':`Moderation failed: ${error.message}`);
   }
 }
 
@@ -917,6 +1009,7 @@ function bindChatEvents() {
       const text = input.value.trim();
       if (!text || !state.activeConvo) return;
 
+      const conversationId=String(state.activeConvo.id);
       const body = { text };
       if (state.replyingToMessage) {
         body.replyToId = state.replyingToMessage.id;
@@ -924,14 +1017,25 @@ function bindChatEvents() {
         $('#reply-bar')?.classList.add('hidden');
       }
 
+      const optimistic={id:`local-${Date.now()}-${Math.random().toString(36).slice(2)}`,conversationId,senderId:state.user.id,senderUsername:state.user.username,senderDisplayName:state.user.displayName||state.user.username,text,createdAt:new Date().toISOString(),pending:true};
+      state.messages.push(optimistic);
+      input.value='';
+      setCachedMessages(conversationId,state.messages);
+      renderChatWindowArea();
+      $('#chat-message-input')?.focus({preventScroll:true});
       try {
-        const result=await api.post(`/api/conversations/${encodeURIComponent(state.activeConvo.id)}/messages`, body);
-        input.value='';
-        if(result.message&&!state.messages.some(item=>String(item.id)===String(result.message.id))) state.messages.push(result.message);
-        setCachedMessages(state.activeConvo.id,state.messages);
-        renderChatWindowArea();
+        const result=await api.post(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, body);
+        const cached=getCachedMessages(conversationId)||[];
+        const committed=cached.filter(item=>String(item.id)!==String(optimistic.id));
+        if(result.message&&!committed.some(item=>String(item.id)===String(result.message.id)))committed.push(result.message);
+        setCachedMessages(conversationId,committed);
+        if(String(state.activeConvo?.id)===conversationId){state.messages=committed;renderChatWindowArea();}
       } catch (err) {
-        toast(err.message || 'Failed to send message.');
+        const cached=(getCachedMessages(conversationId)||[]).filter(item=>String(item.id)!==String(optimistic.id));
+        setCachedMessages(conversationId,cached);
+        if(String(state.activeConvo?.id)===conversationId){state.messages=cached;renderChatWindowArea();}
+        toast(err.status===401?'Login again':'Message not sent: '+(err.message || 'try again'));
+        if(!$('#chat-message-input')?.value)$('#chat-message-input').value=text;
       }
     };
   }
@@ -942,13 +1046,11 @@ function bindChatEvents() {
 function renderChatWindowArea() {
   const container = $('.chat-main-area');
   if (container) {
-    container.innerHTML = renderChatPage({
-      conversations: state.conversations,
-      activeConversation: state.activeConvo,
-      messages: state.messages,
-      currentUser: state.user,
-      onlineUserIds: state.onlineUsers
-    });
+    // Refresh only the open conversation. Rendering ChatPage here nests a second
+    // chat-layout inside .chat-main-area every time a message arrives or is sent.
+    const otherUserId = state.activeConvo?.otherUser?.id;
+  const isRecipientOnline = otherUserId != null && state.onlineUsers.has(String(otherUserId));
+    container.innerHTML = renderChatWindow(state.activeConvo, state.messages, state.user?.id, isRecipientOnline);
     bindChatEvents();
     refreshIcons();
     // Scroll to bottom
@@ -958,14 +1060,15 @@ function renderChatWindowArea() {
 }
 
 let activeCall=null; let incomingCall=null;
+const pendingCallIce=new Map();
 async function startPeerCall(video) {
   const convo=state.activeConvo; const peerId=convo?.otherUser?.id;
   if(!convo||!peerId) { toast('Open a chat before starting a call'); return; }
   if(!navigator.mediaDevices?.getUserMedia||!window.RTCPeerConnection) { toast('Calls require a secure HTTPS browser with microphone access'); return; }
-  try { const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:video?{facingMode:'user'}:false}); activeCall={conversationId:convo.id,peerId,video,stream,pc:null,pendingIce:[],incoming:false}; await createCallPeer(); showCallStage(); emitSocketEvent('call:invite',{conversationId:convo.id,targetUserId:peerId,video}); toast('Calling '+(convo.otherUser.displayName||convo.otherUser.username||'human')+'…'); } catch(e) { endPeerCall(false); toast(e.name==='NotAllowedError'?'Allow microphone/camera access to call':'Call failed: '+e.message); }
+  try { const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:video?{facingMode:'user'}:false}); activeCall={conversationId:convo.id,peerId,video,stream,pc:null,pendingIce:[],incoming:false}; await createCallPeer(); showCallStage(); emitSocketEvent('call:invite',{conversationId:convo.id,targetUserId:peerId,video},result=>{if(result?.error){toast(result.error);endPeerCall(false);}}); toast('Calling '+(convo.otherUser.displayName||convo.otherUser.username||'human')+'…'); } catch(e) { endPeerCall(false); toast(e.name==='NotAllowedError'?'Allow microphone/camera access to call':'Call failed: '+e.message); }
 }
 function showIncomingCall(payload) { if(activeCall) { emitSocketEvent('call:decline',{conversationId:payload.conversationId,targetUserId:payload.callerId}); return; } incomingCall=payload; document.querySelector('.v4-incoming-call')?.remove(); document.body.insertAdjacentHTML('beforeend','<div class="v4-incoming-call"><section><h3>Incoming '+(payload.video?'video':'voice')+' call</h3><p>'+escapeHtml(payload.caller?.displayName||payload.caller?.username||'NoChat member')+'</p><button type="button" data-action="call-accept">Accept</button><button type="button" data-action="call-decline">Decline</button></section></div>'); }
-async function acceptPeerCall() { const payload=incomingCall;if(!payload)return;document.querySelector('.v4-incoming-call')?.remove();incomingCall=null;try { const convo=state.conversations.find(c=>c.id===payload.conversationId);activeCall={conversationId:payload.conversationId,peerId:payload.callerId,video:payload.video,stream:await navigator.mediaDevices.getUserMedia({audio:true,video:payload.video?{facingMode:'user'}:false}),pc:null,pendingIce:[],incoming:true};state.activeConvo=convo||{id:payload.conversationId,otherUser:payload.caller};await createCallPeer();showCallStage();emitSocketEvent('call:accept',{conversationId:payload.conversationId,targetUserId:payload.callerId});}catch(e){emitSocketEvent('call:decline',{conversationId:payload.conversationId,targetUserId:payload.callerId});endPeerCall(false);toast('Could not answer: '+e.message);} }
+async function acceptPeerCall() { const payload=incomingCall;if(!payload)return;document.querySelector('.v4-incoming-call')?.remove();incomingCall=null;try { const convo=state.conversations.find(c=>String(c.id)===String(payload.conversationId));activeCall={conversationId:payload.conversationId,peerId:payload.callerId,video:payload.video,stream:await navigator.mediaDevices.getUserMedia({audio:true,video:payload.video?{facingMode:'user'}:false}),pc:null,pendingIce:pendingCallIce.get(String(payload.conversationId))||[],incoming:true};pendingCallIce.delete(String(payload.conversationId));state.activeConvo=convo||{id:payload.conversationId,otherUser:payload.caller};await createCallPeer();showCallStage();emitSocketEvent('call:accept',{conversationId:payload.conversationId,targetUserId:payload.callerId});}catch(e){emitSocketEvent('call:decline',{conversationId:payload.conversationId,targetUserId:payload.callerId});endPeerCall(false);toast('Could not answer: '+e.message);} }
 async function createCallPeer() {
   const config=await api.get('/api/calls/ice').catch(()=>({iceServers:[{urls:['stun:stun.l.google.com:19302']}],turn:{configured:false,status:'unavailable',message:'TURN settings could not load.'}}));
   if(!config.turn?.configured||config.turn.status!=='ready')toast('TURN relay is not ready. Calls may fail on mobile or restricted networks.');
@@ -980,11 +1083,13 @@ async function createCallPeer() {
 async function sendCallOffer() { if(!activeCall?.pc)return;try{const offer=await activeCall.pc.createOffer();await activeCall.pc.setLocalDescription(offer);emitSocketEvent('call:offer',{conversationId:activeCall.conversationId,targetUserId:activeCall.peerId,signal:activeCall.pc.localDescription});}catch(e){toast('Could not start call: '+e.message);endPeerCall(true);} }
 async function flushCallIce(){if(!activeCall?.pc?.remoteDescription)return;for(const candidate of activeCall.pendingIce.splice(0))await activeCall.pc.addIceCandidate(candidate).catch(()=>{});}
 function showCallStage(){document.querySelector('.v4-call-stage')?.remove();document.body.insertAdjacentHTML('beforeend','<div class="v4-call-stage"><section><header>'+(activeCall.video?'Video call':'Voice call')+'<span data-call-status>Connecting…</span></header><video data-call-remote autoplay playsinline '+(activeCall.video?'':'class="v4-audio-call"')+'></video><video data-call-local autoplay muted playsinline '+(activeCall.video?'':'hidden')+'></video><footer><button type="button" data-action="call-mic">Mute mic</button>'+(activeCall.video?'<button type="button" data-action="call-camera">Turn camera off</button>':'')+'<button type="button" class="v4-call-end" data-action="call-end">End call</button></footer></section></div>');const local=document.querySelector('[data-call-local]');if(local&&activeCall.video){local.srcObject=activeCall.stream;local.play().catch(()=>{});} }
-function endPeerCall(notify=true){if(activeCall){if(notify)emitSocketEvent('call:end',{conversationId:activeCall.conversationId,targetUserId:activeCall.peerId});activeCall.pc?.close();activeCall.stream?.getTracks().forEach(t=>t.stop());activeCall=null;}document.querySelector('.v4-call-stage')?.remove();}
+function endPeerCall(notify=true){if(activeCall){pendingCallIce.delete(String(activeCall.conversationId));if(notify)emitSocketEvent('call:end',{conversationId:activeCall.conversationId,targetUserId:activeCall.peerId});activeCall.pc?.close();activeCall.stream?.getTracks().forEach(t=>t.stop());activeCall=null;}document.querySelector('.v4-call-stage')?.remove();}
 function handleCallAction(action){if(action==='call-accept')acceptPeerCall();else if(action==='call-decline'){if(incomingCall)emitSocketEvent('call:decline',{conversationId:incomingCall.conversationId,targetUserId:incomingCall.callerId});incomingCall=null;document.querySelector('.v4-incoming-call')?.remove();}else if(action==='call-end')endPeerCall(true);else if(action==='call-mic'&&activeCall){const track=activeCall.stream.getAudioTracks()[0];if(track){track.enabled=!track.enabled;document.querySelector('[data-action="call-mic"]').textContent=track.enabled?'Mute mic':'Unmute mic';}}else if(action==='call-camera'&&activeCall){const track=activeCall.stream.getVideoTracks()[0];if(track){track.enabled=!track.enabled;document.querySelector('[data-action="call-camera"]').textContent=track.enabled?'Turn camera off':'Turn camera on';}}}
 
 function bindWatchPartyEvents() {
   $$('.watch-tab-btn').forEach(btn => btn.onclick = () => { state.activeWatchCategory = btn.dataset.category; renderApp(); });
+  const playerModal=$('#video-player-modal');
+  if(playerModal&&!playerModal.dataset.backdropReady){playerModal.dataset.backdropReady='true';playerModal.addEventListener('click',event=>{if(event.target===playerModal)closeWatchVideo();});}
   // Video card actions are delegated through the shared NoChat action router.
 }
 
@@ -1129,11 +1234,18 @@ function bindUploadModalEvents() {
       }, 200);
 
       try {
-        await api.post('/api/reels', formData);
+        const result = await api.post('/api/reels', formData);
         clearInterval(timer);
         if (progressBar) progressBar.style.width = '100%';
         if (progressPercent) progressPercent.textContent = '100%';
-        toast('🎬 Reel shared successfully!');
+        const status = result.reel?.moderationStatus || 'approved';
+        if (status === 'blocked') {
+          toast(`Reel wasn't published: ${result.reel?.moderationReason || 'It did not pass NoChat review.'}`);
+          submitBtn.disabled = false;
+          progressWrap?.classList.add('hidden');
+          return;
+        }
+        toast(status === 'pending' ? 'Reel uploaded. It is under review and visible to you in Reels.' : 'Reel shared successfully!');
         setTimeout(() => {
           modal?.classList.add('hidden');
           form.reset();
@@ -1161,11 +1273,14 @@ function handleDelegatedAction(event, button, action) {
   if (action === 'open-auth') { event.preventDefault(); $('#auth-modal')?.classList.remove('hidden'); refreshIcons(); return; }
   if (action === 'close-auth') { event.preventDefault(); $('#auth-modal')?.classList.add('hidden'); return; }
   if (action === 'close-modal') { event.preventDefault(); button.closest('.modal-overlay')?.classList.add('hidden'); return; }
+  if (action === 'open-announcement-modal') { event.preventDefault(); openAnnouncementModal(); return; }
+  if (action === 'close-announcement-modal') { event.preventDefault(); button.closest('.v4-announcement-modal')?.remove(); return; }
   if (action === 'toggle-like' || action === 'reel-like') { event.preventDefault(); toggleLikeOptimistically(button); return; }
   if (action === 'open-comments' || action === 'reel-comment') { event.preventDefault(); const owner=button.closest('[data-post-id],[data-reel-id]'); const id=owner?.dataset.postId||owner?.dataset.reelId; if(id) void openCommentsDrawer(id); return; }
   if (action === 'close-sheet') { event.preventDefault(); button.closest('#comment-sheet')?.remove(); return; }
   if (action === 'start-video-call') { event.preventDefault(); void startPeerCall(true); return; }
   if (action === 'start-voice-call') { event.preventDefault(); void startPeerCall(false); return; }
+  if (action === 'moderate-reel') { event.preventDefault(); void moderateQueuedReel(button); return; }
   if (action === 'attach-file' || action === 'delete-message' || action === 'edit-message' || action === 'cancel-reply' || action === 'reply-message' || action === 'react-heart') { event.preventDefault(); void handleChatAction(action, button); return; }
   if (action === 'stories-scroll-left' || action === 'stories-scroll-right') {
     event.preventDefault();
@@ -1262,7 +1377,7 @@ function openWatchVideo(button) {
   if(provider==='upload'){
     const src=button.dataset.videoUrl;
     if(!src){toast('This video file is unavailable');return;}
-    box.innerHTML='<header class="v2-modal-header"><h3 id="video-player-title"></h3><button type="button" class="btn-icon" data-action="close-video-modal" aria-label="Close video">×</button></header><div class="v2-player-frame"><video controls autoplay playsinline preload="metadata" src="'+escapeHtml(src)+'"></video></div><div class="v2-player-controls"><button type="button" data-action="watch-toggle-sound">Sound On</button><span>Uploaded to NoChat</span></div>';
+    box.innerHTML='<header class="v2-modal-header"><h3 id="video-player-title"></h3><button type="button" class="btn-icon" data-action="close-video-modal" aria-label="Close video">×</button></header><div class="v2-player-frame"><video controls autoplay muted playsinline preload="metadata" src="'+escapeHtml(src)+'"></video></div><div class="v2-player-controls"><button type="button" data-action="watch-toggle-sound">Sound Off</button><span>Uploaded to NoChat</span></div>';
   }else if(provider==='vimeo'){
     const id=button.dataset.embedId||'';
     if(!/^\d{6,12}$/.test(id)){toast('Invalid video link');return;}

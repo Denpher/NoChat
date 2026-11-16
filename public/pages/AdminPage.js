@@ -7,7 +7,7 @@ import { escapeHtml } from '../utils/dom.js';
 import { formatTimeAgo } from '../utils/formatters.js';
 import { renderFooter } from '../components/Footer.js';
 
-export function renderAdminPage({ users = [], currentUser = null }) {
+export function renderAdminPage({ users = [], reviewReels = [], currentUser = null }) {
   const isFounder = Boolean(
     currentUser && (
       (currentUser.email && currentUser.email.toLowerCase() === 'denpherai@gmail.com') ||
@@ -45,6 +45,11 @@ export function renderAdminPage({ users = [], currentUser = null }) {
           </div>
         </div>
       </header>
+
+      <section class="v4-admin-review-section">
+        <div class="v4-admin-section-heading"><div><span>CONTENT SAFETY</span><h2>Reel moderation</h2></div><strong>${reviewReels.length} awaiting review</strong></div>
+        ${reviewReels.length ? `<div class="v4-admin-review-grid">${reviewReels.map(reel=>`<article class="v4-admin-review-card" data-review-reel="${escapeHtml(reel.id)}"><video src="${escapeHtml(reel.videoUrl||'')}" controls playsinline preload="metadata"></video><div><strong>@${escapeHtml(reel.user?.username||'human')}</strong><p>${escapeHtml(reel.caption||'No caption')}</p><small>${escapeHtml(reel.moderationReason||'Reported content')} · ${formatTimeAgo(reel.createdAt)}</small><footer><button type="button" class="btn btn-primary" data-action="moderate-reel" data-reel-id="${escapeHtml(reel.id)}" data-status="approved">Approve</button><button type="button" class="btn btn-danger" data-action="moderate-reel" data-reel-id="${escapeHtml(reel.id)}" data-status="blocked">Block</button></footer></div></article>`).join('')}</div>` : '<div class="v4-admin-review-empty">No reels need review right now.</div>'}
+      </section>
 
       <!-- Users Overview Section -->
       <section style="margin-bottom:40px;">

@@ -2,6 +2,12 @@ const ROUTE_ACTIONS = Object.freeze({ home: 'home', search: 'discover', discover
 
 let routeObserver;
 
+export function routeHashFor({ href = '', dataRoute = '', action = '' } = {}) {
+  const route = dataRoute || ROUTE_ACTIONS[action];
+  if (route) return `#/${String(route).replace(/^#\/?/, '')}`;
+  return href.startsWith('#/') ? href : '';
+}
+
 export function ensureNoChatFixStyles() {
   if (!document.querySelector('.shell') || document.querySelector('[data-nochat-fix-styles]')) return;
   const link = document.createElement('link');
@@ -38,10 +44,10 @@ export function installNoChatInteractionLayer(dispatch) {
     }
 
     const href = control.getAttribute('href') || '';
-    const route = control.dataset.route || ROUTE_ACTIONS[action] || (href.startsWith('#/') ? href.replace(/^#\/?/, '').split('/')[0] : '');
-    if (route) {
+    const routeHash = routeHashFor({ href, dataRoute: control.dataset.route, action });
+    if (routeHash) {
       event.preventDefault();
-      window.location.hash = `#/${route}`;
+      window.location.hash = routeHash;
     }
   });
 }
