@@ -25,6 +25,7 @@ export function renderChatWindow(conversation, messages = [], currentUserId = nu
   return `
     <div class="chat-main">
       <header class="chat-header">
+        <button type="button" class="chat-mobile-back" data-action="mobile-chat-back" aria-label="Back to conversations">‹</button>
         <div class="chat-recipient">
           <img src="${avatar}" alt="${recipientName}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;" />
           <div>
@@ -68,7 +69,7 @@ export function renderChatWindow(conversation, messages = [], currentUserId = nu
 }
 
 function renderMessageBubble(m, currentUserId) {
-  const isMine = m.senderId === currentUserId;
+  const isMine = String(m.senderId) === String(currentUserId);
   const time = formatTimeAgo(m.createdAt);
   const isWithin15Min = Date.now() - new Date(m.createdAt).getTime() < 15 * 60 * 1000;
 
@@ -94,9 +95,7 @@ function renderMessageBubble(m, currentUserId) {
 
       ${m.attachment ? `
         <div style="margin-top:6px;">
-          <a href="${m.attachment.url}" target="_blank" style="color:inherit; text-decoration:underline;">
-            📎 ${escapeHtml(m.attachment.name || 'Attachment')}
-          </a>
+          ${String(m.attachment.type||'').startsWith('audio/') ? `<audio controls preload="metadata" src="${escapeHtml(m.attachment.url)}" aria-label="Voice message"></audio>` : `<a href="${escapeHtml(m.attachment.url)}" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">📎 ${escapeHtml(m.attachment.name || 'Attachment')}</a>`}
         </div>
       ` : ''}
 

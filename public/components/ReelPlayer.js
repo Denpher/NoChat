@@ -14,7 +14,7 @@ export function renderReelItem(reel, currentUser = null, isFollowing = false) {
 
   return `
     <div class="reel-item" data-reel-id="${reel.id}">
-      <video src="${reel.videoUrl}" loop playsinline class="reel-video" preload="metadata"></video>
+      <video src="${reel.videoUrl}" loop muted playsinline class="reel-video" preload="metadata"></video>
       <div class="heart-burst"><i data-lucide="heart" style="width:80px;height:80px;fill:var(--like-red);"></i></div>
 
       <div class="reel-actions-column">

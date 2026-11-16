@@ -41,6 +41,7 @@ const state = {
   posts: [],
   reels: [],
   users: [],
+  recommendedUsers: [],
   conversations: [],
   activeConvo: null,
   messages: [],
@@ -55,15 +56,23 @@ const state = {
   unreadNotifications: 0,
   stories: [],
   activeStoryIndex: 0,
-  activeStoryList: []
+  activeStoryList: [],
+  globalSoundEnabled: false
 };
+let wiredRealtimeSocket=null;
+let feedMediaObserver=null;
+let reelsMediaObserver=null;
 
 /* ---------- Initialization ---------- */
 async function initApp() {
-  installActionsV3({ getState: () => state, toast, onDelete: id => { state.posts=state.posts.filter(x=>String(x.id)!==String(id)); state.reels=state.reels.filter(x=>String(x.id)!==String(id)); }, onAvatarUpdated: user => { state.user=user; state.profileUser=user; }, onChatDeleted: id => { state.conversations=state.conversations.filter(c=>String(c.id)!==String(id)); if(String(state.activeConvo?.id)===String(id)){state.activeConvo=null;state.messages=[];} renderApp(); } });
+  installActionsV3({ getState: () => state, toast, onDelete: id => { state.posts=state.posts.filter(x=>String(x.id)!==String(id)); state.reels=state.reels.filter(x=>String(x.id)!==String(id)); }, onAvatarUpdated: user => { state.user=user; state.profileUser=user; if(state.route==='profile')renderApp(); }, onChatDeleted: id => { state.conversations=state.conversations.filter(c=>String(c.id)!==String(id)); if(String(state.activeConvo?.id)===String(id)){state.activeConvo=null;state.messages=[];} renderApp(); } });
+  window.addEventListener('nochat:refresh-chat',renderChatWindowArea);
   document.addEventListener('click', handleV4Action);
   document.addEventListener('submit', handleStorySubmit);
   document.addEventListener('submit', handlePostSubmit);
+  document.addEventListener('submit', handleFeedbackSubmit);
+  document.addEventListener('click', handleFeedbackAction);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)document.querySelectorAll('.post-video,.reel-video').forEach(video=>{video.pause();video.muted=true;});});
   wireStoryPreview();
   // Delegated navigation survives rerenders and works when the icon itself is clicked.
   document.addEventListener('click', (event) => {
@@ -77,6 +86,7 @@ async function initApp() {
   // Subscribe to auth updates
   subscribeAuth((user) => {
     state.user = user;
+    if(user)setupGlobalRealtime();
     loadV4Notifications();
     renderApp();
   });
@@ -89,6 +99,7 @@ async function initApp() {
   loadV4Notifications(); await loadV4Stories();
   // Load initial route
   handleRouteChange();
+  scheduleFeedbackPrompt();
 }
 
 function handleRouteChange() {
@@ -102,6 +113,9 @@ function handleRouteChange() {
 
 /* ---------- Realtime Setup ---------- */
 function setupGlobalRealtime() {
+  const socket=getSocket();
+  if(!socket||wiredRealtimeSocket===socket)return;
+  wiredRealtimeSocket=socket;
   onSocketEvent('presence:update', ({ userId, isOnline }) => {
     if (isOnline) state.onlineUsers.add(userId);
     else state.onlineUsers.delete(userId);
@@ -110,8 +124,8 @@ function setupGlobalRealtime() {
 
   onSocketEvent('message:new', (message) => {
     appendCachedMessage(message.conversationId, message);
-    if (state.activeConvo && state.activeConvo.id === message.conversationId) {
-      state.messages.push(message);
+    if (state.activeConvo && String(state.activeConvo.id) === String(message.conversationId)) {
+      if (!state.messages.some(item => String(item.id) === String(message.id))) state.messages.push(message);
       renderChatWindowArea();
     }
     // Update conversation snippet
@@ -126,6 +140,7 @@ function setupGlobalRealtime() {
   });
 
   onSocketEvent('conversation:update', async () => { if(state.route!=='chat') return; const r=await api.get('/api/conversations').catch(()=>({conversations:[]})); state.conversations=(r.conversations||[]).map(c=>({...c,otherUser:c.user||c.otherUser||null})); if(!state.activeConvo || !state.conversations.some(c=>c.id===state.activeConvo.id)) state.activeConvo=state.conversations[0]||null; renderApp(); });
+  onSocketEvent('connect', () => { if(state.activeConvo?.id) getSocket()?.emit('conversation:join',state.activeConvo.id); });
   onSocketEvent('message:reaction', ({ conversationId, messageId, reactions }) => {
     if (state.activeConvo && state.activeConvo.id === conversationId) {
       const msg = state.messages.find(m => m.id === messageId);
@@ -135,9 +150,12 @@ function setupGlobalRealtime() {
       }
     }
   });
+  onSocketEvent('message:edited',({conversationId,messageId,text,isEdited,editedAt})=>{if(String(state.activeConvo?.id)!==String(conversationId))return;const message=state.messages.find(m=>String(m.id)===String(messageId));if(message){message.text=text;message.isEdited=isEdited;message.editedAt=editedAt;setCachedMessages(conversationId,state.messages);renderChatWindowArea();}});
+  onSocketEvent('message:deleted',({conversationId,messageId})=>{if(String(state.activeConvo?.id)!==String(conversationId))return;state.messages=state.messages.filter(m=>String(m.id)!==String(messageId));setCachedMessages(conversationId,state.messages);renderChatWindowArea();});
 
   onSocketEvent('post:new', post => { state.posts.unshift(post); state.reels.unshift(post); if(state.route==='home') renderApp(); });
   onSocketEvent('reel:new', reel => { state.reels.unshift(reel); state.posts.unshift(reel); if(String(reel.userId)!==String(state.user?.id)) addV4Notification({text:`New reel from ${reel.user?.displayName||reel.user?.username||'a creator'}`,avatar:reel.user?.profilePicture,userId:reel.userId}); if(state.route==='home') renderApp(); });
+  onSocketEvent('story:new',story=>{if(!state.stories.some(item=>String(item.id)===String(story.id)))state.stories.push(story);if(state.route==='home')renderApp();});
   onSocketEvent('reel:liked', ({ user, reelId }) => { if(String(state.reels.find(r=>r.id===reelId)?.userId)===String(state.user?.id)) addV4Notification({text:`${user?.displayName||user?.username||'Someone'} liked your post`,avatar:user?.profilePicture,userId:user?.id}); });
   onSocketEvent('user:subscribed', ({ subscriber }) => addV4Notification({text:`${subscriber?.displayName||subscriber?.username||'Someone'} started following you`,avatar:subscriber?.profilePicture,userId:subscriber?.id}));
   onSocketEvent('message:new', (message) => { if(String(message.senderId)!==String(state.user?.id)) addV4Notification({text:`${message.senderDisplayName||message.senderUsername||'Someone'} sent you a message`,avatar:message.senderAvatar}); });
@@ -223,11 +241,14 @@ async function renderApp() {
   app.innerHTML = `
     <div class="shell">
       ${sidebarHtml}
+      <button type="button" class="v4-menu-scrim" data-action="toggle-mobile-menu" aria-label="Close navigation"></button>
       <main class="main-content" id="main-content-scroll">
         <header class="topbar">
           <h1>${formatTopBarTitle(route)}</h1>
           <div style="display:flex; gap:8px;">
+            <button type="button" class="btn-icon v4-mobile-menu-trigger" data-action="toggle-mobile-menu" aria-label="Open navigation menu"><i data-lucide="menu"></i></button>
             ${route === 'home' ? `<button type="button" class="btn-icon v4-bell-button" data-action="notifications" aria-label="Notifications" title="Notifications"><i data-lucide="bell"></i><span class="v4-notification-count ${state.unreadNotifications ? '' : 'hidden'}" data-bell-count>${state.unreadNotifications || ''}</span></button>` : ''}
+            ${route === 'home' ? `<button type="button" class="btn-icon" data-action="toggle-global-sound" aria-label="Toggle feed video sound" title="Toggle feed video sound"><i data-lucide="${state.globalSoundEnabled?'volume-2':'volume-x'}"></i></button>` : ''}
             <button type="button" class="btn-icon" data-action="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle theme">◐</button>
             <button type="button" class="btn-icon v4-create-trigger" data-action="toggle-create-menu" title="Create"><i data-lucide="plus"></i></button><div class="v4-create-menu hidden"><button type="button" data-action="open-upload-modal">Create Reel</button><button type="button" data-action="open-post-upload">Create Post</button><button type="button" data-action="add-story">Add Story</button></div>
             <a href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn-icon" title="Founder Portfolio"><i data-lucide="globe"></i></a>
@@ -260,11 +281,17 @@ async function renderApp() {
         currentUser: state.user,
         announcement: state.announcement
       });
-      const feed=container.querySelector('.feed-container'); if(feed) feed.insertAdjacentHTML('beforeend', renderDiscoveryPanel(state.users));
+      const feed=container.querySelector('.feed-container'); if(feed) feed.insertAdjacentHTML('beforeend', renderDiscoveryPanel(state.recommendedUsers));
       bindDiscoveryEvents(container);
       decorateYourStory(container);
       if(state.routeParam) document.querySelector(`[data-post-id="${CSS.escape(state.routeParam)}"]`)?.scrollIntoView({behavior:'smooth',block:'center'});
       bindHomeEvents();
+      break;
+
+    case 'discover':
+      await loadHomeData();
+      container.innerHTML='<div class="v4-discover-page"><header><span>NOCHAT COMMUNITY</span><h2>Discover real people</h2><p>Find creators, follow their work, and connect with humans.</p></header>'+renderDiscoveryPanel(state.recommendedUsers)+'</div>';
+      bindDiscoveryEvents(container);
       break;
 
     case 'reels':
@@ -305,10 +332,10 @@ async function renderApp() {
       container.innerHTML = renderProfilePage({
         profileUser: state.profileUser || state.user,
         currentUser: state.user,
-        posts: (state.profileReels||state.posts).filter(p => p.userId === (state.profileUser?.id || state.user?.id)),
-        reels: (state.profileReels||state.reels).filter(r => r.userId === (state.profileUser?.id || state.user?.id)),
-        savedPosts: state.reels.filter(r => JSON.parse(localStorage.getItem('nochat:saved-reels')||'[]').includes(String(r.id))),
-        activeTab: 'posts'
+        posts: (state.profileReels||state.posts).filter(p => String(p.userId) === String(state.profileUser?.id || state.user?.id)),
+        reels: (state.profileReels||state.reels).filter(r => String(r.userId) === String(state.profileUser?.id || state.user?.id)),
+        savedPosts: state.reels.filter(r => (JSON.parse(localStorage.getItem('nochat:saved-reels')||'[]').map(String)).includes(String(r.id))),
+        activeTab: state.profileTab || 'posts'
       });
       bindProfileEvents();
       break;
@@ -348,6 +375,9 @@ function addV4Notification(item) { if(!item?.text) return; state.notifications.u
 function updateV4Bell() { const b=document.querySelector('[data-bell-count]'); if(!b) return; b.textContent=state.unreadNotifications||''; b.classList.toggle('hidden',state.unreadNotifications===0); }
 function notificationPanel() { document.querySelector('.v4-notification-panel')?.remove(); const rows=state.notifications.map(n=>'<article class="v4-notification-row"><img src="'+escapeHtml(n.avatar||'/icons/icon-192.png')+'" alt=""><div class="v4-notification-copy"><strong>'+escapeHtml(n.text)+'</strong><small>'+escapeHtml(n.time||'Just now')+'</small></div>'+(n.userId?'<button type="button" data-action="toggle-follow" data-user-id="'+escapeHtml(n.userId)+'">Follow</button>':'')+'</article>').join(''); const panel=document.createElement('section'); panel.className='v4-notification-panel'; panel.setAttribute('role','dialog'); panel.setAttribute('aria-label','Notifications'); panel.innerHTML='<header><strong>Notifications</strong><button type="button" data-action="close-notifications" aria-label="Close">×</button></header>'+(rows||'<p class="v4-notification-empty">You’re all caught up.</p>'); document.querySelector('.topbar')?.append(panel); state.notifications=state.notifications.map(n=>({...n,read:true})); state.unreadNotifications=0; saveV4Notifications(); updateV4Bell(); }
 function closeV4Notifications() { document.querySelector('.v4-notification-panel')?.remove(); }
+function scheduleFeedbackPrompt(){if(!state.user)return;let last=0;try{last=Number(localStorage.getItem('nochat:feedback:last')||0);}catch{}if(Date.now()-last<7*86400000)return;setTimeout(()=>{if(document.hidden||!state.user||document.querySelector('.v4-feedback-modal'))return;document.body.insertAdjacentHTML('beforeend','<div class="v4-feedback-modal" role="dialog" aria-modal="true" aria-labelledby="v4-feedback-title"><form class="v4-feedback-form"><button type="button" class="v4-feedback-close" data-action="dismiss-feedback" aria-label="Close">×</button><span class="v4-feedback-kicker">Help shape NoChat</span><h2 id="v4-feedback-title">How can we improve?</h2><p>Your feedback helps us make the app better for everyone.</p><label>Email for a follow-up<input name="email" type="email" maxlength="100" required value="'+escapeHtml(state.user.email||'')+'" placeholder="you@example.com"></label><label>What should we improve?<textarea name="message" rows="4" maxlength="1500" required placeholder="Tell us what works or what needs fixing…"></textarea></label><button type="submit" class="btn btn-primary">Send feedback</button><button type="button" class="v4-feedback-later" data-action="dismiss-feedback">Maybe later</button></form></div>');try{localStorage.setItem('nochat:feedback:last',String(Date.now()));}catch{}},45000);}
+function handleFeedbackAction(event){if(!event.target.closest('[data-action="dismiss-feedback"]'))return;document.querySelector('.v4-feedback-modal')?.remove();}
+async function handleFeedbackSubmit(event){if(!event.target.matches('.v4-feedback-form'))return;event.preventDefault();const form=event.target;const btn=form.querySelector('[type="submit"]');btn.disabled=true;try{const name=state.user?.displayName||state.user?.username||'NoChat user';await api.post('/api/contact',{name,email:form.email.value.trim(),message:`App feedback: ${form.message.value.trim()}`});form.innerHTML='<div class="v4-feedback-success"><span>✓</span><h2>Thanks for helping improve NoChat.</h2><p>Your feedback was received.</p></div>';setTimeout(()=>document.querySelector('.v4-feedback-modal')?.remove(),1800);}catch(error){toast('Feedback could not send: '+error.message);btn.disabled=false;}}
 async function loadV4Stories() { try { const r=await api.get('/api/stories'); state.stories=r.stories||[]; } catch(e) { state.stories=[]; } }
 function decorateYourStory(root) { const row=root.querySelector('.stories-bar'); if(!row) return; const circles=[...row.querySelectorAll('.story-circle')]; const old=circles[0]; if(old) { const own=state.stories.filter(s=>String(s.userId)===String(state.user?.id)); const story=own.at(-1); const avatar=state.user?.profilePicture||'/icons/icon-192.png'; const box=document.createElement('div'); box.className='story-circle v4-your-story'; box.dataset.action=story?'view-own-story':'add-story'; box.innerHTML='<div class="story-ring '+(story?'v4-story-ring-live':'v4-story-ring-empty')+'"><img src="'+escapeHtml(avatar)+'" alt="Your Story" class="story-avatar"></div><button type="button" class="v4-story-plus" data-action="add-story" aria-label="Add story">+</button><span class="story-username">Your Story</span><small class="v4-add-story-label">'+(story?'Add story':'Add Story')+'</small>'; old.replaceWith(box); }
   row.querySelectorAll('.story-circle:not(.v4-your-story)').forEach(circle=>{const story=state.stories.find(x=>String(x.userId)===String(circle.dataset.userId));if(story){circle.dataset.action='view-user-story';circle.dataset.storyId=story.id;circle.dataset.storyUserId=story.userId;circle.classList.add('v4-has-story');}});
@@ -357,18 +387,32 @@ function openV4StoryViewer(userId) { const list=state.stories.filter(story=>Stri
 function closeV4StoryViewer(){const old=document.querySelector('.v4-story-viewer');if(old?.dataset.timer)clearTimeout(Number(old.dataset.timer));old?.remove();}
 function showV4StoryAt(index) { const story=state.activeStoryList[index];if(!story){closeV4StoryViewer();return;}state.activeStoryIndex=index;closeV4StoryViewer();const view=document.createElement('div');view.className='v4-story-viewer';view.innerHTML='<div class="v4-story-progress"><i></i></div><button class="v4-story-sound" data-action="v4-story-sound">Sound Off</button><button class="v4-story-close" data-action="close-story" aria-label="Close">×</button><div class="v4-story-tap-left" data-action="story-prev"></div><div class="v4-story-tap-right" data-action="story-next"></div><div class="v4-story-content">'+(String(story.mediaType||'').startsWith('video/')?'<video autoplay muted controls playsinline src="'+escapeHtml(story.mediaUrl)+'"></video>':'<img src="'+escapeHtml(story.mediaUrl)+'" alt="Story">')+(story.caption?'<p>'+escapeHtml(story.caption)+'</p>':'')+'</div><form class="v4-story-reply"><input name="reply" placeholder="Reply to story…"><button type="submit">Send</button></form>';document.body.append(view);view.querySelector('.v4-story-progress i').style.animationDuration='5s';view.dataset.timer=setTimeout(()=>showV4StoryAt(index+1),5000); }
 function handleStorySubmit(event) { if(!event.target.matches('.v4-story-reply'))return;event.preventDefault();const text=event.target.reply.value.trim();if(!text)return;const story=state.activeStoryList[state.activeStoryIndex];const convo=state.conversations.find(c=>String(c.otherUser?.id)===String(story?.userId));if(convo)api.post('/api/conversations/'+encodeURIComponent(convo.id)+'/messages',{text:'Story reply: '+text}).then(()=>toast('Reply sent')).catch(e=>toast('Reply failed: '+e.message));else toast('Open a chat with this creator to reply');event.target.reset(); }
-async function publishV4Story() { const modal=document.querySelector('.v4-story-modal');const file=modal?.querySelector('[data-story-file]')?.files?.[0]||modal?.querySelector('[data-story-video]')?.files?.[0];if(!file){toast('Choose a photo or video first');return;}const form=new FormData();form.append('media',file);form.append('caption',modal.querySelector('[data-story-caption]')?.value.trim()||'');form.append('closeFriendsOnly',String(!!modal.querySelector('[data-story-close-friends]')?.checked));try{const result=await api.post('/api/stories',form);state.stories.push(result.story);modal.remove();toast('Story posted for 24 hours');if(state.route==='home')renderApp();}catch(e){toast(e.status===401?'Login again':'Story upload failed: '+e.message);} }
-function wireStoryPreview() { document.addEventListener('change',event=>{const input=event.target;if(!input.matches('[data-story-file],[data-story-video]')||!input.files?.[0])return;const file=input.files[0],url=URL.createObjectURL(file),preview=document.querySelector('[data-story-preview]');if(preview)preview.innerHTML=file.type.startsWith('video/')?'<video controls playsinline src="'+url+'"></video>':'<img src="'+url+'" alt="Story preview">';}); }
+async function normalizeStoryImage(file) {
+  if(file.type==='image/gif') return file;
+  if(file.type.startsWith('video/')||/\.(?:mp4|mov|webm)$/i.test(file.name)) return file;
+  let image,objectUrl='';
+  try { if(typeof createImageBitmap==='function')image=await createImageBitmap(file); else {objectUrl=URL.createObjectURL(file);image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=objectUrl;});} } catch {if(objectUrl)URL.revokeObjectURL(objectUrl);throw new Error('This photo format is not supported by your browser. Save it as JPG or PNG and retry.');}
+  const scale=Math.min(1,2048/Math.max(image.width,image.height));
+  const canvas=document.createElement('canvas'); canvas.width=Math.max(1,Math.round(image.width*scale)); canvas.height=Math.max(1,Math.round(image.height*scale));
+  const ctx=canvas.getContext('2d'); if(!ctx){image.close?.();if(objectUrl)URL.revokeObjectURL(objectUrl);throw new Error('Could not prepare this photo.');}
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);image.close?.();if(objectUrl)URL.revokeObjectURL(objectUrl);
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.9)); if(!blob)throw new Error('Could not convert this photo.');
+  return new File([blob],`${file.name.replace(/\.[^.]+$/,'')||'story'}.jpg`,{type:'image/jpeg',lastModified:Date.now()});
+}
+async function publishV4Story() { const modal=document.querySelector('.v4-story-modal');let file=modal?.querySelector('[data-story-file]')?.files?.[0]||modal?.querySelector('[data-story-video]')?.files?.[0];if(!file){toast('Choose a photo or video first');return;}const submit=modal.querySelector('[data-action="publish-story"]');if(submit)submit.disabled=true;try{file=await normalizeStoryImage(file);const form=new FormData();form.append('media',file,file.name);form.append('caption',modal.querySelector('[data-story-caption]')?.value.trim()||'');form.append('closeFriendsOnly',String(!!modal.querySelector('[data-story-close-friends]')?.checked));const result=await api.post('/api/stories',form);if(!state.stories.some(item=>String(item.id)===String(result.story.id)))state.stories.push(result.story);modal.remove();toast('Story posted for 24 hours');if(state.route==='home')renderApp();}catch(e){toast(e.status===401?'Login again':'Story upload failed: '+e.message);}finally{if(submit?.isConnected)submit.disabled=false;} }
+function wireStoryPreview() { document.addEventListener('change',event=>{const input=event.target;if(!input.matches('[data-story-file],[data-story-video]')||!input.files?.[0])return;const file=input.files[0],url=URL.createObjectURL(file),preview=document.querySelector('[data-story-preview]'),isVideo=file.type.startsWith('video/')||/\.(?:mp4|mov|webm)$/i.test(file.name);if(preview)preview.innerHTML=isVideo?'<video controls playsinline src="'+url+'"></video>':'<img src="'+url+'" alt="Story preview">';}); }
 function showPostUploadModal() { document.querySelector('.v4-post-modal')?.remove();document.body.insertAdjacentHTML('beforeend','<div class="v4-story-modal v4-post-modal" role="dialog" aria-modal="true"><form class="v4-post-upload-form"><header><strong>Create Post</strong><button type="button" data-action="close-story">×</button></header><label>Photo or video<input type="file" name="media" accept="image/*,video/mp4,video/webm,video/quicktime" required></label><label>Caption<textarea name="caption" rows="3" maxlength="2200" placeholder="Write a caption…"></textarea></label><button class="btn btn-primary" type="submit">Share Post</button></form></div>'); }
-async function handlePostSubmit(event) { if(!event.target.matches('.v4-post-upload-form'))return;event.preventDefault();const form=event.target;const file=form.media.files?.[0];if(!file)return;const data=new FormData();data.append('media',file);data.append('caption',form.caption.value);const button=form.querySelector('[type="submit"]');button.disabled=true;try{const result=await api.post('/api/posts',data);if(result.post?.moderationStatus==='approved'){state.posts.unshift(result.post);state.reels.unshift(result.post);toast('Post shared');}else toast('Post uploaded and is waiting for review');form.closest('.v4-post-modal').remove();if(state.route==='home')renderApp();}catch(e){toast(e.status===401?'Login again':'Post upload failed: '+e.message);}finally{button.disabled=false;} }
-function handleV4Action(event) { const b=event.target.closest('[data-action]'); if(!b)return; const a=b.dataset.action; if(a==='toggle-create-menu'){document.querySelector('.v4-create-menu')?.classList.toggle('hidden');return;} if(a==='open-post-upload'){document.querySelector('.v4-create-menu')?.classList.add('hidden');showPostUploadModal();return;} if(a.startsWith('call-')) { handleCallAction(a); return; } if(a==='notifications'){ event.preventDefault(); notificationPanel(); } else if(a==='close-notifications'){closeV4Notifications();} else if(a==='add-story'){event.preventDefault();showV4StoryModal();} else if(a==='close-story'){document.querySelector('.v4-story-modal')?.remove();closeV4StoryViewer();} else if(a==='view-own-story'){openV4StoryViewer(state.user?.id);} else if(a==='view-user-story'){openV4StoryViewer(b.dataset.storyUserId);} else if(a==='choose-story-photo'){document.querySelector('[data-story-file]')?.click();} else if(a==='take-story-photo'){const i=document.querySelector('[data-story-file]'); if(i){i.setAttribute('capture','environment');i.click();}} else if(a==='choose-story-video'){document.querySelector('[data-story-video]')?.click();} else if(a==='story-next'){showV4StoryAt(state.activeStoryIndex+1);} else if(a==='story-prev'){showV4StoryAt(Math.max(0,state.activeStoryIndex-1));} else if(a==='publish-story'){publishV4Story();} }
+async function handlePostSubmit(event) { if(!event.target.matches('.v4-post-upload-form'))return;event.preventDefault();const form=event.target;let file=form.media.files?.[0];if(!file)return;const data=new FormData();const button=form.querySelector('[type="submit"]');button.disabled=true;try{file=await normalizeStoryImage(file);data.append('media',file,file.name);data.append('caption',form.caption.value);const result=await api.post('/api/posts',data);if(result.post?.moderationStatus==='approved'){state.posts.unshift(result.post);state.reels.unshift(result.post);toast('Post shared');}else toast('Post uploaded and is waiting for review');form.closest('.v4-post-modal').remove();if(state.route==='home')renderApp();}catch(e){toast(e.status===401?'Login again':'Post upload failed: '+e.message);}finally{button.disabled=false;} }
+function handleV4Action(event) { const b=event.target.closest('[data-action]'); if(!b)return; const a=b.dataset.action; if(a==='toggle-global-sound'){state.globalSoundEnabled=!state.globalSoundEnabled;document.querySelectorAll('.post-video,.reel-video').forEach(video=>{const rect=video.getBoundingClientRect(),visible=rect.bottom>0&&rect.top<innerHeight;if(visible)video.muted=!state.globalSoundEnabled;const control=video.closest('.post-card,.reel-item')?.querySelector('[data-action="toggle-reel-sound"]');if(control){control.dataset.muted=String(!state.globalSoundEnabled);control.textContent=state.globalSoundEnabled?'Sound On':'Sound Off';control.setAttribute('aria-pressed',String(state.globalSoundEnabled));}});b.innerHTML='<i data-lucide="'+(state.globalSoundEnabled?'volume-2':'volume-x')+'"></i>';refreshIcons();return;} if(a==='toggle-mobile-menu'){document.querySelector('.shell')?.classList.toggle('v4-menu-open');return;} if(a==='toggle-create-menu'){document.querySelector('.v4-create-menu')?.classList.toggle('hidden');return;} if(a==='open-post-upload'){document.querySelector('.v4-create-menu')?.classList.add('hidden');showPostUploadModal();return;} if(a==='new-chat'){openNewChatPicker();return;} if(a==='select-new-chat'){startNewChat(b.dataset.userId);return;} if(a==='close-new-chat'){document.querySelector('.v4-chat-picker')?.remove();return;} if(a==='mobile-chat-back'){state.activeConvo=null;state.messages=[];renderApp();return;} if(a.startsWith('call-')) { handleCallAction(a); return; } if(a==='notifications'){ event.preventDefault(); notificationPanel(); } else if(a==='close-notifications'){closeV4Notifications();} else if(a==='add-story'){event.preventDefault();showV4StoryModal();} else if(a==='close-story'){document.querySelector('.v4-story-modal')?.remove();closeV4StoryViewer();} else if(a==='view-own-story'){openV4StoryViewer(state.user?.id);} else if(a==='view-user-story'){openV4StoryViewer(b.dataset.storyUserId);} else if(a==='choose-story-photo'){document.querySelector('[data-story-file]')?.click();} else if(a==='take-story-photo'){const i=document.querySelector('[data-story-file]'); if(i){i.setAttribute('capture','environment');i.click();}} else if(a==='choose-story-video'){document.querySelector('[data-story-video]')?.click();} else if(a==='story-next'){showV4StoryAt(state.activeStoryIndex+1);} else if(a==='story-prev'){showV4StoryAt(Math.max(0,state.activeStoryIndex-1));} else if(a==='publish-story'){publishV4Story();} }
+function openNewChatPicker(){document.querySelector('.v4-chat-picker')?.remove();document.body.insertAdjacentHTML('beforeend','<div class="v4-chat-picker" role="dialog" aria-modal="true"><section><header><h2>New message</h2><button type="button" data-action="close-new-chat" aria-label="Close">×</button></header><input type="search" data-new-chat-search placeholder="Search people…" aria-label="Search people"><div class="v4-chat-picker-results">Loading people…</div></section></div>');const input=document.querySelector('[data-new-chat-search]');let timer;const search=async()=>{try{const result=await api.get('/api/users/search?q='+encodeURIComponent(input.value.trim()));const box=document.querySelector('.v4-chat-picker-results');const users=(result.users||[]).filter(u=>String(u.id)!==String(state.user?.id));box.innerHTML=users.length?users.map(u=>'<button type="button" data-action="select-new-chat" data-user-id="'+escapeHtml(u.id)+'"><img src="'+escapeHtml(u.profilePicture||'/icons/icon-192.png')+'" alt=""><span><strong>'+escapeHtml(u.displayName||u.username)+'</strong><small>@'+escapeHtml(u.username)+'</small></span><i data-lucide="message-circle"></i></button>').join(''):'<p>No people found.</p>';refreshIcons();}catch(error){document.querySelector('.v4-chat-picker-results').textContent='Could not load people: '+error.message;}};input.oninput=()=>{clearTimeout(timer);timer=setTimeout(search,220);};search();input.focus();}
+async function startNewChat(userId){if(!userId)return;try{const opened=await api.post('/api/conversations',{userId});const all=await api.get('/api/conversations');state.conversations=(all.conversations||[]).map(c=>({...c,otherUser:c.user||c.otherUser||null}));state.activeConvo=state.conversations.find(c=>String(c.id)===String(opened.conversation.id))||{...opened.conversation,otherUser:opened.user};const result=await api.get('/api/conversations/'+encodeURIComponent(state.activeConvo.id)+'/messages');state.messages=result.messages||[];getSocket()?.emit('conversation:join',state.activeConvo.id);document.querySelector('.v4-chat-picker')?.remove();window.location.hash='#/chat';renderApp();}catch(error){toast(error.status===401?'Login again':'Could not start chat: '+error.message);}}
 function renderDiscoveryPanel(users=[]) {
   const list=users.filter(u=>String(u.id)!==String(state.user?.id)).slice(0,6);
   return '<aside class="v3-discover-panel"><section class="v3-discover-card"><h3>Discover Creators</h3><input class="v3-discover-search" type="search" placeholder="Search humans…" aria-label="Search creators"><div class="v3-creator-list">'+renderCreatorRows(list)+'</div></section><section class="v3-discover-card"><h3>Creator picks</h3><p>Find real people, follow creators, and see their latest reels in your feed.</p><a href="#/reels" class="btn btn-secondary btn-sm">Explore Reels</a></section></aside>';
 }
 function renderCreatorRows(users=[]) {
   if(!users.length) return '<p class="v3-empty-discovery">No creator matches yet.</p>';
-  return users.map(u=>'<div class="v3-creator-row"><img loading="lazy" src="'+escapeHtml(u.profilePicture||('/icons/icon-192.png'))+'" alt=""><a href="#/profile/'+encodeURIComponent(u.id)+'">@'+escapeHtml(u.username||'human')+'</a><button type="button" data-action="toggle-follow" data-user-id="'+escapeHtml(u.id)+'">Follow</button><button type="button" data-action="v3-close-friend" data-user-id="'+escapeHtml(u.id)+'" aria-label="Toggle Close Friend">☆</button></div>').join('');
+  return users.map(u=>'<div class="v3-creator-row"><img loading="lazy" src="'+escapeHtml(u.profilePicture||('/icons/icon-192.png'))+'" alt=""><a href="#/profile/'+encodeURIComponent(u.id)+'">@'+escapeHtml(u.username||'human')+'</a><button type="button" class="'+(u.isSubscribed?'btn-secondary':'btn-primary')+'" data-action="toggle-follow" data-user-id="'+escapeHtml(u.id)+'">'+(u.isSubscribed?'Following':'Follow')+'</button><button type="button" data-action="v3-close-friend" data-user-id="'+escapeHtml(u.id)+'" aria-label="Toggle Close Friend">☆</button></div>').join('');
 }
 function bindDiscoveryEvents(root) {
   const input=root.querySelector('.v3-discover-search'); if(!input) return;
@@ -388,7 +432,7 @@ function decorateV3Actions() {
     if(reel && String(reel.userId)===String(state.user?.id) && !card.querySelector('[data-action="delete-reel"]')) { const b=document.createElement('button'); b.type='button'; b.className='reel-action-btn v3-delete-button'; b.dataset.action='delete-reel'; b.setAttribute('aria-label','Delete reel'); b.textContent='Delete'; card.querySelector('.reel-actions-column')?.append(b); }
   });
   const ownAvatar=document.querySelector('.profile-avatar-wrap');
-  document.querySelectorAll('[data-action="open-edit-profile"]').forEach(b=>{b.dataset.action='v3-avatar-open';b.textContent='Edit photo';});
+  document.querySelectorAll('[data-action="open-edit-profile"]').forEach(b=>{b.dataset.action='v3-edit-profile';b.textContent='Edit profile';});
   if(ownAvatar && String(state.profileUser?.id||state.user?.id)===String(state.user?.id) && !ownAvatar.querySelector('[data-action="v3-avatar-open"]')) { const b=document.createElement('button'); b.type='button'; b.dataset.action='v3-avatar-open'; b.className='v3-avatar-edit'; b.textContent='Edit photo'; ownAvatar.append(b); }
   document.querySelectorAll('button').forEach(b=>{if(!b.type)b.type='button';});
   if(document.querySelector('.chat-header') && !document.querySelector('[data-action="v3-hug"]')) { const controls=document.createElement('div'); controls.className='v3-chat-extras'; controls.innerHTML='<button type="button" data-action="v3-hug" aria-label="Send a hug">💚 Hug</button><button type="button" data-action="v3-voice-record" aria-label="Record voice note">🎙 Voice</button>'; document.querySelector('.chat-header')?.append(controls); }
@@ -398,6 +442,7 @@ function decorateV3Actions() {
 function formatTopBarTitle(route) {
   switch (route) {
     case 'home': return 'Home';
+    case 'discover': return 'Discover';
     case 'reels': return 'Reels';
     case 'chat': return 'Direct Messages';
     case 'videos': return 'Watch Party';
@@ -425,14 +470,16 @@ function renderLegalShell(content) {
 /* ---------- Data Loaders (Real Data Only) ---------- */
 async function loadHomeData() {
   try {
-    const [reelsRes, usersRes, annRes] = await Promise.all([
+    const [reelsRes, usersRes, recommendationsRes, annRes] = await Promise.all([
       api.get('/api/reels').catch(() => ({ reels: [] })),
       api.get('/api/users/search?q=').catch(() => ({ users: [] })),
+      api.get('/api/recommendations').catch(() => ({ users: [] })),
       api.get('/api/announcements').catch(() => ({ announcement: null }))
     ]);
     state.reels = reelsRes.reels || [];
     state.posts = state.reels; // In NoChat, user-uploaded reels are the core visual feed
     state.users = usersRes.users || [];
+    state.recommendedUsers = recommendationsRes.users || [];
     state.announcement = annRes.announcement || null;
   } catch (err) {
     console.error('Home load error:', err);
@@ -457,17 +504,15 @@ async function loadChatData() {
     }
     if (state.activeConvo) {
       getSocket()?.emit('conversation:join', state.activeConvo.id);
-      const cached = getCachedMessages(state.activeConvo.id);
-      if (cached) {
-        state.messages = cached;
-      } else {
-        const msgRes = await api.get(`/api/conversations/${state.activeConvo.id}/messages`);
-        state.messages = msgRes.messages || [];
-        setCachedMessages(state.activeConvo.id, state.messages);
-      }
+      const msgRes = await api.get(`/api/conversations/${encodeURIComponent(state.activeConvo.id)}/messages`);
+      state.messages = msgRes.messages || [];
+      setCachedMessages(state.activeConvo.id, state.messages);
     }
   } catch (e) {
+    console.error('Chat load failed:',e);
     state.conversations = [];
+    state.messages = [];
+    toast('Chats could not load: '+e.message);
   }
 }
 
@@ -488,12 +533,17 @@ async function loadVideosCatalog() {
 
 async function loadProfileData(userId) {
   try {
-    const target = userId ? `/api/users/profile/${userId}` : '/api/me';
-    const res = await api.get(target);
+    const targetId=userId||state.user?.id;
+    const [res,allReels]=await Promise.all([
+      targetId?api.get(`/api/users/profile/${encodeURIComponent(targetId)}`):api.get('/api/me'),
+      api.get('/api/reels').catch(()=>({reels:[]}))
+    ]);
     state.profileUser = res.user || null;
-    if(Array.isArray(res.reels)) state.profileReels=res.reels;
+    state.profileReels=Array.isArray(res.reels)?res.reels:(allReels.reels||[]).filter(r=>String(r.userId)===String(targetId));
   } catch (e) {
+    console.error('Profile load failed:',e);
     state.profileUser = state.user;
+    state.profileReels=(state.reels||[]).filter(r=>String(r.userId)===String(state.user?.id));
   }
 }
 
@@ -689,6 +739,12 @@ function setupAuthModalForm() {
 }
 
 function bindHomeEvents() {
+  const postVideos=$$('.post-video');
+  feedMediaObserver?.disconnect();feedMediaObserver=null;
+  if(postVideos.length&&'IntersectionObserver'in window){
+    feedMediaObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{if(!entry.isIntersecting){entry.target.pause();entry.target.muted=true;const btn=entry.target.closest('.post-card')?.querySelector('[data-action="toggle-reel-sound"]');if(btn){btn.dataset.muted='true';btn.textContent='Sound Off';btn.setAttribute('aria-pressed','false');}}else{entry.target.muted=!state.globalSoundEnabled;entry.target.play().catch(()=>{});}}),{threshold:.25});
+    postVideos.forEach(video=>feedMediaObserver.observe(video));
+  }
   // Double-tap heart burst on post cards
   $$('.post-media-container').forEach(container => {
     attachDoubleTap(container, () => {
@@ -713,9 +769,13 @@ function bindHomeEvents() {
 
       btn.classList.toggle('liked');
       try {
-        await api.post(`/api/reels/${postId}/like`);
+        const result=await api.post(`/api/reels/${encodeURIComponent(postId)}/like`);
+        btn.classList.toggle('liked',Boolean(result.isLiked));
+        const post=state.posts.find(item=>String(item.id)===String(postId));if(post){post.isLiked=result.isLiked;post.likesCount=result.likesCount;}
+        const count=postCard.querySelector('.post-likes');if(count)count.textContent=`${result.likesCount} likes`;
       } catch (err) {
         btn.classList.toggle('liked');
+        toast(err.status===401?'Login again':'Like failed: '+err.message);
       }
     };
   });
@@ -737,17 +797,22 @@ function bindReelsEvents() {
 
   // Autoplay visible video only
   const videos = $$('.reel-video', container);
-  const observer = new IntersectionObserver((entries) => {
+  reelsMediaObserver?.disconnect();
+  reelsMediaObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
+        entry.target.muted = !state.globalSoundEnabled;
         entry.target.play().catch(() => {});
       } else {
         entry.target.pause();
+        entry.target.muted = true;
+        const soundButton=entry.target.closest('.reel-item')?.querySelector('[data-action="toggle-reel-sound"]');
+        if(soundButton){soundButton.dataset.muted='true';soundButton.textContent='Sound Off';soundButton.setAttribute('aria-pressed','false');}
       }
     });
   }, { threshold: 0.6 });
 
-  videos.forEach(v => observer.observe(v));
+  videos.forEach(v => reelsMediaObserver.observe(v));
 
   // Double-tap heart on reel
   $$('.reel-item').forEach(item => {
@@ -769,7 +834,7 @@ function bindReelsEvents() {
       const id = reelItem?.dataset.reelId;
       if (!id) return;
       btn.classList.toggle('liked');
-      await api.post(`/api/reels/${id}/like`).catch(() => btn.classList.toggle('liked'));
+      try { const result=await api.post(`/api/reels/${encodeURIComponent(id)}/like`);btn.classList.toggle('liked',Boolean(result.isLiked));const count=btn.querySelector('span');if(count)count.textContent=String(result.likesCount);const reel=state.reels.find(item=>String(item.id)===String(id));if(reel){reel.isLiked=result.isLiked;reel.likesCount=result.likesCount;} } catch(error) { btn.classList.toggle('liked');toast(error.status===401?'Login again':'Like failed: '+error.message); }
     };
   });
 
@@ -823,10 +888,10 @@ function bindChatEvents() {
   $$('.chat-row').forEach(row => {
     row.onclick = async () => {
       const cid = row.dataset.convoId;
-      state.activeConvo = state.conversations.find(c => c.id === cid);
+      state.activeConvo = state.conversations.find(c => String(c.id) === String(cid));
       getSocket()?.emit('conversation:join', cid);
       state.messages = [];
-      const msgRes = await api.get(`/api/conversations/${cid}/messages`).catch(() => ({ messages: [] }));
+      const msgRes = await api.get(`/api/conversations/${encodeURIComponent(cid)}/messages`).catch(error => { toast('Messages could not load: '+error.message); return { messages: [] }; });
       state.messages = msgRes.messages || [];
       setCachedMessages(cid, state.messages);
       renderApp();
@@ -842,7 +907,6 @@ function bindChatEvents() {
       const text = input.value.trim();
       if (!text || !state.activeConvo) return;
 
-      input.value = '';
       const body = { text };
       if (state.replyingToMessage) {
         body.replyToId = state.replyingToMessage.id;
@@ -851,12 +915,23 @@ function bindChatEvents() {
       }
 
       try {
-        await api.post(`/api/conversations/${state.activeConvo.id}/messages`, body);
+        const result=await api.post(`/api/conversations/${encodeURIComponent(state.activeConvo.id)}/messages`, body);
+        input.value='';
+        if(result.message&&!state.messages.some(item=>String(item.id)===String(result.message.id))) state.messages.push(result.message);
+        setCachedMessages(state.activeConvo.id,state.messages);
+        renderChatWindowArea();
       } catch (err) {
         toast(err.message || 'Failed to send message.');
       }
     };
   }
+
+  const attachButton=$('[data-action="attach-file"]');
+  if(attachButton)attachButton.onclick=()=>{let picker=$('#chat-attachment-picker');if(!picker){picker=document.createElement('input');picker.id='chat-attachment-picker';picker.type='file';picker.accept='image/*,video/mp4,video/webm,video/quicktime,audio/*,.pdf,.txt,.doc,.docx';picker.hidden=true;document.body.append(picker);picker.onchange=async()=>{const file=picker.files?.[0],convo=state.activeConvo;if(!file||!convo)return;if(file.size>20*1024*1024){toast('Attachments must be 20 MB or smaller');picker.value='';return;}const form=new FormData();form.append('file',file,file.name);attachButton.disabled=true;try{const result=await api.post(`/api/conversations/${encodeURIComponent(convo.id)}/attachments`,form);if(result.message&&!state.messages.some(m=>String(m.id)===String(result.message.id)))state.messages.push(result.message);setCachedMessages(convo.id,state.messages);renderChatWindowArea();toast('Attachment sent');}catch(error){toast(error.status===401?'Login again':'Attachment failed: '+error.message);}finally{attachButton.disabled=false;picker.value='';}};}picker.click();};
+
+  $$('[data-action="delete-message"]').forEach(button=>button.onclick=async()=>{const id=button.dataset.messageId,convo=state.activeConvo;if(!id||!convo)return;if(!confirm('Delete this message?'))return;button.disabled=true;try{await api.delete(`/api/conversations/${encodeURIComponent(convo.id)}/messages/${encodeURIComponent(id)}`);state.messages=state.messages.filter(m=>String(m.id)!==String(id));setCachedMessages(convo.id,state.messages);renderChatWindowArea();toast('Message deleted');}catch(error){button.disabled=false;toast(error.status===401?'Login again':'Delete failed: '+error.message);}});
+  $$('[data-action="edit-message"]').forEach(button=>button.onclick=async()=>{const id=button.dataset.messageId,convo=state.activeConvo,old=button.dataset.text||'';if(!id||!convo)return;const text=prompt('Edit message',old);if(text===null||!text.trim())return;button.disabled=true;try{const result=await api.put(`/api/conversations/${encodeURIComponent(convo.id)}/messages/${encodeURIComponent(id)}`,{text:text.trim()});const message=state.messages.find(m=>String(m.id)===String(id));if(message){message.text=result.message?.text||text.trim();message.isEdited=true;}setCachedMessages(convo.id,state.messages);renderChatWindowArea();toast('Message edited');}catch(error){button.disabled=false;toast(error.status===401?'Login again':'Edit failed: '+error.message);}});
+  $('[data-action="cancel-reply"]')?.addEventListener('click',()=>{state.replyingToMessage=null;$('#reply-bar')?.classList.add('hidden');});
 
   // Webcam Video Call Button
   $('[data-action="start-video-call"]').forEach(btn => btn.onclick = () => startPeerCall(true));
@@ -916,7 +991,17 @@ async function startPeerCall(video) {
 }
 function showIncomingCall(payload) { if(activeCall) { emitSocketEvent('call:decline',{conversationId:payload.conversationId,targetUserId:payload.callerId}); return; } incomingCall=payload; document.querySelector('.v4-incoming-call')?.remove(); document.body.insertAdjacentHTML('beforeend','<div class="v4-incoming-call"><section><h3>Incoming '+(payload.video?'video':'voice')+' call</h3><p>'+escapeHtml(payload.caller?.displayName||payload.caller?.username||'NoChat member')+'</p><button type="button" data-action="call-accept">Accept</button><button type="button" data-action="call-decline">Decline</button></section></div>'); }
 async function acceptPeerCall() { const payload=incomingCall;if(!payload)return;document.querySelector('.v4-incoming-call')?.remove();incomingCall=null;try { const convo=state.conversations.find(c=>c.id===payload.conversationId);activeCall={conversationId:payload.conversationId,peerId:payload.callerId,video:payload.video,stream:await navigator.mediaDevices.getUserMedia({audio:true,video:payload.video?{facingMode:'user'}:false}),pc:null,pendingIce:[],incoming:true};state.activeConvo=convo||{id:payload.conversationId,otherUser:payload.caller};await createCallPeer();showCallStage();emitSocketEvent('call:accept',{conversationId:payload.conversationId,targetUserId:payload.callerId});}catch(e){emitSocketEvent('call:decline',{conversationId:payload.conversationId,targetUserId:payload.callerId});endPeerCall(false);toast('Could not answer: '+e.message);} }
-async function createCallPeer() { const config=await api.get('/api/calls/ice').catch(()=>({iceServers:[{urls:['stun:stun.l.google.com:19302']}] }));const pc=new RTCPeerConnection({iceServers:config.iceServers||[{urls:'stun:stun.l.google.com:19302'}],iceTransportPolicy:config.iceTransportPolicy||'all'});activeCall.pc=pc;activeCall.stream.getTracks().forEach(t=>pc.addTrack(t,activeCall.stream));pc.onicecandidate=e=>{if(e.candidate)emitSocketEvent('call:ice',{conversationId:activeCall.conversationId,targetUserId:activeCall.peerId,signal:e.candidate});};pc.ontrack=e=>{const remote=document.querySelector('[data-call-remote]');if(remote){remote.srcObject=e.streams[0];remote.play().catch(()=>{});}};pc.onconnectionstatechange=()=>{if(['failed','closed'].includes(pc.connectionState)){toast('Call connection '+pc.connectionState);endPeerCall(false);}}; }
+async function createCallPeer() {
+  const config=await api.get('/api/calls/ice').catch(()=>({iceServers:[{urls:['stun:stun.l.google.com:19302']}],turn:{configured:false,status:'unavailable',message:'TURN settings could not load.'}}));
+  if(!config.turn?.configured||config.turn.status!=='ready')toast('TURN relay is not ready. Calls may fail on mobile or restricted networks.');
+  const pc=new RTCPeerConnection({iceServers:config.iceServers||[{urls:'stun:stun.l.google.com:19302'}],iceTransportPolicy:config.iceTransportPolicy||'all'});
+  activeCall.pc=pc;activeCall.turnStatus=config.turn;
+  activeCall.stream.getTracks().forEach(t=>pc.addTrack(t,activeCall.stream));
+  pc.onicecandidate=e=>{if(e.candidate){if(/\btyp relay\b/.test(e.candidate.candidate||''))activeCall.relaySelected=true;emitSocketEvent('call:ice',{conversationId:activeCall.conversationId,targetUserId:activeCall.peerId,signal:e.candidate});}};
+  pc.ontrack=e=>{const remote=document.querySelector('[data-call-remote]');if(remote){remote.srcObject=e.streams[0];remote.play().catch(()=>{});}};
+  pc.oniceconnectionstatechange=()=>{const status=document.querySelector('[data-call-status]');if(status){status.textContent=pc.iceConnectionState==='connected'||pc.iceConnectionState==='completed'?(activeCall?.relaySelected?'Connected · relay':'Connected'):`ICE ${pc.iceConnectionState}`;}};
+  pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'){toast('Call connection failed. Check TURN relay and network permissions.');setTimeout(()=>{if(activeCall?.pc===pc)endPeerCall(false);},1200);}else if(pc.connectionState==='closed'&&activeCall?.pc===pc){endPeerCall(false);}};
+}
 async function sendCallOffer() { if(!activeCall?.pc)return;try{const offer=await activeCall.pc.createOffer();await activeCall.pc.setLocalDescription(offer);emitSocketEvent('call:offer',{conversationId:activeCall.conversationId,targetUserId:activeCall.peerId,signal:activeCall.pc.localDescription});}catch(e){toast('Could not start call: '+e.message);endPeerCall(true);} }
 async function flushCallIce(){if(!activeCall?.pc?.remoteDescription)return;for(const candidate of activeCall.pendingIce.splice(0))await activeCall.pc.addIceCandidate(candidate).catch(()=>{});}
 function showCallStage(){document.querySelector('.v4-call-stage')?.remove();document.body.insertAdjacentHTML('beforeend','<div class="v4-call-stage"><section><header>'+(activeCall.video?'Video call':'Voice call')+'<span data-call-status>Connecting…</span></header><video data-call-remote autoplay playsinline '+(activeCall.video?'':'class="v4-audio-call"')+'></video><video data-call-local autoplay muted playsinline '+(activeCall.video?'':'hidden')+'></video><footer><button type="button" data-action="call-mic">Mute mic</button>'+(activeCall.video?'<button type="button" data-action="call-camera">Turn camera off</button>':'')+'<button type="button" class="v4-call-end" data-action="call-end">End call</button></footer></section></div>');const local=document.querySelector('[data-call-local]');if(local&&activeCall.video){local.srcObject=activeCall.stream;local.play().catch(()=>{});} }
@@ -954,12 +1039,10 @@ function decorateNavigationButtons() {
 }
 
 function bindProfileEvents() {
-  // Profile tabs (posts / reels / saved)
   $$('.profile-tab').forEach(tab => {
     tab.onclick = () => {
-      $$('.profile-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      // Load corresponding grid
+      state.profileTab=tab.dataset.tab||'posts';
+      renderApp();
     };
   });
 }

@@ -12,15 +12,17 @@ export function blockedText(value) {
 const TYPES = {
   '.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.gif':'image/gif',
   '.mp4':'video/mp4','.mov':'video/quicktime','.webm':'video/webm',
+  '.ogg':'audio/ogg','.oga':'audio/ogg','.mp3':'audio/mpeg','.m4a':'audio/mp4','.wav':'audio/wav',
   '.pdf':'application/pdf','.txt':'text/plain','.doc':'application/msword',
   '.docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   '.xls':'application/vnd.ms-excel','.xlsx':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.ppt':'application/vnd.ms-powerpoint','.pptx':'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 };
 export function validateFile(file, kind) {
-  const ext = path.extname(file.originalname).toLowerCase(); const mime = TYPES[ext]; const b = file.buffer;
+  const ext = path.extname(file.originalname).toLowerCase(); let mime = TYPES[ext]; const b = file.buffer;
+  if (ext === '.webm' && file.mimetype === 'audio/webm') mime = 'audio/webm';
   const limit = (kind === 'reels' ? 100 : kind === 'profile' ? 10 : 20) * 1024 * 1024;
-  if (!b || !b.length || b.length > limit || !mime || mime !== file.mimetype) throw new Error('Unsupported file type or file exceeds its size limit.');
+  if (!b || !b.length || b.length > limit || !mime) throw new Error('Unsupported file type or file exceeds its size limit. Choose JPEG, PNG, WebP, GIF, MP4, MOV, or WebM.');
   if (kind === 'profile' && !mime.startsWith('image/')) throw new Error('Choose an image.');
   if (kind === 'reels' && !mime.startsWith('video/')) throw new Error('Choose MP4, MOV or WebM.');
   let valid = false;
@@ -29,11 +31,17 @@ export function validateFile(file, kind) {
   else if (mime === 'image/gif') valid = /^GIF8[79]a$/.test(b.subarray(0,6).toString());
   else if (mime === 'image/webp') valid = b.subarray(0,4).toString()==='RIFF' && b.subarray(8,12).toString()==='WEBP';
   else if (mime === 'video/mp4' || mime === 'video/quicktime') valid = b.subarray(4,8).toString()==='ftyp';
-  else if (mime === 'video/webm') valid = b.subarray(0,4).equals(Buffer.from([26,69,223,163]));
+  else if (mime === 'video/webm' || mime === 'audio/webm') valid = b.subarray(0,4).equals(Buffer.from([26,69,223,163]));
+  else if (mime === 'audio/ogg') valid = b.subarray(0,4).toString()==='OggS';
+  else if (mime === 'audio/mp4') valid = b.subarray(4,8).toString()==='ftyp';
+  else if (mime === 'audio/wav') valid = b.subarray(0,4).toString()==='RIFF' && b.subarray(8,12).toString()==='WAVE';
+  else if (mime === 'audio/mpeg') valid = b.subarray(0,3).toString()==='ID3' || (b[0]===0xff && (b[1]&0xe0)===0xe0);
   else if (mime === 'application/pdf') valid = b.subarray(0,5).toString()==='%PDF-';
   else if (mime === 'text/plain') valid = !b.includes(0) && !/<\s*(?:script|html|svg)\b/i.test(b.toString('utf8'));
   else if (['.docx','.xlsx','.pptx'].includes(ext)) valid = b.subarray(0,4).equals(Buffer.from([80,75,3,4])) && b.includes(Buffer.from('[Content_Types].xml')) && !b.includes(Buffer.from('vbaProject.bin'));
   else valid = b.subarray(0,8).equals(Buffer.from([208,207,17,224,161,177,26,225]));
-  if (!valid) throw new Error('File contents do not match its declared type.');
-  return { ...file, extension: ext };
+  if (!valid) throw new Error(`The selected file is not a valid ${mime} file. Please choose a supported photo or video and try again.`);
+  // Trust the validated extension/signature instead of browser MIME metadata, which
+  // is missing or inconsistent for camera media on some mobile browsers.
+  return { ...file, mimetype: mime, extension: ext };
 }

@@ -45,8 +45,13 @@ function confirmDelete(id, kind) {
   showSheet(`<h3>Delete this ${kind}?</h3><p>This can't be undone.</p><div class="v3-confirm-actions"><button type="button" data-action="v3-close-sheet" class="btn btn-secondary">Cancel</button><button type="button" data-action="v3-confirm-delete" data-id="${esc(id)}" class="btn btn-danger">Delete</button></div>`);
 }
 function feedback(toast) { toast(''); }
+async function normalizeAvatar(file) {
+  if(file.type==='image/gif')return file;
+  let image,objectUrl='';try{if(typeof createImageBitmap==='function')image=await createImageBitmap(file);else{objectUrl=URL.createObjectURL(file);image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=objectUrl;});}}catch{if(objectUrl)URL.revokeObjectURL(objectUrl);throw new Error('This photo format is not browser-compatible. Choose or save it as JPG or PNG.');}
+  const scale=Math.min(1,1600/Math.max(image.width,image.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));const ctx=canvas.getContext('2d');if(!ctx){image.close?.();if(objectUrl)URL.revokeObjectURL(objectUrl);throw new Error('Could not prepare this photo.');}ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);image.close?.();if(objectUrl)URL.revokeObjectURL(objectUrl);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.9));if(!blob)throw new Error('Could not convert this photo.');return new File([blob],`${file.name.replace(/\.[^.]+$/,'')||'avatar'}.jpg`,{type:'image/jpeg',lastModified:Date.now()});
+}
 
-export function installActionsV3({ getState, toast, onDelete, onAvatarUpdated }) {
+export function installActionsV3({ getState, toast, onDelete, onAvatarUpdated, onChatDeleted }) {
   if (document.documentElement.dataset.v3Actions) return;
   document.documentElement.dataset.v3Actions='1';
   document.addEventListener('click', async event => {
@@ -71,12 +76,33 @@ export function installActionsV3({ getState, toast, onDelete, onAvatarUpdated })
     if (action==='bookmark-post'||action==='reel-save') { const id=button.closest('[data-post-id],[data-reel-id]')?.dataset.postId||button.closest('[data-reel-id]')?.dataset.reelId; if(id) { const key='nochat:saved-reels'; const items=JSON.parse(localStorage.getItem(key)||'[]'); const saved=items.includes(id); const next=saved?items.filter(x=>x!==id):[...items,id]; localStorage.setItem(key,JSON.stringify(next)); button.classList.toggle('active',!saved); toast(saved?'Removed from Saved':'Saved'); } }
     if (action==='theme-toggle') { const shell=document.querySelector('.shell'); const light=shell?.dataset.theme!=='light'; if(shell) shell.dataset.theme=light?'light':'dark'; localStorage.setItem('nochat:theme',light?'light':'dark'); button.setAttribute('aria-pressed',String(light)); }
     if (action==='edit-avatar') document.querySelector('#v3-avatar-input')?.click();
-    if (action==='v3-avatar-submit') { const input=document.querySelector('#v3-avatar-input'); const file=input?.files?.[0]; if(!file) { toast('Choose an image first'); return; } const form=new FormData(); form.append('avatar',file); button.disabled=true; try { const r=await api.post('/api/profile/avatar',form); onAvatarUpdated?.(r.user); document.querySelector('.profile-avatar')?.setAttribute('src',r.user.profilePicture); toast('Profile photo updated'); closeSheet(); } catch(e) { toast(e.status===401?'Login again':`Photo update failed: ${e.message}`); } finally { button.disabled=false; } }
+    if (action==='v3-avatar-submit') { const input=document.querySelector('#v3-avatar-input'); let file=input?.files?.[0]; if(!file) { toast('Choose an image first'); return; } button.disabled=true; try { file=await normalizeAvatar(file); const form=new FormData(); form.append('avatar',file,file.name); const r=await api.post('/api/profile/avatar',form); onAvatarUpdated?.(r.user); toast('Profile photo updated'); closeSheet(); } catch(e) { toast(e.status===401?'Login again':`Photo update failed: ${e.message}`); } finally { button.disabled=false; } }
     if (action==='v3-avatar-open') { showSheet(`<h3>Change profile photo</h3><input id="v3-avatar-input" type="file" accept="image/*"><button type="button" data-action="v3-avatar-submit" class="btn btn-primary">Upload photo</button><button type="button" data-action="v3-close-sheet" class="btn btn-secondary">Cancel</button>`); }
+    if (action==='v3-edit-profile') { const user=state.user||{}; showSheet(`<h3>Edit profile</h3><form class="v3-profile-edit-form"><label>Display name<input name="displayName" maxlength="50" value="${esc(user.displayName||'')}" required></label><label>Bio<textarea name="bio" maxlength="200" rows="4">${esc(user.bio||'')}</textarea></label><button type="submit" class="btn btn-primary">Save changes</button><button type="button" data-action="v3-close-sheet" class="btn btn-secondary">Cancel</button></form>`); }
     if (action==='toggle-reel-sound'||action==='v4-story-sound') { const media=button.closest('.reel-item,.post-card,.v4-story-viewer')?.querySelector('video,iframe'); const on=toggleMediaSound(media,button); if(on!==null) toast(on?'Sound on':'Sound off'); }
     if (action==='v3-hug') { const heart=document.createElement('div'); heart.className='v3-hug-heart'; heart.textContent='💚'; button.closest('.chat-main')?.append(heart); setTimeout(()=>heart.remove(),900); toast('Sent a hug'); }
     if (action==='v3-mood') { const mood=button.dataset.mood; localStorage.setItem('nochat:mood',mood); button.closest('.v3-mood-picker')?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===button)); toast(`Mood set: ${mood}`); }
     if (action==='v3-close-friend') { try { const result=await api.post(`/api/close-friends/${encodeURIComponent(button.dataset.userId)}`); button.classList.toggle('active',result.isCloseFriend); toast(result.isCloseFriend?'Added to Close Friends':'Removed from Close Friends'); } catch(e) { toast(e.status===401?'Login again':'Close Friends update failed: '+e.message); } }
-    if (action==='v3-voice-record') { toast('Voice recording is not available in this server version'); }
+  });
+  document.addEventListener('submit', async event=>{
+    if(!event.target.matches('.v3-profile-edit-form'))return;
+    event.preventDefault(); const form=event.target; const submit=form.querySelector('[type="submit"]'); if(submit)submit.disabled=true;
+    try { const result=await api.put('/api/profile',{displayName:form.displayName.value.trim(),bio:form.bio.value.trim()}); onAvatarUpdated?.(result.user); closeSheet(); toast('Profile updated'); }
+    catch(error){toast(error.status===401?'Login again':'Profile update failed: '+error.message);}
+    finally{if(submit?.isConnected)submit.disabled=false;}
+  });
+  document.addEventListener('click', async event=>{
+    const button=event.target.closest('[data-action="v3-voice-record"]'); if(!button)return;
+    event.preventDefault();
+    if(button.dataset.recording==='true'){button.dataset.recorder?.state; window.__nochatVoiceRecorder?.stop(); return;}
+    if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){toast('Voice notes need microphone access in a secure browser');return;}
+    try {
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      const recorder=new MediaRecorder(stream); const chunks=[]; window.__nochatVoiceRecorder=recorder; button.dataset.recording='true'; button.textContent='Stop recording'; toast('Recording voice note… tap again to send');
+      recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data);};
+      recorder.onerror=()=>{stream.getTracks().forEach(t=>t.stop());button.dataset.recording='false';toast('Voice note recording failed');};
+      recorder.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());button.dataset.recording='false';button.textContent='🎙 Voice';const convo=getState().activeConvo;if(!chunks.length||!convo)return;try{const blob=new Blob(chunks,{type:recorder.mimeType||'audio/webm'});const ext=blob.type.includes('ogg')?'ogg':blob.type.includes('mp4')?'m4a':'webm';const file=new File([blob],`voice-note.${ext}`,{type:blob.type});const data=new FormData();data.append('file',file);const result=await api.post(`/api/conversations/${encodeURIComponent(convo.id)}/attachments`,data);const state=getState();if(result.message&&!state.messages.some(m=>String(m.id)===String(result.message.id)))state.messages.push(result.message);window.dispatchEvent(new Event('nochat:refresh-chat'));toast('Voice note sent');}catch(error){toast(error.status===401?'Login again':'Voice note failed: '+error.message);}};
+      recorder.start();
+    }catch(error){toast(error.name==='NotAllowedError'?'Allow microphone access to record a voice note':'Voice note failed: '+error.message);}
   });
 }

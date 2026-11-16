@@ -781,7 +781,9 @@ app.post("/api/profile/avatar", authenticate, uploadProfile.single("avatar"), as
     return res.json({ success: true, user: safeUser(req.user, req.user.id) });
   } catch (error) {
     console.error("Avatar upload error:", error);
-    return res.status(500).json({ error: "Could not upload profile picture." });
+    const message=String(error?.message||"");
+    const rejected=/unsupported file type|not a valid|choose an image|size limit/i.test(message);
+    return res.status(rejected?400:500).json({ error: rejected?message:"Could not upload profile picture." });
   }
 });
 
@@ -1082,7 +1084,8 @@ app.get("/api/users/search", authenticate, (req, res) => {
   const currentUserId = req.user.id;
 
   if (!query || query.length < 1) {
-    return res.json({ users: [] });
+    const users=db.users.filter(u=>u.id!==currentUserId&&isListed(u)).slice(0,25).map(u=>({...safeUser(u,currentUserId),friendshipStatus:getFriendshipStatus(currentUserId,u.id),isOnline:onlineUsers.has(u.id)}));
+    return res.json({ users });
   }
 
   const matches = db.users
@@ -1190,7 +1193,9 @@ app.post("/api/stories", authenticate, uploadAttachment.single("media"), async (
     const mediaUrl=await persistFile(checked,"attachments",req.user.id); const createdAt=Date.now();
     const story={id:makeId(),kind:"nochat-story",userId:req.user.id,mediaUrl,mediaType:checked.mimetype,caption:cleanText(req.body.caption||"",220),closeFriendsOnly:req.body.closeFriendsOnly==="true",createdAt,expiresAt:createdAt+86400000};
     db.reelUploads.push(story); await saveDB();
-    return res.status(201).json({success:true,story:{...story,user:safeUser(req.user,req.user.id)}});
+    const formattedStory={...story,user:safeUser(req.user,req.user.id)};
+    if(!story.closeFriendsOnly) io.emit('story:new',formattedStory);
+    return res.status(201).json({success:true,story:formattedStory});
   } catch(error) { console.error("Story upload error:",error); return res.status(400).json({error:error.message||"Could not upload story."}); }
 });
 app.delete("/api/stories/:id", authenticate, async (req,res)=>{const story=storyRows().find(s=>s.id===req.params.id);if(!story)return res.status(404).json({error:"Story not found."});if(story.userId!==req.user.id&&!await isAdmin(req.user))return res.status(403).json({error:"You cannot delete this story."});story.isDeleted=true;await saveDB();return res.json({success:true});});
@@ -1561,6 +1566,10 @@ app.post("/api/conversations", authenticate, async (req, res) => {
         createdAt: new Date().toISOString()
       };
       db.conversations.push(conversation);
+      await saveDB();
+    }
+    if(Array.isArray(conversation.hiddenFor)&&conversation.hiddenFor.includes(currentUserId)) {
+      conversation.hiddenFor=conversation.hiddenFor.filter(id=>id!==currentUserId);
       await saveDB();
     }
 

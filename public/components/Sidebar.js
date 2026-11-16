@@ -25,6 +25,11 @@ export function renderSidebar(user, currentRoute = 'home', unreadCount = 0) {
           <i data-lucide="home"></i>
           <span>Home</span>
         </a>
+
+        <a href="#/discover" class="nav-item ${currentRoute === 'discover' ? 'active' : ''}" data-route="discover">
+          <i data-lucide="compass"></i>
+          <span>Discover</span>
+        </a>
         
         <a href="#/reels" class="nav-item ${currentRoute === 'reels' ? 'active' : ''}" data-route="reels">
           <i data-lucide="clapperboard"></i>

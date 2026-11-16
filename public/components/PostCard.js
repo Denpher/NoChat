@@ -28,7 +28,7 @@ export function renderPostCard(post, currentUser = null) {
 
       <div class="post-media-container" data-action="double-tap-like">
         ${isVideo ? `
-          <video src="${mediaUrl}" loop playsinline muted autoplay class="post-video"></video>
+          <video src="${mediaUrl}" loop playsinline muted preload="metadata" class="post-video"></video>
         ` : `
           <img src="${mediaUrl || '/icons/icon-512.png'}" alt="Post media" loading="lazy" />
         `}

@@ -19,7 +19,7 @@ export function renderHomePage({ posts = [], users = [], currentUser = null, ann
       <!-- Stories Row (56px circles) -->
       <section class="stories-bar" aria-label="Stories">
         ${renderStoryCircle(currentUser, false)}
-        ${users.filter(u => u.id !== currentUser?.id).slice(0, 15).map(u => renderStoryCircle(u, true)).join('')}
+        ${users.filter(u => String(u.id) !== String(currentUser?.id)).slice(0, 25).map(u => renderStoryCircle(u, true)).join('')}
       </section>
 
       <!-- Post Feed (470px Cards) -->
