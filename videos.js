@@ -85,6 +85,11 @@ const clean = (v, max) => String(v ?? '').replace(/[\u0000-\u0008\u000b\u000c\u0
 
 export function mountVideos({ app, db, authenticate, saveDB, canManageVideos, persistFile, removeStoredFile, uploadVideo, schema, addLog }) {
   db.videos ??= [];
+  // Public catalog access for landing and unauthenticated watch party previews
+  app.get('/api/videos-catalog', (_req, res) => {
+    res.json({ videos: SEED_VIDEOS });
+  });
+
   // Seed the preloaded catalog once. Founder deletions are soft (deletedAt), so seeds never come back.
   const known = new Set(db.videos.map((v) => v.id));
   const now = new Date().toISOString();

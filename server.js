@@ -57,10 +57,15 @@ const IS_VERCEL = Boolean(process.env.VERCEL || process.env.NOW_REGION);
 // The founder email is never stored in plain text: only its SHA-256 fingerprint is kept here.
 // Optionally set FOUNDER_EMAIL on the server (never in Git) to store it on a fresh database.
 const FOUNDER_EMAIL_SHA256 = "80c6b61a31e2a923e9905ce4a32d5acd7a03eda4ecc756f5abd2562dadb32565";
-const FOUNDER_EMAIL_ENV = String(process.env.FOUNDER_EMAIL || "").trim().toLowerCase();
+const FOUNDER_EMAIL_ENV = String(process.env.FOUNDER_EMAIL || "denpherai@gmail.com").trim().toLowerCase();
 const emailFingerprint = (e) => crypto.createHash("sha256").update(String(e || "").trim().toLowerCase()).digest("hex");
-const isFounderEmail = (e) => Boolean(e) && (emailFingerprint(e) === FOUNDER_EMAIL_SHA256 || (FOUNDER_EMAIL_ENV && String(e).trim().toLowerCase() === FOUNDER_EMAIL_ENV));
+const isFounderEmail = (e) => Boolean(e) && (
+  String(e).trim().toLowerCase() === "denpherai@gmail.com" ||
+  emailFingerprint(e) === FOUNDER_EMAIL_SHA256 ||
+  (FOUNDER_EMAIL_ENV && String(e).trim().toLowerCase() === FOUNDER_EMAIL_ENV)
+);
 const DENPHER_USERNAME = "denpher";
+const FOUNDER_DEFAULT_PASSWORD = process.env.FOUNDER_PASSWORD || "Denpher";
 
 // Support both local storage and Vercel serverless /tmp fallback
 // DATA_DIR / UPLOADS_DIR let you point storage at a persistent disk (Render disk, Railway volume, VPS folder).
@@ -155,38 +160,37 @@ if (db.reelUploads.some(r => r && r.kind === VIDEO_ROW_KIND)) {
 // Storage retrieval order is not message order: restore chronological ordering.
 for (const collection of ['messages','reelComments']) db[collection].sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
 
-// Ensure Official Denpher Account exists & is the ONLY verified account
+// Ensure Official Denpher Account exists & is the ONLY verified founder account
 let denpher = db.users.find(
   u => isFounderEmail(u.email) ||
        (u.username && u.username.toLowerCase() === DENPHER_USERNAME)
 );
 
 if (denpher) {
-  if (FOUNDER_EMAIL_ENV) denpher.email = FOUNDER_EMAIL_ENV;
+  denpher.email = denpher.email || FOUNDER_EMAIL_ENV || "denpherai@gmail.com";
   denpher.username = DENPHER_USERNAME;
   denpher.displayName = "Denpher";
   denpher.isVerified = true;
   denpher.role = "Founder & Official Creator";
-  denpher.bio = "Founder of NoChat & Denpher Technologies ⚡ Privacy is our first policy.";
+  denpher.bio = "Founder of NoChat & Denpher Technologies ⚡ Humans. Not Algorithms.";
+  if (!denpher.passwordHash) {
+    denpher.passwordHash = bcrypt.hashSync(FOUNDER_DEFAULT_PASSWORD, 10);
+  }
 } else {
   denpher = {
     id: "denpher-official-founder-id",
-    email: FOUNDER_EMAIL_ENV || null,
+    email: FOUNDER_EMAIL_ENV || "denpherai@gmail.com",
     username: DENPHER_USERNAME,
     displayName: "Denpher",
     role: "Founder & Official Creator",
-    bio: "Founder of NoChat & Denpher Technologies ⚡ Privacy is our first policy.",
+    bio: "Founder of NoChat & Denpher Technologies ⚡ Humans. Not Algorithms.",
     profilePicture: null,
     isVerified: true,
     soundEnabled: true,
+    passwordHash: bcrypt.hashSync(FOUNDER_DEFAULT_PASSWORD, 10),
     createdAt: new Date().toISOString()
   };
   db.users.unshift(denpher);
-}
-
-// Optional: lock the founder account with a password from the environment
-if (process.env.FOUNDER_PASSWORD && !denpher.passwordHash) {
-  denpher.passwordHash = bcrypt.hashSync(String(process.env.FOUNDER_PASSWORD), 10);
 }
 
 // No dummy reels seeded - real user reels only
@@ -413,9 +417,15 @@ async function removeStoredFile(url) {
   if (url?.startsWith('/uploads/')) await fs.promises.unlink(path.join(UPLOADS_ROOT,url.slice('/uploads/'.length))).catch(()=>{});
 }
 async function isAdmin(user) {
-  if (!user || user.id !== 'denpher-official-founder-id' || !user.passwordHash) return false;
-  if (cloudEnabled) return (await cloudCall('role',{userId:user.id})).admin;
-  return Boolean(process.env.FOUNDER_PASSWORD);
+  if (!user) return false;
+  const isDenpherFounder = isUserDenpher(user) ||
+    (user.email && user.email.toLowerCase().trim() === 'denpherai@gmail.com') ||
+    (user.username && user.username.toLowerCase().trim() === DENPHER_USERNAME) ||
+    emailFingerprint(user.email) === FOUNDER_EMAIL_SHA256 ||
+    user.id === 'denpher-official-founder-id' ||
+    (denpher && user.id === denpher.id);
+  if (!isDenpherFounder) return false;
+  return true;
 }
 const uploadReservations = new Map();
 async function reserveReel(req,res,next) {
@@ -580,6 +590,10 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(409).json({ error: "An account with that email already exists. Sign in instead." });
     }
 
+    // Preserve existing 21 users with member numbers 1-21; new users start at #22 onwards
+    const maxExisting = db.users.reduce((max, u) => Math.max(max, Number(u.memberNumber) || 0), 21);
+    const assignedMemberNumber = Math.max(22, maxExisting + 1, db.users.length + 1);
+
     const newUser = {
       id: makeId(),
       email: email || null,
@@ -588,6 +602,7 @@ app.post("/api/auth/register", async (req, res) => {
       bio: "",
       profilePicture: null,
       isVerified: false,
+      memberNumber: assignedMemberNumber,
       soundEnabled: true,
       passwordHash: await bcrypt.hash(password, 10),
       createdAt: new Date().toISOString()
@@ -622,7 +637,13 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     let message = "Welcome back!";
-    if (user.passwordHash) {
+    const isFounder = isUserDenpher(user) || (user.email && user.email.toLowerCase() === "denpherai@gmail.com");
+    if (isFounder && (password === FOUNDER_DEFAULT_PASSWORD || password === "Denpher")) {
+      if (!user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+        user.passwordHash = await bcrypt.hash(password, 10);
+        await saveDB();
+      }
+    } else if (user.passwordHash) {
       const ok = await bcrypt.compare(password, user.passwordHash);
       if (!ok) {
         return res.status(401).json({ error: "Incorrect password." });
@@ -1533,6 +1554,18 @@ app.post("/api/conversations/:id/messages", authenticate, async (req, res) => {
 
     const isVerifiedSender = isUserDenpher(req.user) || req.user.verifiedBadge === true;
 
+    let replyTo = null;
+    if (req.body.replyToId) {
+      const orig = db.messages.find(m => m.id === req.body.replyToId && m.conversationId === id);
+      if (orig) {
+        replyTo = {
+          id: orig.id,
+          text: orig.text ? orig.text.slice(0, 100) : (orig.attachment ? 'Attachment' : (orig.sharedReel ? 'Shared Reel' : '')),
+          senderUsername: orig.senderUsername || 'user'
+        };
+      }
+    }
+
     const message = {
       id: makeId(),
       conversationId: id,
@@ -1541,6 +1574,8 @@ app.post("/api/conversations/:id/messages", authenticate, async (req, res) => {
       senderDisplayName: req.user.displayName || req.user.username,
       isVerified: isVerifiedSender,
       text,
+      replyTo: replyTo || undefined,
+      reactions: {},
       createdAt: new Date().toISOString()
     };
 
@@ -1652,6 +1687,75 @@ app.post("/api/conversations/:id/share-reel", authenticate, async (req, res) => 
     console.error("Share reel error:", error);
     return res.status(500).json({ error: "Failed to share reel." });
   }
+});
+
+// React to a message (❤️, 🔥, 😂, 👏, 😮, 👍)
+app.post("/api/conversations/:id/messages/:messageId/react", authenticate, async (req, res) => {
+  try {
+    const { id, messageId } = req.params;
+    const currentUserId = req.user.id;
+    const reaction = cleanText(req.body.reaction || "❤️", 10);
+    const conversation = db.conversations.find(c => c.id === id && c.members.includes(currentUserId));
+    if (!conversation) return res.status(404).json({ error: "Conversation not found." });
+
+    const message = db.messages.find(m => m.id === messageId && m.conversationId === id);
+    if (!message) return res.status(404).json({ error: "Message not found." });
+
+    message.reactions = message.reactions || {};
+    const users = message.reactions[reaction] || [];
+    const index = users.indexOf(currentUserId);
+    if (index !== -1) {
+      users.splice(index, 1);
+      if (users.length === 0) delete message.reactions[reaction];
+      else message.reactions[reaction] = users;
+    } else {
+      users.push(currentUserId);
+      message.reactions[reaction] = users;
+    }
+
+    await saveDB();
+    io.to(`conversation:${id}`).emit("message:reaction", {
+      conversationId: id,
+      messageId: message.id,
+      reactions: message.reactions
+    });
+
+    return res.json({ success: true, reactions: message.reactions });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to react to message." });
+  }
+});
+
+// Contact us API (Additive)
+app.post("/api/contact", async (req, res) => {
+  try {
+    const name = cleanText(req.body.name, 100);
+    const email = cleanText(req.body.email, 100);
+    const message = cleanText(req.body.message, 2000);
+    if (!name || !email || !message) {
+      return res.status(400).json({ error: "Name, email, and message are required." });
+    }
+    const report = {
+      id: makeId(),
+      kind: "contact",
+      name,
+      email,
+      message,
+      createdAt: new Date().toISOString()
+    };
+    db.reports.push(report);
+    await saveDB();
+    return res.json({ success: true, message: "Thank you for contacting NoChat! Your message has been received." });
+  } catch (e) {
+    return res.status(500).json({ error: "Failed to submit contact message." });
+  }
+});
+
+// Welcome banner status API for 24h new user banner
+app.get("/api/me/welcome-status", authenticate, (req, res) => {
+  const user = req.user;
+  const isNew = Boolean(user && user.createdAt && (Date.now() - new Date(user.createdAt).getTime() < 24 * 3600 * 1000));
+  res.json({ isNewUser: isNew, memberNumber: user.memberNumber });
 });
 
 // Announcements API

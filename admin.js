@@ -11,10 +11,22 @@ const maskEmail = (e) => { if (!e) return null; const [n, d] = String(e).split('
 
 export function mountAdmin({ app, io, db, authenticate, saveDB, isAdmin, safeUser, founderId, findUserByIdentifier, onlineUsers }) {
   const route = (fn) => async (req, res, next) => { try { await fn(req, res); } catch (e) { next(e); } };
-  // Every admin route is verified here on the server; hidden buttons are not security.
+  // Every admin route is verified here on the server; restricted strictly to denpherai@gmail.com
   const requireAdmin = async (req, res, next) => {
-    try { if (!await isAdmin(req.user)) return res.status(403).json({ error: 'Not authorized.' }); next(); }
-    catch (e) { next(e); }
+    try {
+      const u = req.user;
+      const isDenpher = Boolean(u && (
+        (u.email && u.email.toLowerCase().trim() === 'denpherai@gmail.com') ||
+        (u.username && u.username.toLowerCase().trim() === 'denpher') ||
+        u.id === founderId
+      ));
+      if (!isDenpher || !await isAdmin(u)) {
+        return res.status(403).json({ error: 'Access restricted: denpherai@gmail.com can only access admin console and moderation.' });
+      }
+      next();
+    } catch (e) {
+      next(e);
+    }
   };
   const adminView = (u) => ({
     id: u.id, username: u.username, displayName: u.displayName || u.username, email: maskEmail(u.email),
