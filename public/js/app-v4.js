@@ -11,6 +11,7 @@ import { startCamera, flipCamera, toggleMuteMic, toggleMuteVideo, stopCamera } f
 import { $, $$, escapeHtml, toast, refreshIcons } from '../utils/dom.js';
 import { attachDoubleTap } from '../hooks/useDoubleTap.js';
 import { getCachedMessages, setCachedMessages, appendCachedMessage } from '../utils/cache.js';
+import { formatTimeAgo } from '../utils/formatters.js';
 import { parseYouTubeId, playerMarkup, activatePlayer, mountYouTubeReels } from './player-v2.js';
 import { installActionsV3 } from './actions-v3.js';
 import { ensureNoChatFixStyles, installNoChatInteractionLayer } from './app-nochat-fix.js';
@@ -20,6 +21,7 @@ import { renderSidebar } from '../components/Sidebar.js';
 import { renderBottomNav } from '../components/BottomNav.js';
 import { renderCommentSheet } from '../components/CommentSheet.js';
 import { renderChatWindow } from '../components/ChatWindow.js';
+import { renderChatList } from '../components/ChatList.js';
 import { renderReelUploadModal } from '../components/ReelUploadModal.js';
 import { renderWebcamModal } from '../components/WebcamModal.js';
 
@@ -67,6 +69,7 @@ const state = {
 let wiredRealtimeSocket=null;
 let feedMediaObserver=null;
 let reelsMediaObserver=null;
+const realtimeMessageIds=new Set();
 
 /* ---------- Initialization ---------- */
 async function initApp() {
@@ -145,17 +148,20 @@ function setupGlobalRealtime() {
       renderChatWindowArea();
     }
     // Update conversation snippet
-    const convo = state.conversations.find(c => c.id === message.conversationId);
+    const convo = state.conversations.find(c => String(c.id) === String(message.conversationId));
     if (convo) {
       convo.lastMessage = message;
-      if (!state.activeConvo || state.activeConvo.id !== message.conversationId) {
+      convo.lastAt=message.createdAt||new Date().toISOString();
+      if ((!state.activeConvo || String(state.activeConvo.id) !== String(message.conversationId)) && String(message.senderId)!==String(state.user?.id) && !realtimeMessageIds.has(String(message.id))) {
         convo.unreadCount = (convo.unreadCount || 0) + 1;
         state.unreadTotal++;
+        realtimeMessageIds.add(String(message.id));
       }
+      updateChatPreview(convo);
     }
   });
 
-  onSocketEvent('conversation:update', async () => { if(state.route!=='chat') return; const r=await api.get('/api/conversations').catch(()=>({conversations:[]})); state.conversations=(r.conversations||[]).map(c=>({...c,otherUser:c.user||c.otherUser||null})); if(!state.activeConvo || !state.conversations.some(c=>c.id===state.activeConvo.id)) state.activeConvo=state.conversations[0]||null; renderApp(); });
+  onSocketEvent('conversation:update', payload => { void handleConversationUpdate(payload); });
   onSocketEvent('connect', () => { if(state.activeConvo?.id) getSocket()?.emit('conversation:join',state.activeConvo.id); });
   onSocketEvent('message:reaction', ({ conversationId, messageId, reactions }) => {
     if (state.activeConvo && state.activeConvo.id === conversationId) {
@@ -220,6 +226,47 @@ function updatePresenceBadges() {
   const label=$('.chat-presence-label');
   const otherId=state.activeConvo?.otherUser?.id;
   if(label&&otherId!=null){const online=state.onlineUsers.has(String(otherId));label.textContent=online?'Online now':'Offline';label.classList.toggle('is-online',online);}
+}
+
+function updateChatPreview(convo) {
+  if(!convo?.id)return;
+  let row=document.querySelector(`.chat-row[data-convo-id="${CSS.escape(String(convo.id))}"]`);
+  if(!row){if(state.route==='chat')renderChatListOnly();return;}
+  const last=convo.lastMessage;
+  const snippet=typeof last==='string'?last:last?(last.text||(last.sharedReel?'Shared a reel':'Attachment')):'Start chatting';
+  const snippetNode=row.querySelector('.chat-row-snippet');if(snippetNode)snippetNode.textContent=snippet;
+  const timeNode=row.querySelector('.chat-row-time');if(timeNode&&convo.lastAt)timeNode.textContent=formatTimeAgo(convo.lastAt);
+  const info=row.querySelector('.chat-row-info');
+  const badge=row.querySelector('.badge-red');
+  if(Number(convo.unreadCount)>0){const count=badge||document.createElement('span');count.className='badge badge-red';count.textContent=String(convo.unreadCount);info?.lastElementChild?.append(count);}
+  else badge?.remove();
+  row.parentElement?.prepend(row);
+}
+
+function renderChatListOnly() {
+  const list=$('.chat-list');
+  if(!list)return;
+  list.innerHTML=renderChatList(state.conversations,state.activeConvo?.id,state.onlineUsers,state.user?.id);
+  bindChatEvents();
+  refreshIcons();
+}
+
+async function handleConversationUpdate(payload={}) {
+  const {conversationId,message}=payload;
+  if(!conversationId||!message)return;
+  let convo=state.conversations.find(item=>String(item.id)===String(conversationId));
+  if(!convo){
+    if(state.route!=='chat')return;
+    const result=await api.get('/api/conversations').catch(()=>({conversations:[]}));
+    state.conversations=(result.conversations||[]).map(item=>({...item,otherUser:item.user||item.otherUser||null}));
+    renderChatListOnly();
+    return;
+  }
+  convo.lastMessage=message;convo.lastAt=message.createdAt||new Date().toISOString();
+  if(String(message.senderId)!==String(state.user?.id)&&String(state.activeConvo?.id)!==String(conversationId)&&!realtimeMessageIds.has(String(message.id))){
+    convo.unreadCount=(convo.unreadCount||0)+1;state.unreadTotal++;realtimeMessageIds.add(String(message.id));
+  }
+  updateChatPreview(convo);
 }
 
 /* ---------- Main Render Dispatcher ---------- */
@@ -400,6 +447,8 @@ async function renderApp() {
 function decorateLandingVersion() {
   const logo=document.querySelector('.landing-nav .logo');
   if(logo && !logo.querySelector('.v4-version')) { const tag=document.createElement('small'); tag.className='v4-version'; tag.textContent='v4'; logo.append(tag); }
+  const wordmark=document.querySelector('.landing-footer-wordmark');
+  if(wordmark&&!wordmark.dataset.revealBound){wordmark.dataset.revealBound='true';if('IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){wordmark.classList.add('is-revealed');observer.disconnect();}},{threshold:.2});observer.observe(wordmark);}else wordmark.classList.add('is-revealed');}
 }
 function decorateSidebarStoryAction() {
   const footer=document.querySelector('.sidebar-footer');

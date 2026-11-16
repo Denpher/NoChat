@@ -13,7 +13,7 @@ export function renderChatList(conversations = [], activeConvoId = null, onlineU
   return conversations.map(c => {
     const isOther = c.user || c.otherUser || c.recipient || (c.members || []).find(id => id !== currentUserId);
     const otherUser = c.user || c.otherUser || (typeof isOther === 'object' ? isOther : { id: isOther, username: 'Member' });
-    const isOnline = onlineUserIds.has(otherUser?.id);
+    const isOnline = otherUser?.id != null && [...onlineUserIds].some(id => String(id) === String(otherUser.id));
     const avatar = c.group?.avatar || otherUser?.profilePicture || `https://api.dicebear.com/7.x/identicon/svg?seed=${otherUser?.username || c.group?.name || 'chat'}`;
     const username = escapeHtml(c.group?.name || otherUser?.displayName || otherUser?.username || 'Member');
     const isActive = c.id === activeConvoId;

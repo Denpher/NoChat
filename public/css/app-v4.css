@@ -1707,6 +1707,33 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 .v4-notification-row button { min-height:34px;padding:4px 10px;border-radius:999px;background:var(--accent-blue);color:#fff;font-size:12px; }
 .v4-notification-empty { padding:32px;text-align:center; }
 @keyframes v4-drop { from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)} }
+
+/* Landing-only oversized Denpher wordmark. Text-led, with no borrowed brand mark. */
+.landing-footer { overflow:hidden; padding:clamp(34px,5vw,78px) clamp(16px,4vw,64px) 30px; border-top:1px solid #181818; background:#000; }
+.landing-footer-wordmark { display:block; width:100%; margin:0 auto clamp(42px,7vw,104px); color:transparent; text-align:center; text-decoration:none; }
+.landing-footer-wordmark span { position:relative; display:inline-block; max-width:100%; font-size:clamp(54px,20vw,360px); font-weight:900; line-height:.82; letter-spacing:-.085em; white-space:nowrap; -webkit-text-stroke:1.5px rgba(255,255,255,.22); }
+.landing-footer-wordmark span::after { position:absolute; inset:0; content:attr(data-wordmark); background:linear-gradient(100deg,#15100e 0%,#41190e 38%,#a84820 70%,#462014 100%); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; clip-path:inset(0 100% 0 0); transition:clip-path 1.35s cubic-bezier(.22,.7,.16,1),filter .25s ease; }
+.landing-footer-wordmark.is-revealed span::after { clip-path:inset(0 0 0 0); }
+.landing-footer-wordmark:hover span::after,.landing-footer-wordmark:focus-visible span::after { filter:brightness(1.35); }
+.landing-footer-lower { display:grid; grid-template-columns:minmax(150px,1fr) minmax(0,2fr); align-items:center; gap:30px; max-width:1440px; margin:0 auto; }
+.landing-footer .footer-socials { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.landing-footer .footer-socials a { display:grid; width:44px; height:44px; place-items:center; border:1px solid transparent; border-radius:50%; color:#f5f5f5; transition:transform .2s ease,color .2s ease,background .2s ease; }
+.landing-footer .footer-socials a:hover,.landing-footer .footer-socials a:focus-visible { transform:translateY(-3px); background:#151515; color:#0095f6; }
+.landing-footer .footer-socials svg { width:20px; height:20px; fill:currentColor; }
+.landing-footer .footer-content { justify-content:flex-end; gap:clamp(12px,2vw,24px); color:#888; }
+.landing-footer .footer-link { color:#b6b6b6; text-decoration:none; }
+.landing-footer .footer-link:hover { color:#fff; }
+.landing-footer .footer-text { flex-basis:100%; text-align:right; color:#777; }
+.landing-footer .footer-author { color:#b5b5b5; }
+@media(max-width:640px) {
+  .landing-footer { padding:42px 16px max(22px,env(safe-area-inset-bottom)); }
+  .landing-footer-wordmark { margin-bottom:48px; }
+  .landing-footer-wordmark span { font-size:clamp(52px,19vw,120px); -webkit-text-stroke-width:1px; }
+  .landing-footer-lower { grid-template-columns:1fr; justify-items:center; gap:18px; }
+  .landing-footer .footer-socials { justify-content:center; }
+  .landing-footer .footer-content { justify-content:center; gap:10px 18px; }
+  .landing-footer .footer-text { text-align:center; }
+}
 .v4-your-story { position:relative;cursor:pointer; }
 .v4-story-ring-empty { background:#555!important; }
 .v4-story-ring-live { background:linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5)!important;padding:3px!important; }

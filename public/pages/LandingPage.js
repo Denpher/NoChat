@@ -133,7 +133,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
         </div>
       </section>
 
-      ${renderFooter()}
+      ${renderFooter({ landing: true })}
     </div>
   `;
 }
