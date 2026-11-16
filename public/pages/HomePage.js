@@ -7,20 +7,29 @@ import { renderStoryCircle } from '../components/StoryCircle.js';
 import { renderWelcomeBanner, renderAnnouncementBanner } from '../components/AnnouncementBanner.js';
 import { renderFooter } from '../components/Footer.js';
 
-export function renderHomePage({ posts = [], users = [], currentUser = null, announcement = null }) {
+export function renderHomePage({ posts = [], users = [], stories = [], currentUser = null, announcement = null }) {
   // Sort posts chronologically (real data only)
   const sortedPosts = [...posts].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  const peopleWithStories = new Map();
+  for (const story of stories) {
+    const user = story.user || users.find(item => String(item.id) === String(story.userId));
+    if (user && String(user.id) !== String(currentUser?.id)) peopleWithStories.set(String(user.id), user);
+  }
 
   return `
     <div class="feed-container">
       ${renderWelcomeBanner(currentUser)}
       ${renderAnnouncementBanner(announcement)}
 
-      <!-- Stories Row (56px circles) -->
-      <section class="stories-bar" aria-label="Stories">
-        ${renderStoryCircle(currentUser, false)}
-        ${users.filter(u => String(u.id) !== String(currentUser?.id)).slice(0, 25).map(u => renderStoryCircle(u, true)).join('')}
-      </section>
+      <!-- Story row contains the signed-in user and people with active stories. -->
+      <div class="stories-shell">
+        <button type="button" class="story-scroll-control story-scroll-left" data-action="stories-scroll-left" aria-label="Scroll stories left" hidden>‹</button>
+        <section class="stories-bar" aria-label="Stories">
+          ${renderStoryCircle(currentUser, false)}
+          ${[...peopleWithStories.values()].map(u => renderStoryCircle(u, true)).join('')}
+        </section>
+        <button type="button" class="story-scroll-control story-scroll-right" data-action="stories-scroll-right" aria-label="Scroll stories right" hidden>›</button>
+      </div>
 
       <!-- Post Feed (470px Cards) -->
       <main class="posts-stream">

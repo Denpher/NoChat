@@ -13,12 +13,12 @@ export function renderCommentSheet(comments = [], targetTitle = 'Comments') {
         <div class="sheet-handle"></div>
         <div class="sheet-header">
           <h3 style="font-size:15px; font-weight:700;">${targetTitle}</h3>
-          <button class="btn-icon" data-action="close-sheet"><i data-lucide="x"></i></button>
+          <button type="button" class="btn-icon" data-action="close-sheet" aria-label="Close comments"><i data-lucide="x"></i></button>
         </div>
         
         <div class="sheet-body" id="sheet-comments-list">
           ${comments.length === 0 ? `
-            <div style="text-align:center; padding:40px 0; color:var(--muted);">No comments yet. Start the conversation!</div>
+            <div class="v4-no-comments" style="text-align:center; padding:40px 0; color:var(--muted);">No comments yet. Start the conversation!</div>
           ` : comments.map(c => `
             <div class="comment-item" style="display:flex; gap:12px; font-size:13px;">
               <img src="${c.user?.profilePicture || `https://api.dicebear.com/7.x/identicon/svg?seed=${c.user?.username || 'user'}`}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;" />

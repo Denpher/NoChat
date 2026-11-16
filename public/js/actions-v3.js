@@ -52,13 +52,11 @@ async function normalizeAvatar(file) {
 }
 
 export function installActionsV3({ getState, toast, onDelete, onAvatarUpdated, onChatDeleted }) {
-  if (document.documentElement.dataset.v3Actions) return;
+  if (document.documentElement.dataset.v3Actions) return async () => {};
   document.documentElement.dataset.v3Actions='1';
-  document.addEventListener('click', async event => {
-    const button=event.target.closest('[data-action]'); if(!button) return;
+  const handleClick = async (event, button = event.target.closest('[data-action]')) => {
+    if(!button) return;
     const action=button.dataset.action;
-    console.debug('[NoChat action]', action);
-    button.classList.add('v3-click-feedback'); setTimeout(()=>button.classList.remove('v3-click-feedback'),180);
     const state=getState();
     if (action==='share-post'||action==='reel-share') { event.preventDefault(); openShare(button.closest('[data-reel-id]')?.dataset.reelId||button.closest('[data-post-id]')?.dataset.postId,state); }
     if (action==='v3-close-sheet') { if(event.target===button || event.target.classList.contains('v3-action-backdrop')) closeSheet(); }
@@ -67,7 +65,7 @@ export function installActionsV3({ getState, toast, onDelete, onAvatarUpdated, o
     if (action==='v3-share-whatsapp'||action==='v3-share-telegram') { const url=encodeURIComponent(button.dataset.url); const target=action==='v3-share-whatsapp'?`https://wa.me/?text=${url}`:`https://t.me/share/url?url=${url}`; window.open(target,'_blank','noopener,noreferrer'); toast('Shared!'); if(navigator.vibrate) navigator.vibrate(50); }
     if (action==='v3-share-native') { try { await navigator.share({title:'NoChat post',url:button.dataset.url}); toast('Shared!'); if(navigator.vibrate) navigator.vibrate(50); } catch(e) { if(e.name!=='AbortError') copyLink(button.dataset.url,toast); } }
     if (action==='v3-share-chat') { const conversationId=document.querySelector('[data-share-conversation]')?.value; try { await api.post(`/api/conversations/${encodeURIComponent(conversationId)}/share-reel`,{reelId:button.dataset.reelId}); closeSheet(); toast('Shared to Chat!'); } catch(e) { toast(e.status===401?'Login again':`Share failed: ${e.message}`); } }
-    if (action==='delete-full-chat') { const id=button.closest('.chat-main')?.querySelector('[data-action="start-video-call"]')?.dataset.conversationId || getState().activeConvo?.id; if(id) showSheet(`<h3>Delete this full chat?</h3><p>This removes the conversation and its old messages from your chat list. The other person keeps their copy.</p><div class="v3-confirm-actions"><button type="button" data-action="v3-close-sheet" class="btn btn-secondary">Cancel</button><button type="button" data-action="v3-confirm-chat-delete" data-id="${esc(id)}" class="btn btn-danger">Delete chat</button></div>`); }
+    if (action==='delete-full-chat') { const id=button.dataset.conversationId || button.closest('.chat-main')?.querySelector('[data-action="start-video-call"]')?.dataset.conversationId || getState().activeConvo?.id; if(id) showSheet(`<h3>Delete this full chat?</h3><p>This removes the conversation and its old messages from your chat list. The other person keeps their copy.</p><div class="v3-confirm-actions"><button type="button" data-action="v3-close-sheet" class="btn btn-secondary">Cancel</button><button type="button" data-action="v3-confirm-chat-delete" data-id="${esc(id)}" class="btn btn-danger">Delete chat</button></div>`); }
     if (action==='v3-confirm-chat-delete') { const id=button.dataset.id; button.disabled=true; try { await api.post(`/api/conversations/${encodeURIComponent(id)}/hide`); closeSheet(); onChatDeleted?.(id); toast('Chat deleted for you'); } catch(e) { button.disabled=false; toast(e.status===401?'Login again':'Chat delete failed: '+e.message); } }
     if (action==='delete-post'||action==='delete-reel') { const card=button.closest('[data-post-id],[data-reel-id]'); confirmDelete(card?.dataset.postId||card?.dataset.reelId,action==='delete-reel'?'reel':'post'); }
     if (action==='delete-comment') { const item=button.closest('.comment-item'); const id=item?.dataset.commentId; const reelId=item?.dataset.reelId; try { await api.delete(`/api/reels/${encodeURIComponent(reelId)}/comments/${encodeURIComponent(id)}`); item.classList.add('v3-removing'); setTimeout(()=>item.remove(),220); toast('Comment deleted'); } catch(e) { toast(e.status===401?'Login again':'Delete failed: '+e.message); } }
@@ -83,7 +81,9 @@ export function installActionsV3({ getState, toast, onDelete, onAvatarUpdated, o
     if (action==='v3-hug') { const heart=document.createElement('div'); heart.className='v3-hug-heart'; heart.textContent='💚'; button.closest('.chat-main')?.append(heart); setTimeout(()=>heart.remove(),900); toast('Sent a hug'); }
     if (action==='v3-mood') { const mood=button.dataset.mood; localStorage.setItem('nochat:mood',mood); button.closest('.v3-mood-picker')?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===button)); toast(`Mood set: ${mood}`); }
     if (action==='v3-close-friend') { try { const result=await api.post(`/api/close-friends/${encodeURIComponent(button.dataset.userId)}`); button.classList.toggle('active',result.isCloseFriend); toast(result.isCloseFriend?'Added to Close Friends':'Removed from Close Friends'); } catch(e) { toast(e.status===401?'Login again':'Close Friends update failed: '+e.message); } }
-  });
+    if (action==='v3-voice-record') await handleVoiceClick(button, event);
+  };
+
   document.addEventListener('submit', async event=>{
     if(!event.target.matches('.v3-profile-edit-form'))return;
     event.preventDefault(); const form=event.target; const submit=form.querySelector('[type="submit"]'); if(submit)submit.disabled=true;
@@ -91,8 +91,7 @@ export function installActionsV3({ getState, toast, onDelete, onAvatarUpdated, o
     catch(error){toast(error.status===401?'Login again':'Profile update failed: '+error.message);}
     finally{if(submit?.isConnected)submit.disabled=false;}
   });
-  document.addEventListener('click', async event=>{
-    const button=event.target.closest('[data-action="v3-voice-record"]'); if(!button)return;
+  const handleVoiceClick = async (button, event) => {
     event.preventDefault();
     if(button.dataset.recording==='true'){button.dataset.recorder?.state; window.__nochatVoiceRecorder?.stop(); return;}
     if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){toast('Voice notes need microphone access in a secure browser');return;}
@@ -104,5 +103,6 @@ export function installActionsV3({ getState, toast, onDelete, onAvatarUpdated, o
       recorder.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());button.dataset.recording='false';button.textContent='🎙 Voice';const convo=getState().activeConvo;if(!chunks.length||!convo)return;try{const blob=new Blob(chunks,{type:recorder.mimeType||'audio/webm'});const ext=blob.type.includes('ogg')?'ogg':blob.type.includes('mp4')?'m4a':'webm';const file=new File([blob],`voice-note.${ext}`,{type:blob.type});const data=new FormData();data.append('file',file);const result=await api.post(`/api/conversations/${encodeURIComponent(convo.id)}/attachments`,data);const state=getState();if(result.message&&!state.messages.some(m=>String(m.id)===String(result.message.id)))state.messages.push(result.message);window.dispatchEvent(new Event('nochat:refresh-chat'));toast('Voice note sent');}catch(error){toast(error.status===401?'Login again':'Voice note failed: '+error.message);}};
       recorder.start();
     }catch(error){toast(error.name==='NotAllowedError'?'Allow microphone access to record a voice note':'Voice note failed: '+error.message);}
-  });
+  };
+  return handleClick;
 }

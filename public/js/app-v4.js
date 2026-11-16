@@ -13,6 +13,7 @@ import { attachDoubleTap } from '../hooks/useDoubleTap.js';
 import { getCachedMessages, setCachedMessages, appendCachedMessage } from '../utils/cache.js';
 import { parseYouTubeId, playerMarkup, activatePlayer, mountYouTubeReels } from './player-v2.js';
 import { installActionsV3 } from './actions-v3.js';
+import { ensureNoChatFixStyles, installNoChatInteractionLayer } from './app-nochat-fix.js';
 
 // Components
 import { renderSidebar } from '../components/Sidebar.js';
@@ -57,7 +58,9 @@ const state = {
   stories: [],
   activeStoryIndex: 0,
   activeStoryList: [],
-  globalSoundEnabled: false
+  globalSoundEnabled: false,
+  canManageVideos: false,
+  videoStorageReady: false
 };
 let wiredRealtimeSocket=null;
 let feedMediaObserver=null;
@@ -65,22 +68,23 @@ let reelsMediaObserver=null;
 
 /* ---------- Initialization ---------- */
 async function initApp() {
-  installActionsV3({ getState: () => state, toast, onDelete: id => { state.posts=state.posts.filter(x=>String(x.id)!==String(id)); state.reels=state.reels.filter(x=>String(x.id)!==String(id)); }, onAvatarUpdated: user => { state.user=user; state.profileUser=user; if(state.route==='profile')renderApp(); }, onChatDeleted: id => { state.conversations=state.conversations.filter(c=>String(c.id)!==String(id)); if(String(state.activeConvo?.id)===String(id)){state.activeConvo=null;state.messages=[];} renderApp(); } });
+  if (window.__nochat_init) return;
+  window.__nochat_init = true;
+  const dispatchActionsV3 = installActionsV3({ getState: () => state, toast, onDelete: id => { state.posts=state.posts.filter(x=>String(x.id)!==String(id)); state.reels=state.reels.filter(x=>String(x.id)!==String(id)); }, onAvatarUpdated: user => { state.user=user; state.profileUser=user; if(state.route==='profile')renderApp(); }, onChatDeleted: id => { state.conversations=state.conversations.filter(c=>String(c.id)!==String(id)); if(String(state.activeConvo?.id)===String(id)){state.activeConvo=null;state.messages=[];} renderApp(); } });
+  installNoChatInteractionLayer((event, button, action) => {
+    handleDelegatedAction(event, button, action);
+    handleFeedbackAction(event, button);
+    void dispatchActionsV3?.(event, button);
+  });
   window.addEventListener('nochat:refresh-chat',renderChatWindowArea);
-  document.addEventListener('click', handleV4Action);
   document.addEventListener('submit', handleStorySubmit);
   document.addEventListener('submit', handlePostSubmit);
+  document.addEventListener('submit', handleCommentSubmit);
+  document.addEventListener('submit', handleVideoCatalogSubmit);
   document.addEventListener('submit', handleFeedbackSubmit);
-  document.addEventListener('click', handleFeedbackAction);
   document.addEventListener('visibilitychange',()=>{if(document.hidden)document.querySelectorAll('.post-video,.reel-video').forEach(video=>{video.pause();video.muted=true;});});
+  window.addEventListener('online', flushOfflineLikes);
   wireStoryPreview();
-  // Delegated navigation survives rerenders and works when the icon itself is clicked.
-  document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-action]');
-    if (!target) return;
-    const route = target.dataset.route || ({ home: 'home', reels: 'reels', chat: 'chat', profile: 'profile', search: 'home', create: 'reels' }[target.dataset.action]);
-    if (route) window.location.hash = `#/${route}`;
-  });
   window.addEventListener('hashchange', handleRouteChange);
 
   // Subscribe to auth updates
@@ -278,12 +282,14 @@ async function renderApp() {
       container.innerHTML = renderHomePage({
         posts: state.posts,
         users: state.users,
+        stories: state.stories,
         currentUser: state.user,
         announcement: state.announcement
       });
       const feed=container.querySelector('.feed-container'); if(feed) feed.insertAdjacentHTML('beforeend', renderDiscoveryPanel(state.recommendedUsers));
       bindDiscoveryEvents(container);
       decorateYourStory(container);
+      wireStoryScroller(container);
       if(state.routeParam) document.querySelector(`[data-post-id="${CSS.escape(state.routeParam)}"]`)?.scrollIntoView({behavior:'smooth',block:'center'});
       bindHomeEvents();
       break;
@@ -319,10 +325,12 @@ async function renderApp() {
       break;
 
     case 'videos':
-      await loadVideosCatalog();
+      await loadWatchVideosCatalog();
       container.innerHTML = renderWatchPartyPage({
         videos: state.videos,
-        activeCategory: state.activeWatchCategory
+        activeCategory: state.activeWatchCategory,
+        canManageVideos: state.canManageVideos,
+        videoStorageReady: state.videoStorageReady
       });
       bindWatchPartyEvents();
       break;
@@ -407,12 +415,14 @@ function handleV4Action(event) { const b=event.target.closest('[data-action]'); 
 function openNewChatPicker(){document.querySelector('.v4-chat-picker')?.remove();document.body.insertAdjacentHTML('beforeend','<div class="v4-chat-picker" role="dialog" aria-modal="true"><section><header><h2>New message</h2><button type="button" data-action="close-new-chat" aria-label="Close">×</button></header><input type="search" data-new-chat-search placeholder="Search people…" aria-label="Search people"><div class="v4-chat-picker-results">Loading people…</div></section></div>');const input=document.querySelector('[data-new-chat-search]');let timer;const search=async()=>{try{const result=await api.get('/api/users/search?q='+encodeURIComponent(input.value.trim()));const box=document.querySelector('.v4-chat-picker-results');const users=(result.users||[]).filter(u=>String(u.id)!==String(state.user?.id));box.innerHTML=users.length?users.map(u=>'<button type="button" data-action="select-new-chat" data-user-id="'+escapeHtml(u.id)+'"><img src="'+escapeHtml(u.profilePicture||'/icons/icon-192.png')+'" alt=""><span><strong>'+escapeHtml(u.displayName||u.username)+'</strong><small>@'+escapeHtml(u.username)+'</small></span><i data-lucide="message-circle"></i></button>').join(''):'<p>No people found.</p>';refreshIcons();}catch(error){document.querySelector('.v4-chat-picker-results').textContent='Could not load people: '+error.message;}};input.oninput=()=>{clearTimeout(timer);timer=setTimeout(search,220);};search();input.focus();}
 async function startNewChat(userId){if(!userId)return;try{const opened=await api.post('/api/conversations',{userId});const all=await api.get('/api/conversations');state.conversations=(all.conversations||[]).map(c=>({...c,otherUser:c.user||c.otherUser||null}));state.activeConvo=state.conversations.find(c=>String(c.id)===String(opened.conversation.id))||{...opened.conversation,otherUser:opened.user};const result=await api.get('/api/conversations/'+encodeURIComponent(state.activeConvo.id)+'/messages');state.messages=result.messages||[];getSocket()?.emit('conversation:join',state.activeConvo.id);document.querySelector('.v4-chat-picker')?.remove();window.location.hash='#/chat';renderApp();}catch(error){toast(error.status===401?'Login again':'Could not start chat: '+error.message);}}
 function renderDiscoveryPanel(users=[]) {
-  const list=users.filter(u=>String(u.id)!==String(state.user?.id)).slice(0,6);
-  return '<aside class="v3-discover-panel"><section class="v3-discover-card"><h3>Discover Creators</h3><input class="v3-discover-search" type="search" placeholder="Search humans…" aria-label="Search creators"><div class="v3-creator-list">'+renderCreatorRows(list)+'</div></section><section class="v3-discover-card"><h3>Creator picks</h3><p>Find real people, follow creators, and see their latest reels in your feed.</p><a href="#/reels" class="btn btn-secondary btn-sm">Explore Reels</a></section></aside>';
+  const list=users.filter(u=>String(u.id)!==String(state.user?.id));
+  const suggested=list.slice(0,4);
+  const active=[...list].sort((a,b)=>(Number(b.postsCount)||0)-(Number(a.postsCount)||0)||(Number(b.followersCount)||0)-(Number(a.followersCount)||0)).slice(0,3);
+  return '<aside class="v3-discover-panel"><section class="v3-discover-card"><header class="v3-discover-heading"><h3>Suggested for you</h3><a href="#/discover">See all</a></header><input class="v3-discover-search" type="search" placeholder="Search people…" aria-label="Search people"><div class="v3-creator-list">'+renderCreatorRows(suggested)+'</div></section><section class="v3-discover-card"><header class="v3-discover-heading"><h3>Creators active on NoChat</h3><a href="#/reels">Reels</a></header><div class="v3-creator-list">'+renderCreatorRows(active)+'</div></section></aside>';
 }
 function renderCreatorRows(users=[]) {
   if(!users.length) return '<p class="v3-empty-discovery">No creator matches yet.</p>';
-  return users.map(u=>'<div class="v3-creator-row"><img loading="lazy" src="'+escapeHtml(u.profilePicture||('/icons/icon-192.png'))+'" alt=""><a href="#/profile/'+encodeURIComponent(u.id)+'">@'+escapeHtml(u.username||'human')+'</a><button type="button" class="'+(u.isSubscribed?'btn-secondary':'btn-primary')+'" data-action="toggle-follow" data-user-id="'+escapeHtml(u.id)+'">'+(u.isSubscribed?'Following':'Follow')+'</button><button type="button" data-action="v3-close-friend" data-user-id="'+escapeHtml(u.id)+'" aria-label="Toggle Close Friend">☆</button></div>').join('');
+  return users.map(u=>'<article class="v3-creator-row"><img loading="lazy" src="'+escapeHtml(u.profilePicture||('/icons/icon-192.png'))+'" alt=""><div class="v3-creator-copy"><a href="#/profile/'+encodeURIComponent(u.id)+'">'+escapeHtml(u.displayName||u.username||'NoChat member')+'</a><small>@'+escapeHtml(u.username||'human')+'</small><span class="v3-creator-reason">'+escapeHtml(u.recommendationReason||((Number(u.postsCount)||0)>0?'Sharing on NoChat':'Suggested for you'))+' · #'+escapeHtml(u.memberNumber||'—')+'</span></div><div class="v3-creator-actions"><button type="button" class="'+(u.isSubscribed?'btn-secondary':'btn-primary')+'" data-action="toggle-follow" data-user-id="'+escapeHtml(u.id)+'" aria-label="'+(u.isSubscribed?'Unfollow ':'Follow ')+escapeHtml(u.username||'person')+'">'+(u.isSubscribed?'Following':'Follow')+'</button><button type="button" class="v3-close-friend-button" data-action="v3-close-friend" data-user-id="'+escapeHtml(u.id)+'" aria-label="Toggle close friends" title="Close Friends">☆</button></div></article>').join('');
 }
 function bindDiscoveryEvents(root) {
   const input=root.querySelector('.v3-discover-search'); if(!input) return;
@@ -531,6 +541,25 @@ async function loadVideosCatalog() {
   }
 }
 
+async function loadWatchVideosCatalog() {
+  try {
+    const result = await api.get('/api/videos?page=1&limit=48');
+    state.videos = result.videos || [];
+    state.canManageVideos = Boolean(result.canManage);
+    state.videoStorageReady = Boolean(result.viewsPersistent);
+  } catch (error) {
+    state.canManageVideos = false;
+    state.videoStorageReady = false;
+    try {
+      const fallback = await api.get('/api/videos-catalog');
+      state.videos = fallback.videos || [];
+    } catch {
+      state.videos = [];
+      toast(error.status === 401 ? 'Login again' : 'NoChat videos could not load: ' + error.message);
+    }
+  }
+}
+
 async function loadProfileData(userId) {
   try {
     const targetId=userId||state.user?.id;
@@ -635,40 +664,7 @@ function showSignOutModal() {
 
 /* ---------- Event Handlers ---------- */
 function bindCommonEvents() {
-  // Sign out with confirmation
-  $$('[data-action="logout"]').forEach(btn => {
-    btn.onclick = () => {
-      showSignOutModal();
-    };
-  });
-
-  // Open reel upload modal
-  $$('[data-action="open-upload-modal"]').forEach(btn => {
-    btn.onclick = () => {
-      let modal = $('#reel-upload-modal');
-      if (!modal) {
-        document.body.insertAdjacentHTML('beforeend', renderReelUploadModal());
-        modal = $('#reel-upload-modal');
-        bindUploadModalEvents();
-      }
-      modal.classList.remove('hidden');
-      refreshIcons();
-    };
-  });
-
-  // Auth Modal Triggers
-  $$('[data-action="open-auth"]').forEach(btn => {
-    btn.onclick = () => {
-      const modal = $('#auth-modal');
-      modal?.classList.remove('hidden');
-      refreshIcons();
-    };
-  });
-  $$('[data-action="close-auth"]').forEach(btn => {
-    btn.onclick = () => {
-      $('#auth-modal')?.classList.add('hidden');
-    };
-  });
+  // Shared NoChat action delegation handles app and landing action buttons.
 }
 
 function bindLandingEvents() {
@@ -759,36 +755,7 @@ function bindHomeEvents() {
     });
   });
 
-  // Toggle like
-  $$('[data-action="toggle-like"]').forEach(btn => {
-    btn.onclick = async (e) => {
-      e.stopPropagation();
-      const postCard = btn.closest('.post-card');
-      const postId = postCard?.dataset.postId;
-      if (!postId) return;
-
-      btn.classList.toggle('liked');
-      try {
-        const result=await api.post(`/api/reels/${encodeURIComponent(postId)}/like`);
-        btn.classList.toggle('liked',Boolean(result.isLiked));
-        const post=state.posts.find(item=>String(item.id)===String(postId));if(post){post.isLiked=result.isLiked;post.likesCount=result.likesCount;}
-        const count=postCard.querySelector('.post-likes');if(count)count.textContent=`${result.likesCount} likes`;
-      } catch (err) {
-        btn.classList.toggle('liked');
-        toast(err.status===401?'Login again':'Like failed: '+err.message);
-      }
-    };
-  });
-
-  // Open comments
-  $$('[data-action="open-comments"]').forEach(btn => {
-    btn.onclick = async () => {
-      const postCard = btn.closest('.post-card');
-      const postId = postCard?.dataset.postId;
-      if (!postId) return;
-      openCommentsDrawer(postId);
-    };
-  });
+  // Data-action clicks are handled once by the shared document dispatcher.
 }
 
 function bindReelsEvents() {
@@ -826,28 +793,15 @@ function bindReelsEvents() {
     });
   });
 
-  // Reel actions
-  $$('[data-action="reel-like"]').forEach(btn => {
-    btn.onclick = async (e) => {
-      e.stopPropagation();
-      const reelItem = btn.closest('.reel-item');
-      const id = reelItem?.dataset.reelId;
-      if (!id) return;
-      btn.classList.toggle('liked');
-      try { const result=await api.post(`/api/reels/${encodeURIComponent(id)}/like`);btn.classList.toggle('liked',Boolean(result.isLiked));const count=btn.querySelector('span');if(count)count.textContent=String(result.likesCount);const reel=state.reels.find(item=>String(item.id)===String(id));if(reel){reel.isLiked=result.isLiked;reel.likesCount=result.likesCount;} } catch(error) { btn.classList.toggle('liked');toast(error.status===401?'Login again':'Like failed: '+error.message); }
-    };
-  });
-
-  $$('[data-action="reel-comment"]').forEach(btn => {
-    btn.onclick = () => {
-      const reelItem = btn.closest('.reel-item');
-      const id = reelItem?.dataset.reelId;
-      if (id) openCommentsDrawer(id);
-    };
-  });
+  // Reel actions are handled by the shared document dispatcher.
 }
 
 async function openCommentsDrawer(reelId) {
+  const openSheet = document.querySelector('#comment-sheet');
+  if (openSheet && String(openSheet.dataset.reelId) === String(reelId)) {
+    openSheet.querySelector('[name="text"]')?.focus({ preventScroll: true });
+    return;
+  }
   let comments = [];
   try {
     const res = await api.get(`/api/reels/${reelId}/comments`);
@@ -859,27 +813,83 @@ async function openCommentsDrawer(reelId) {
 
   $('#comment-sheet')?.remove();
   document.body.insertAdjacentHTML('beforeend', renderCommentSheet(comments.map(c=>({...c,text:c.content||c.text})), 'Reel Comments'));
+  const sheetRoot = $('#comment-sheet');
+  if (sheetRoot) sheetRoot.dataset.reelId = String(reelId);
   $('.comment-item').forEach((item,i)=>{ const c=comments[i]; item.dataset.commentId=c?.id||''; item.dataset.reelId=reelId; if(c?.canDelete && !item.querySelector('[data-action="delete-comment"]')) { const b=document.createElement('button'); b.type='button'; b.dataset.action='delete-comment'; b.textContent='Delete'; b.className='v3-comment-delete'; item.append(b); } });
   refreshIcons();
+  requestAnimationFrame(() => sheetRoot?.querySelector('[name="text"]')?.focus({ preventScroll: true }));
+}
 
-  const sheet = $('#comment-sheet');
-  const close = () => sheet?.remove();
-  sheet?.querySelectorAll('[data-action="close-sheet"]').forEach(b => b.onclick = close);
+function makeCommentNode(comment) {
+  const node = document.createElement('article');
+  node.className = 'comment-item';
+  node.dataset.commentId = String(comment.id || '');
+  node.dataset.reelId = String(comment.reelId || '');
+  const avatar = document.createElement('img');
+  avatar.src = comment.user?.profilePicture || '/icons/icon-192.png';
+  avatar.alt = '';
+  avatar.loading = 'lazy';
+  avatar.className = 'comment-avatar';
+  const copy = document.createElement('div');
+  copy.className = 'comment-copy';
+  const text = document.createElement('p');
+  const username = document.createElement('strong');
+  username.textContent = comment.user?.username || 'human';
+  const body = document.createElement('span');
+  body.textContent = comment.content || comment.text || '';
+  text.append(username, document.createTextNode(' '), body);
+  const time = document.createElement('small');
+  time.textContent = 'Just now';
+  copy.append(text, time);
+  node.append(avatar, copy);
+  if (comment.canDelete) {
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.dataset.action = 'delete-comment';
+    remove.textContent = 'Delete';
+    remove.className = 'v3-comment-delete';
+    node.append(remove);
+  }
+  return node;
+}
 
-  const form = $('#comment-form');
-  if (form) {
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      const text = form.text.value.trim();
-      if (!text) return;
-      try {
-        const res = await api.post(`/api/reels/${reelId}/comments`, { content: text });
-        form.reset();
-        openCommentsDrawer(reelId); // refresh
-      } catch (err) {
-        toast(err.status===401 ? 'Login again' : (err.message || 'Could not post comment.'));
-      }
-    };
+async function handleCommentSubmit(event) {
+  const form = event.target;
+  if (!form.matches('#comment-form')) return;
+  event.preventDefault();
+  if (form.dataset.submitting === 'true') return;
+  const sheet = form.closest('#comment-sheet');
+  const reelId = sheet?.dataset.reelId;
+  const input = form.elements.namedItem('text');
+  const content = input?.value.trim();
+  if (!reelId || !content) return;
+  form.dataset.submitting = 'true';
+  const submit = form.querySelector('[type="submit"]');
+  if (submit) submit.disabled = true;
+  try {
+    const result = await api.post(`/api/reels/${encodeURIComponent(reelId)}/comments`, { content });
+    const list = sheet.querySelector('#sheet-comments-list');
+    list?.querySelector('.v4-no-comments')?.remove();
+    const comment = result.comment || { reelId, content, user: state.user, canDelete: true };
+    comment.reelId ||= reelId;
+    comment.user ||= state.user;
+    comment.canDelete = true;
+    list?.append(makeCommentNode(comment));
+    if (list) list.scrollTop = list.scrollHeight;
+    input.value = '';
+    const reel = state.reels.find(item => String(item.id) === String(reelId));
+    const post = state.posts.find(item => String(item.id) === String(reelId));
+    if (reel) reel.commentsCount = (Number(reel.commentsCount) || 0) + 1;
+    if (post && post !== reel) post.commentsCount = (Number(post.commentsCount) || 0) + 1;
+    document.querySelectorAll(`.reel-item[data-reel-id="${CSS.escape(String(reelId))}"] [data-action="reel-comment"] span`).forEach(el => { if (reel) el.textContent = String(reel.commentsCount); });
+    document.querySelectorAll(`.post-card[data-post-id="${CSS.escape(String(reelId))}"] .post-comments-link`).forEach(el => { if (post) el.textContent = `View all ${post.commentsCount} comments`; });
+    toast('Comment posted');
+    input.focus({ preventScroll: true });
+  } catch (error) {
+    toast(error.status === 401 ? 'Login again' : 'Comment failed: ' + error.message);
+  } finally {
+    form.dataset.submitting = 'false';
+    if (submit?.isConnected) submit.disabled = false;
   }
 }
 
@@ -926,42 +936,7 @@ function bindChatEvents() {
     };
   }
 
-  const attachButton=$('[data-action="attach-file"]');
-  if(attachButton)attachButton.onclick=()=>{let picker=$('#chat-attachment-picker');if(!picker){picker=document.createElement('input');picker.id='chat-attachment-picker';picker.type='file';picker.accept='image/*,video/mp4,video/webm,video/quicktime,audio/*,.pdf,.txt,.doc,.docx';picker.hidden=true;document.body.append(picker);picker.onchange=async()=>{const file=picker.files?.[0],convo=state.activeConvo;if(!file||!convo)return;if(file.size>20*1024*1024){toast('Attachments must be 20 MB or smaller');picker.value='';return;}const form=new FormData();form.append('file',file,file.name);attachButton.disabled=true;try{const result=await api.post(`/api/conversations/${encodeURIComponent(convo.id)}/attachments`,form);if(result.message&&!state.messages.some(m=>String(m.id)===String(result.message.id)))state.messages.push(result.message);setCachedMessages(convo.id,state.messages);renderChatWindowArea();toast('Attachment sent');}catch(error){toast(error.status===401?'Login again':'Attachment failed: '+error.message);}finally{attachButton.disabled=false;picker.value='';}};}picker.click();};
-
-  $$('[data-action="delete-message"]').forEach(button=>button.onclick=async()=>{const id=button.dataset.messageId,convo=state.activeConvo;if(!id||!convo)return;if(!confirm('Delete this message?'))return;button.disabled=true;try{await api.delete(`/api/conversations/${encodeURIComponent(convo.id)}/messages/${encodeURIComponent(id)}`);state.messages=state.messages.filter(m=>String(m.id)!==String(id));setCachedMessages(convo.id,state.messages);renderChatWindowArea();toast('Message deleted');}catch(error){button.disabled=false;toast(error.status===401?'Login again':'Delete failed: '+error.message);}});
-  $$('[data-action="edit-message"]').forEach(button=>button.onclick=async()=>{const id=button.dataset.messageId,convo=state.activeConvo,old=button.dataset.text||'';if(!id||!convo)return;const text=prompt('Edit message',old);if(text===null||!text.trim())return;button.disabled=true;try{const result=await api.put(`/api/conversations/${encodeURIComponent(convo.id)}/messages/${encodeURIComponent(id)}`,{text:text.trim()});const message=state.messages.find(m=>String(m.id)===String(id));if(message){message.text=result.message?.text||text.trim();message.isEdited=true;}setCachedMessages(convo.id,state.messages);renderChatWindowArea();toast('Message edited');}catch(error){button.disabled=false;toast(error.status===401?'Login again':'Edit failed: '+error.message);}});
-  $('[data-action="cancel-reply"]')?.addEventListener('click',()=>{state.replyingToMessage=null;$('#reply-bar')?.classList.add('hidden');});
-
-  // Webcam Video Call Button
-  $('[data-action="start-video-call"]').forEach(btn => btn.onclick = () => startPeerCall(true));
-  $('[data-action="start-voice-call"]').forEach(btn => btn.onclick = () => startPeerCall(false));
-
-  // Reply message
-  $$('[data-action="reply-message"]').forEach(btn => {
-    btn.onclick = () => {
-      const id = btn.dataset.messageId;
-      const user = btn.dataset.user;
-      const text = btn.dataset.text;
-      state.replyingToMessage = { id, user, text };
-      const bar = $('#reply-bar');
-      if (bar) {
-        $('#reply-bar-user').textContent = user;
-        $('#reply-bar-text').textContent = text;
-        bar.classList.remove('hidden');
-      }
-      $('#chat-message-input')?.focus();
-    };
-  });
-
-  // Heart reaction on message
-  $$('[data-action="react-heart"]').forEach(btn => {
-    btn.onclick = async () => {
-      const mid = btn.dataset.messageId;
-      if (!mid || !state.activeConvo) return;
-      await api.post(`/api/conversations/${state.activeConvo.id}/messages/${mid}/react`, { reaction: '❤️' }).catch(() => {});
-    };
-  });
+  // Message actions, attachments, and call buttons use the shared action dispatcher.
 }
 
 function renderChatWindowArea() {
@@ -1010,21 +985,7 @@ function handleCallAction(action){if(action==='call-accept')acceptPeerCall();els
 
 function bindWatchPartyEvents() {
   $$('.watch-tab-btn').forEach(btn => btn.onclick = () => { state.activeWatchCategory = btn.dataset.category; renderApp(); });
-  $$('[data-action="watch-trailer"]').forEach(btn => btn.onclick = () => {
-    const id = parseYouTubeId('https://youtu.be/' + (btn.dataset.embedId || '')) || (/^[A-Za-z0-9_-]{11}$/.test(btn.dataset.embedId || '') ? btn.dataset.embedId : '');
-    const modal = $('#video-player-modal');
-    const box = modal?.querySelector('.modal-box');
-    if (!modal || !box) return;
-    const title = btn.dataset.title || 'Watch Party';
-    box.innerHTML = '<header class="v2-modal-header"><h3 id="video-player-title"></h3><button type="button" class="btn-icon" data-action="close-video-modal" aria-label="Close">×</button></header>' + playerMarkup(id, title);
-    const titleEl = $('#video-player-title'); if (titleEl) titleEl.textContent = title;
-    modal.classList.remove('hidden');
-    activatePlayer(box, id);
-  });
-  if (!document.body.dataset.v2PlayerEvents) { document.body.dataset.v2PlayerEvents = '1'; document.addEventListener('click', e => {
-    if (e.target.closest('[data-action="close-video-modal"]')) { const modal=$('#video-player-modal'); if(modal) { modal.classList.add('hidden'); modal.querySelector('iframe')?.setAttribute('src',''); } }
-    if (e.target.closest('[data-player-load]')) { const input=e.target.closest('.v2-player-error')?.querySelector('[data-player-url]'); const id=parseYouTubeId(input?.value || ''); const modal=$('#video-player-modal'); const box=modal?.querySelector('.modal-box'); if(box) { box.innerHTML=playerMarkup(id, 'Watch Party'); activatePlayer(box,id); } }
-  }); }
+  // Video card actions are delegated through the shared NoChat action router.
 }
 
 function decorateNavigationButtons() {
@@ -1133,8 +1094,6 @@ function bindContactEvents() {
 
 function bindUploadModalEvents() {
   const modal = $('#reel-upload-modal');
-  const close = () => modal?.classList.add('hidden');
-  modal?.querySelectorAll('[data-action="close-modal"]').forEach(b => b.onclick = close);
 
   const form = $('#reel-upload-form');
   if (form) {
@@ -1190,6 +1149,184 @@ function bindUploadModalEvents() {
       }
     };
   }
+}
+
+const pendingLikes = new Map();
+const likeQueues = new Map();
+
+function handleDelegatedAction(event, button, action) {
+  if (!button) return;
+  if (action === 'open-upload-modal') { event.preventDefault(); openReelUploadModal(); return; }
+  if (action === 'logout') { event.preventDefault(); showSignOutModal(); return; }
+  if (action === 'open-auth') { event.preventDefault(); $('#auth-modal')?.classList.remove('hidden'); refreshIcons(); return; }
+  if (action === 'close-auth') { event.preventDefault(); $('#auth-modal')?.classList.add('hidden'); return; }
+  if (action === 'close-modal') { event.preventDefault(); button.closest('.modal-overlay')?.classList.add('hidden'); return; }
+  if (action === 'toggle-like' || action === 'reel-like') { event.preventDefault(); toggleLikeOptimistically(button); return; }
+  if (action === 'open-comments' || action === 'reel-comment') { event.preventDefault(); const owner=button.closest('[data-post-id],[data-reel-id]'); const id=owner?.dataset.postId||owner?.dataset.reelId; if(id) void openCommentsDrawer(id); return; }
+  if (action === 'close-sheet') { event.preventDefault(); button.closest('#comment-sheet')?.remove(); return; }
+  if (action === 'start-video-call') { event.preventDefault(); void startPeerCall(true); return; }
+  if (action === 'start-voice-call') { event.preventDefault(); void startPeerCall(false); return; }
+  if (action === 'attach-file' || action === 'delete-message' || action === 'edit-message' || action === 'cancel-reply' || action === 'reply-message' || action === 'react-heart') { event.preventDefault(); void handleChatAction(action, button); return; }
+  if (action === 'stories-scroll-left' || action === 'stories-scroll-right') {
+    event.preventDefault();
+    const row=button.closest('.stories-shell')?.querySelector('.stories-bar');
+    row?.scrollBy({ left: (action === 'stories-scroll-left' ? -1 : 1) * Math.max(230, row.clientWidth * .72), behavior: 'smooth' });
+    return;
+  }
+  if (action === 'watch-video' || action === 'watch-trailer') { event.preventDefault(); openWatchVideo(button); return; }
+  if (action === 'close-video-modal') { event.preventDefault(); closeWatchVideo(); return; }
+  if (action === 'watch-toggle-sound') { event.preventDefault(); const video=$('#video-player-modal video'); if(video){video.muted=!video.muted;button.textContent=video.muted?'Sound Off':'Sound On';} return; }
+  if (action === 'open-video-upload') { event.preventDefault(); if(!state.canManageVideos){toast('Only the NoChat founder can add library videos');return;} document.querySelector('[data-video-upload-modal]')?.removeAttribute('hidden'); refreshIcons(); return; }
+  if (action === 'close-video-upload') { event.preventDefault(); document.querySelector('[data-video-upload-modal]')?.setAttribute('hidden',''); return; }
+  if (action === 'delete-catalog-video') { event.preventDefault(); void deleteCatalogVideo(button); return; }
+  if (action === 'discuss-chat') { event.preventDefault(); window.location.hash='#/chat'; toast('Choose a chat to discuss this video'); return; }
+  if (action === 'player-load' || button.hasAttribute('data-player-load')) { event.preventDefault(); loadWatchPlayer(button); return; }
+  handleV4Action(event);
+}
+
+function openReelUploadModal() {
+  let modal=$('#reel-upload-modal');
+  if(!modal){document.body.insertAdjacentHTML('beforeend',renderReelUploadModal());modal=$('#reel-upload-modal');bindUploadModalEvents();}
+  modal?.classList.remove('hidden');
+  refreshIcons();
+}
+
+function renderLikeState(id, isLiked, likesCount) {
+  const models=[...state.posts,...state.reels].filter(item=>String(item.id)===String(id));
+  for(const item of models){item.isLiked=isLiked;item.likesCount=likesCount;}
+  document.querySelectorAll(`.post-card[data-post-id="${CSS.escape(String(id))}"],.reel-item[data-reel-id="${CSS.escape(String(id))}"]`).forEach(card=>{
+    card.querySelectorAll('[data-action="toggle-like"],[data-action="reel-like"]').forEach(button=>{
+      button.classList.toggle('liked',isLiked);
+      const icon=button.querySelector('svg'); if(icon) icon.style.fill=isLiked?'var(--like-red)':'none';
+      const count=button.querySelector('span'); if(count) count.textContent=String(likesCount);
+    });
+    const likes=card.querySelector('.post-likes'); if(likes) likes.textContent=`${likesCount} likes`;
+  });
+}
+
+function toggleLikeOptimistically(button) {
+  const owner=button.closest('[data-post-id],[data-reel-id]');
+  const id=owner?.dataset.postId||owner?.dataset.reelId;
+  if(!id)return;
+  const model=[...state.posts,...state.reels].find(item=>String(item.id)===String(id));
+  const previousLiked=Boolean(model?.isLiked ?? button.classList.contains('liked'));
+  const previousCount=Number(model?.likesCount ?? owner.querySelector('.post-likes')?.textContent.match(/\d+/)?.[0] ?? button.querySelector('span')?.textContent ?? 0)||0;
+  const nextLiked=!previousLiked;
+  const nextCount=Math.max(0,previousCount+(nextLiked?1:-1));
+  renderLikeState(id,nextLiked,nextCount);
+  const pending=(pendingLikes.get(id)||0)+1; pendingLikes.set(id,pending);
+  const previous=likeQueues.get(id)||Promise.resolve();
+  const request=previous.catch(()=>{}).then(()=>api.post(`/api/reels/${encodeURIComponent(id)}/like`));
+  likeQueues.set(id,request);
+  request.then(result=>{
+    if(pendingLikes.get(id)===1) renderLikeState(id,Boolean(result.isLiked),Number(result.likesCount)||0);
+  }).catch(error=>{
+    const offline=!navigator.onLine||!Number(error.status);
+    if(offline){queueOfflineLike(id);toast('Like queued — it will sync when you’re back online');}
+    else { toast(error.status===401?'Login again':'Like failed: '+error.message); if(pendingLikes.get(id)===1)renderLikeState(id,previousLiked,previousCount); }
+  }).finally(()=>{
+    const remaining=Math.max(0,(pendingLikes.get(id)||1)-1);
+    if(remaining)pendingLikes.set(id,remaining);else pendingLikes.delete(id);
+    if(likeQueues.get(id)===request)likeQueues.delete(id);
+  });
+}
+
+function queueOfflineLike(id) {
+  try { const queue=JSON.parse(localStorage.getItem('nochat:pending-likes:v1')||'[]'); queue.push(String(id)); localStorage.setItem('nochat:pending-likes:v1',JSON.stringify(queue.slice(-200))); } catch {}
+}
+
+async function flushOfflineLikes() {
+  let queue=[]; try { queue=JSON.parse(localStorage.getItem('nochat:pending-likes:v1')||'[]'); } catch { return; }
+  while(queue.length){const id=queue[0];try{const result=await api.post(`/api/reels/${encodeURIComponent(id)}/like`);renderLikeState(id,Boolean(result.isLiked),Number(result.likesCount)||0);queue.shift();localStorage.setItem('nochat:pending-likes:v1',JSON.stringify(queue));}catch{return;}}
+}
+
+async function handleChatAction(action, button) {
+  const conversation=state.activeConvo;
+  if(action==='cancel-reply'){state.replyingToMessage=null;$('#reply-bar')?.classList.add('hidden');return;}
+  if(action==='reply-message'){const id=button.dataset.messageId,user=button.dataset.user,text=button.dataset.text;state.replyingToMessage={id,user,text};$('#reply-bar-user').textContent=user||'human';$('#reply-bar-text').textContent=text||'';$('#reply-bar')?.classList.remove('hidden');$('#chat-message-input')?.focus();return;}
+  if(action==='react-heart'){const id=button.dataset.messageId;if(id&&conversation)await api.post(`/api/conversations/${encodeURIComponent(conversation.id)}/messages/${encodeURIComponent(id)}/react`,{reaction:'❤️'}).catch(error=>toast('Reaction failed: '+error.message));return;}
+  if(action==='delete-message'){const id=button.dataset.messageId;if(!id||!conversation||!confirm('Delete this message?'))return;button.disabled=true;try{await api.delete(`/api/conversations/${encodeURIComponent(conversation.id)}/messages/${encodeURIComponent(id)}`);state.messages=state.messages.filter(message=>String(message.id)!==String(id));setCachedMessages(conversation.id,state.messages);renderChatWindowArea();toast('Message deleted');}catch(error){button.disabled=false;toast(error.status===401?'Login again':'Delete failed: '+error.message);}return;}
+  if(action==='edit-message'){const id=button.dataset.messageId,old=button.dataset.text||'';if(!id||!conversation)return;const text=prompt('Edit message',old);if(text===null||!text.trim())return;button.disabled=true;try{const result=await api.put(`/api/conversations/${encodeURIComponent(conversation.id)}/messages/${encodeURIComponent(id)}`,{text:text.trim()});const message=state.messages.find(item=>String(item.id)===String(id));if(message){message.text=result.message?.text||text.trim();message.isEdited=true;}setCachedMessages(conversation.id,state.messages);renderChatWindowArea();toast('Message edited');}catch(error){button.disabled=false;toast(error.status===401?'Login again':'Edit failed: '+error.message);}return;}
+  if(action==='attach-file'){
+    let picker=$('#chat-attachment-picker');
+    if(!picker){picker=document.createElement('input');picker.id='chat-attachment-picker';picker.type='file';picker.accept='image/*,video/mp4,video/webm,video/quicktime,audio/*,.pdf,.txt,.doc,.docx';picker.hidden=true;document.body.append(picker);picker.addEventListener('change',async()=>{const file=picker.files?.[0],active=state.activeConvo;if(!file||!active)return;if(file.size>20*1024*1024){toast('Attachments must be 20 MB or smaller');picker.value='';return;}const form=new FormData();form.append('file',file,file.name);try{const result=await api.post(`/api/conversations/${encodeURIComponent(active.id)}/attachments`,form);if(result.message&&!state.messages.some(item=>String(item.id)===String(result.message.id)))state.messages.push(result.message);setCachedMessages(active.id,state.messages);renderChatWindowArea();toast('Attachment sent');}catch(error){toast(error.status===401?'Login again':'Attachment failed: '+error.message);}finally{picker.value='';}});}
+    picker.click();
+  }
+}
+
+function openWatchVideo(button) {
+  const modal=$('#video-player-modal'),box=modal?.querySelector('.modal-box');
+  if(!modal||!box)return;
+  const title=button.dataset.title||'NoChat video';
+  const provider=button.dataset.provider||'youtube';
+  if(provider==='upload'){
+    const src=button.dataset.videoUrl;
+    if(!src){toast('This video file is unavailable');return;}
+    box.innerHTML='<header class="v2-modal-header"><h3 id="video-player-title"></h3><button type="button" class="btn-icon" data-action="close-video-modal" aria-label="Close video">×</button></header><div class="v2-player-frame"><video controls autoplay playsinline preload="metadata" src="'+escapeHtml(src)+'"></video></div><div class="v2-player-controls"><button type="button" data-action="watch-toggle-sound">Sound On</button><span>Uploaded to NoChat</span></div>';
+  }else if(provider==='vimeo'){
+    const id=button.dataset.embedId||'';
+    if(!/^\d{6,12}$/.test(id)){toast('Invalid video link');return;}
+    const src='https://player.vimeo.com/video/'+id+'?dnt=1&title=0&byline=0';
+    box.innerHTML='<header class="v2-modal-header"><h3 id="video-player-title"></h3><button type="button" class="btn-icon" data-action="close-video-modal" aria-label="Close video">×</button></header><div class="v2-player-frame"><iframe title="Vimeo video player" src="'+src+'" loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div><div class="v2-player-controls"><span>Vimeo · Official video</span><a href="https://vimeo.com/'+id+'" target="_blank" rel="noopener noreferrer">Open in Vimeo</a></div>';
+  }else{
+    const id=parseYouTubeId('https://youtu.be/'+(button.dataset.embedId||''))||(/^[A-Za-z0-9_-]{11}$/.test(button.dataset.embedId||'')?button.dataset.embedId:'');
+    if(!id){toast('Invalid video link');return;}
+    box.innerHTML='<header class="v2-modal-header"><h3 id="video-player-title"></h3><button type="button" class="btn-icon" data-action="close-video-modal" aria-label="Close video">×</button></header>'+playerMarkup(id,title);
+    activatePlayer(box,id);
+  }
+  const titleEl=$('#video-player-title');if(titleEl)titleEl.textContent=title;
+  modal.classList.remove('hidden');
+  const videoId=button.dataset.videoId;if(videoId)api.post(`/api/videos/${encodeURIComponent(videoId)}/view`,{}).then(result=>{const item=state.videos.find(video=>String(video.id)===String(videoId));if(item&&result.views!=null)item.views=result.views;}).catch(()=>{});
+}
+
+function closeWatchVideo(){const modal=$('#video-player-modal');if(!modal)return;modal.classList.add('hidden');modal.querySelectorAll('video').forEach(video=>{video.pause();video.removeAttribute('src');video.load();});modal.querySelectorAll('iframe').forEach(frame=>frame.setAttribute('src',''));}
+
+function loadWatchPlayer(button){const input=button.closest('.v2-player-error')?.querySelector('[data-player-url]');const id=parseYouTubeId(input?.value||'');const modal=$('#video-player-modal'),box=modal?.querySelector('.modal-box');if(!id){toast('Paste a valid YouTube link');return;}if(box){box.innerHTML=playerMarkup(id,'NoChat video');activatePlayer(box,id);}}
+
+async function deleteCatalogVideo(button){const id=button.dataset.videoId;if(!id||!state.canManageVideos||!confirm('Delete this NoChat video?'))return;button.disabled=true;try{await api.delete(`/api/videos/${encodeURIComponent(id)}`);state.videos=state.videos.filter(video=>String(video.id)!==String(id));toast('Video deleted');renderApp();}catch(error){button.disabled=false;toast(error.status===401?'Login again':'Video delete failed: '+error.message);}}
+
+async function handleVideoCatalogSubmit(event){const form=event.target;if(!form.matches('[data-video-upload-form]'))return;event.preventDefault();if(!state.canManageVideos){toast('Only the NoChat founder can add library videos');return;}const file=form.elements.namedItem('video')?.files?.[0];if(!file){toast('Choose a video file');return;}if(file.size>100*1024*1024){toast('Video files must be 100 MB or smaller');return;}const submit=form.querySelector('[type="submit"]');if(submit)submit.disabled=true;const data=new FormData(form);try{const result=await api.post('/api/videos/upload',data);if(result.video)state.videos.unshift(result.video);document.querySelector('[data-video-upload-modal]')?.setAttribute('hidden','');toast('Video uploaded to NoChat');renderApp();}catch(error){const message=error.code==='VIDEO_SCHEMA_MISSING'?'Video storage is not enabled on this server yet. Reel uploads are still available.':error.status===401?'Login again':error.message;toast('Video upload failed: '+message);}finally{if(submit?.isConnected)submit.disabled=false;}}
+
+function wireStoryScroller(root) {
+  const row=root.querySelector('.stories-bar');
+  if(!row||row.dataset.storyScrollReady)return;
+  row.dataset.storyScrollReady='true';
+  const left=root.querySelector('.story-scroll-left'),right=root.querySelector('.story-scroll-right');
+  const update=()=>{
+    const overflow=row.scrollWidth>row.clientWidth+2;
+    if(left)left.hidden=!overflow||row.scrollLeft<=2;
+    if(right)right.hidden=!overflow||row.scrollLeft+row.clientWidth>=row.scrollWidth-2;
+  };
+  row.addEventListener('scroll',update,{passive:true});
+  row.addEventListener('wheel',event=>{
+    if(row.scrollWidth<=row.clientWidth+2)return;
+    const delta=Math.abs(event.deltaY)>Math.abs(event.deltaX)?event.deltaY:event.deltaX;
+    if(delta){event.preventDefault();row.scrollLeft+=delta;}
+  },{passive:false});
+  let drag=null;
+  row.addEventListener('pointerdown',event=>{
+    if(event.pointerType!=='mouse'||event.button!==0)return;
+    drag={pointerId:event.pointerId,startX:event.clientX,startLeft:row.scrollLeft,moved:false};
+  });
+  row.addEventListener('pointermove',event=>{
+    if(!drag||drag.pointerId!==event.pointerId)return;
+    const distance=event.clientX-drag.startX;
+    if(Math.abs(distance)>4){drag.moved=true;row.classList.add('is-dragging');row.setPointerCapture?.(event.pointerId);event.preventDefault();}
+    if(drag.moved)row.scrollLeft=drag.startLeft-distance;
+  });
+  const endDrag=event=>{
+    if(!drag||drag.pointerId!==event.pointerId)return;
+    if(drag.moved){row.dataset.suppressStoryClick='true';setTimeout(()=>{delete row.dataset.suppressStoryClick;},500);}
+    drag=null;row.classList.remove('is-dragging');
+  };
+  row.addEventListener('pointerup',endDrag);
+  row.addEventListener('pointercancel',endDrag);
+  row.addEventListener('click',event=>{
+    if(row.dataset.suppressStoryClick!=='true')return;
+    event.preventDefault();event.stopPropagation();delete row.dataset.suppressStoryClick;
+  },true);
+  if(typeof ResizeObserver==='function'){const observer=new ResizeObserver(update);observer.observe(row);row._storyResizeObserver=observer;}
+  requestAnimationFrame(update);
 }
 
 // Kick off app on load

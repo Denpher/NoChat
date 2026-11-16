@@ -1105,15 +1105,34 @@ app.get("/api/users/search", authenticate, (req, res) => {
 
 app.get("/api/recommendations", authenticate, (req, res) => {
   const currentUserId = req.user.id;
-
+  const now = Date.now();
+  const followingIds = new Set(db.subscriptions.filter(s => String(s.subscriberId) === String(currentUserId)).map(s => String(s.creatorId)));
+  const followedByPeers = new Set(db.subscriptions.filter(s => followingIds.has(String(s.creatorId))).map(s => String(s.subscriberId)));
+  const activeStoryIds = new Set(storyRows()
+    .filter(story => !story.isDeleted && Date.parse(story.expiresAt) > now)
+    .filter(story => !story.closeFriendsOnly || String(story.userId) === String(currentUserId) || db.reelUploads.some(row => row?.kind === "nochat-close-friend" && String(row.userId) === String(story.userId) && String(row.friendUserId) === String(currentUserId)))
+    .map(story => String(story.userId)));
   const candidates = db.users
-    .filter(u => u.id !== currentUserId && isListed(u) && !areFriends(currentUserId, u.id))
+    .filter(u => String(u.id) !== String(currentUserId) && isListed(u) && !areFriends(currentUserId, u.id) && !db.subscriptions.some(s => String(s.creatorId) === String(u.id) && String(s.subscriberId) === String(currentUserId)))
+    .map(user => {
+      const id = String(user.id);
+      const recentReel = db.reels.some(reel => {
+        if (String(reel.userId) !== id || reel.isDeleted) return false;
+        const createdAt = Number.isFinite(Number(reel.createdAt)) && reel.createdAt !== null && reel.createdAt !== "" ? Number(reel.createdAt) : Date.parse(reel.createdAt || "");
+        const age = now - createdAt;
+        return Number.isFinite(createdAt) && age >= 0 && age < 7 * 86400000;
+      });
+      const sharedFollowing = db.subscriptions.filter(s => String(s.subscriberId) === id && followingIds.has(String(s.creatorId))).length;
+      const followsYou = db.subscriptions.some(s => String(s.subscriberId) === id && String(s.creatorId) === String(currentUserId));
+      const isOnline = onlineUsers.has(user.id);
+      const hasStory = activeStoryIds.has(id);
+      const score = (followsYou ? 8 : 0) + Math.min(sharedFollowing, 4) * 3 + (isOnline ? 2 : 0) + (hasStory ? 2 : 0) + (recentReel ? 3 : 0) + (followedByPeers.has(id) ? 1 : 0);
+      const recommendationReason = followsYou ? "Follows you" : isOnline ? "Online now" : sharedFollowing ? "You follow similar creators" : hasStory ? "New story" : recentReel ? "Posted recently" : "Suggested for you";
+      return { score, createdAt: user.createdAt || "", user: { ...safeUser(user, currentUserId), friendshipStatus: getFriendshipStatus(currentUserId, user.id), isOnline, recommendationReason } };
+    })
+    .sort((a, b) => b.score - a.score || String(b.createdAt).localeCompare(String(a.createdAt)) || a.user.username.localeCompare(b.user.username))
     .slice(0, 20)
-    .map(u => ({
-      ...safeUser(u, currentUserId),
-      friendshipStatus: getFriendshipStatus(currentUserId, u.id),
-      isOnline: onlineUsers.has(u.id)
-    }));
+    .map(item => item.user);
 
   return res.json({ users: candidates });
 });

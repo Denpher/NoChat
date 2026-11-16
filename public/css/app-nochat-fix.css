@@ -1,0 +1,259 @@
+/* App-only interaction and layout repairs. This file is loaded only inside .shell. */
+.shell button,
+.shell a,
+.shell [data-action] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.shell button[data-action],
+.shell .tabbar a,
+.shell .side-nav a {
+  user-select: none;
+}
+
+.shell .nochat-action-pressed,
+.shell button:active {
+  transform: scale(.94);
+  transition: transform 150ms ease;
+}
+
+/* Real story authors only; horizontal wheel, drag, touch, and arrow movement. */
+.shell .stories-shell {
+  position: relative;
+  min-width: 0;
+  padding: 0 34px;
+}
+
+.shell .stories-bar {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
+  touch-action: pan-x;
+  cursor: grab;
+  padding: 12px 2px 14px;
+}
+
+.shell .stories-bar:active { cursor: grabbing; }
+.shell .stories-bar::-webkit-scrollbar { display: block; height: 4px; }
+.shell .stories-bar::-webkit-scrollbar-thumb { background: #444; border-radius: 99px; }
+.shell .stories-bar > .story-circle { flex: 0 0 68px; width: 68px; scroll-snap-align: start; }
+.shell .stories-bar .story-ring { width: 60px; height: 60px; }
+.shell .stories-bar .story-avatar { width: 100%; height: 100%; }
+.shell .stories-bar .story-username { max-width: 68px; }
+.shell .stories-bar.is-dragging { cursor: grabbing; scroll-behavior: auto; user-select: none; }
+.shell .stories-bar.is-dragging * { pointer-events: none; }
+.shell .story-scroll-control {
+  position: absolute;
+  top: 24px;
+  z-index: 4;
+  display: grid;
+  width: 44px;
+  min-width: 44px !important;
+  height: 44px;
+  min-height: 44px !important;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 3px 12px #0006;
+}
+.shell .story-scroll-control:hover { color: var(--accent-blue); border-color: var(--accent-blue); }
+.shell .story-scroll-control[hidden] { display: none !important; }
+.shell .story-scroll-left { left: 0; }
+.shell .story-scroll-right { right: 0; }
+
+/* Creator recommendations use compact, readable cards instead of native-size images. */
+.shell .v3-discover-panel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  width: 320px;
+  min-width: 0;
+  max-width: 100%;
+}
+.shell .v3-discover-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+  color: var(--text);
+}
+.shell .v3-discover-card h3 { margin: 0 0 12px; font-size: 17px; font-weight: 750; }
+.shell .v3-discover-card > p { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.shell .v3-discover-search {
+  width: 100%;
+  height: 42px;
+  margin-bottom: 10px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+}
+.shell .v3-creator-list { display: grid; gap: 4px; }
+.shell .v3-creator-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 2px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+.shell .v3-creator-row:last-child { border-bottom: 0; }
+.shell .v3-creator-row > img {
+  display: block;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px;
+  max-width: 44px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface);
+}
+.shell .v3-creator-copy { display: grid; min-width: 0; gap: 3px; }
+.shell .v3-creator-copy a,
+.shell .v3-creator-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shell .v3-creator-copy small { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.shell .v3-creator-reason { color: var(--muted); font-size: 10px; }
+.shell .v3-creator-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.shell .v3-creator-actions > button {
+  min-width: 72px !important;
+  min-height: 34px !important;
+  padding: 4px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--accent-blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.shell .v3-creator-actions > button.btn-secondary { background: var(--surface); color: var(--text); }
+.shell .v3-creator-actions > button.v3-close-friend-button {
+  min-width: 30px !important;
+  width: 30px;
+  min-height: 28px !important;
+  padding: 0;
+  background: transparent;
+  color: #43c979;
+}
+.shell .v3-creator-actions > button.v3-close-friend-button.active { color: #43c979; }
+.shell .v3-discover-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.shell .v3-discover-heading a { color: var(--accent-blue); font-size: 12px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.shell .v3-empty-discovery { padding: 16px 4px; color: var(--muted); font-size: 13px; }
+.shell .v3-discover-card .btn { display: inline-flex; align-items: center; margin-top: 8px; }
+.shell .v3-discover-page .v3-discover-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+.shell .v4-discover-page .v3-creator-row { grid-template-columns: 56px minmax(0, 1fr) auto; padding: 12px 4px; }
+.shell .v4-discover-page .v3-creator-row > img { width: 56px !important; height: 56px !important; min-width: 56px; max-width: 56px; }
+
+/* Stable call and delete controls remain visible at desktop and phone widths. */
+.shell .chat-header { gap: 12px; }
+.shell .chat-recipient { flex: 1 1 auto; min-width: 0; }
+.shell .chat-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+.shell .chat-header-actions button {
+  display: grid;
+  width: 44px;
+  min-width: 44px !important;
+  height: 44px;
+  min-height: 44px !important;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+}
+.shell .chat-header-actions button:hover { border-color: var(--border); background: var(--card); color: var(--accent-blue); }
+.shell .chat-header-actions .chat-delete-button:hover { color: #ff5968; }
+.shell .chat-header-actions svg { width: 20px; height: 20px; }
+
+/* Keep the scroll-snap feed stable while the comment composer submits. */
+.shell .reels-container { scroll-behavior: auto; overscroll-behavior-y: contain; }
+.bottom-sheet { overscroll-behavior: contain; }
+.sheet-content { display: flex; flex-direction: column; min-height: 0; }
+.sheet-body { min-height: 0; overscroll-behavior: contain; }
+.sheet-input-row { flex: 0 0 auto; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.sheet-input-row input { min-width: 0; }
+.comment-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; font-size: 13px; }
+.comment-avatar { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; object-fit: cover; }
+.comment-copy { flex: 1; min-width: 0; }
+.comment-copy p { margin: 0 0 4px; overflow-wrap: anywhere; }
+.comment-copy strong { margin-right: 6px; }
+.comment-copy small { color: var(--muted); font-size: 11px; }
+
+/* Video catalogue status and founder upload form. */
+.shell .video-coming-soon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 18px;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(105deg, rgba(0,149,246,.12), var(--card) 72%);
+  color: var(--muted);
+  font-size: 13px;
+}
+.shell .video-coming-soon strong { color: var(--text); }
+.shell .video-coming-soon .video-coming-icon { color: var(--accent-blue); }
+.shell .video-upload-trigger { min-height: 42px !important; border-radius: 12px; }
+.shell .watch-page-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.shell .video-storage-note { padding: 10px 12px; border: 1px solid #805f1c; border-radius: 10px; background: #36290c; color: #f4d58b; font-size: 12px; }
+.shell .video-upload-modal { position: fixed; inset: 0; z-index: 240; display: grid; place-items: center; padding: 16px; background: #000a; }
+.shell .video-upload-modal[hidden] { display: none; }
+.shell .video-upload-form { display: grid; gap: 14px; width: min(100%, 520px); max-height: 90dvh; overflow: auto; padding: 22px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); color: var(--text); }
+.shell .video-upload-form label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+.shell .video-upload-form input,
+.shell .video-upload-form select,
+.shell .video-upload-form textarea { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); }
+.shell .video-upload-form textarea { min-height: 86px; resize: vertical; }
+.shell .video-upload-form footer { display: flex; justify-content: flex-end; gap: 10px; }
+
+@media (max-width: 1050px) {
+  .shell .feed-container { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .shell .feed-container > .v3-discover-panel { display: none; }
+  .shell .v4-discover-page { width: min(100%, 760px); }
+}
+
+@media (max-width: 760px) {
+  .shell .stories-shell { padding: 0 26px; }
+  .shell .stories-bar { gap: 10px; }
+  .shell .story-scroll-control { width: 44px; min-width: 44px !important; height: 44px; min-height: 44px !important; top: 24px; }
+  .shell .v3-discover-page .v3-discover-panel { grid-template-columns: 1fr; }
+  .shell .chat-header { padding: 0 8px; gap: 4px; }
+  .shell .chat-header-actions { gap: 0; }
+  .shell .chat-header-actions button { width: 40px; min-width: 40px !important; height: 40px; min-height: 40px !important; }
+  .shell .chat-recipient { gap: 7px; }
+  .shell .chat-recipient img { width: 32px !important; height: 32px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell .stories-bar { scroll-behavior: auto; }
+  .shell .nochat-action-pressed,
+  .shell button:active { transition: none; }
+}

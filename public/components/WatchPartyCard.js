@@ -4,17 +4,18 @@
 
 import { escapeHtml } from '../utils/dom.js';
 
-export function renderWatchPartyCard(video) {
-  const thumb = video.thumbnail || `https://i.ytimg.com/vi/${video.embedId}/hqdefault.jpg`;
+export function renderWatchPartyCard(video, canManage = false) {
+  const thumb = video.thumbnail || (video.provider === 'youtube' && video.embedId ? `https://i.ytimg.com/vi/${video.embedId}/hqdefault.jpg` : '/icons/icon-512.png');
   const title = escapeHtml(video.title);
   const channel = escapeHtml(video.channel || 'Official Channel');
-  const duration = video.duration || '02:30';
+  const seconds = Number(video.durationSec);
+  const duration = video.duration || (seconds > 0 ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : 'Video');
   const rating = video.rating || '9.8';
   const platforms = video.streamPlatforms || ['YouTube Official'];
   const isFullMovie = video.isFullMovie || video.category === 'Full Movies';
 
   return `
-    <article class="watch-card" data-video-id="${video.id}" data-embed-id="${video.embedId}">
+    <article class="watch-card" data-video-id="${escapeHtml(video.id)}" data-embed-id="${escapeHtml(video.embedId || '')}" data-video-provider="${escapeHtml(video.provider || 'youtube')}" data-video-url="${escapeHtml(video.fileUrl || '')}">
       <div class="watch-poster-wrap">
         <img src="${thumb}" alt="${title}" class="watch-poster" loading="lazy" />
         <div class="watch-play-overlay">
@@ -45,12 +46,13 @@ export function renderWatchPartyCard(video) {
         </div>
 
         <div style="margin-top:auto; padding-top:12px; display:flex; gap:8px;">
-          <button class="btn btn-primary btn-sm" style="flex:1;" data-action="watch-trailer" data-embed-id="${video.embedId}" data-title="${title}">
+          <button type="button" class="btn btn-primary btn-sm" style="flex:1;" data-action="watch-video" data-video-id="${escapeHtml(video.id)}" data-provider="${escapeHtml(video.provider || 'youtube')}" data-embed-id="${escapeHtml(video.embedId || '')}" data-embed-url="${escapeHtml(video.embedUrl || '')}" data-video-url="${escapeHtml(video.fileUrl || '')}" data-title="${title}">
             <i data-lucide="play"></i> Watch Now
           </button>
-          <button class="btn btn-secondary btn-sm" data-action="discuss-chat" data-title="${title}" title="Discuss in Chat">
+          <button type="button" class="btn btn-secondary btn-sm" data-action="discuss-chat" data-title="${title}" title="Discuss in Chat" aria-label="Discuss ${title} in chat">
             <i data-lucide="message-circle"></i>
           </button>
+          ${canManage ? `<button type="button" class="btn btn-secondary btn-sm" data-action="delete-catalog-video" data-video-id="${escapeHtml(video.id)}" aria-label="Delete ${title}" title="Delete video"><i data-lucide="trash-2"></i></button>` : ''}
         </div>
       </div>
     </article>

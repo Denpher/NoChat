@@ -39,10 +39,10 @@ export function renderChatWindow(conversation, messages = [], currentUserId = nu
           </div>
         </div>
 
-        <div style="display:flex; gap:8px;">
-          <button class="btn-icon" data-action="start-video-call" title="Video Call"><i data-lucide="video"></i></button>
-          <button type="button" class="btn-icon" data-action="start-voice-call" title="Voice Call"><i data-lucide="phone"></i></button>
-          ${!conversation.group && conversation.type !== 'group' ? '<button type="button" class="btn-icon chat-delete-button" data-action="delete-full-chat" title="Delete full chat for me" aria-label="Delete full chat"><i data-lucide="trash-2"></i></button>' : ''}
+        <div class="chat-header-actions" aria-label="Chat actions">
+          <button type="button" class="btn-icon" data-action="start-video-call" data-conversation-id="${escapeHtml(conversation.id)}" aria-label="Start video call with ${recipientName}" title="Video call"><i data-lucide="video"></i></button>
+          <button type="button" class="btn-icon" data-action="start-voice-call" data-conversation-id="${escapeHtml(conversation.id)}" aria-label="Start voice call with ${recipientName}" title="Voice call"><i data-lucide="phone"></i></button>
+          ${!conversation.group && conversation.type !== 'group' ? `<button type="button" class="btn-icon chat-delete-button" data-action="delete-full-chat" data-conversation-id="${escapeHtml(conversation.id)}" aria-label="Delete this chat for you" title="Delete chat"><i data-lucide="trash-2"></i></button>` : ''}
         </div>
       </header>
 
