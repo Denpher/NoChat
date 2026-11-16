@@ -11,15 +11,15 @@ export function renderChatList(conversations = [], activeConvoId = null, onlineU
   }
 
   return conversations.map(c => {
-    const isOther = c.user || c.otherUser || c.recipient || (c.members || []).find(id => id !== currentUserId);
-    const otherUser = c.user || c.otherUser || (typeof isOther === 'object' ? isOther : { id: isOther, username: 'Member' });
+    const isOther = c.otherUser || c.recipient || (c.members || []).find(id => id !== currentUserId);
+    const otherUser = c.otherUser || (typeof isOther === 'object' ? isOther : { id: isOther, username: 'user' });
     const isOnline = onlineUserIds.has(otherUser?.id);
-    const avatar = c.group?.avatar || otherUser?.profilePicture || `https://api.dicebear.com/7.x/identicon/svg?seed=${otherUser?.username || c.group?.name || 'chat'}`;
-    const username = escapeHtml(c.group?.name || otherUser?.displayName || otherUser?.username || 'Member');
+    const avatar = otherUser?.profilePicture || `https://api.dicebear.com/7.x/identicon/svg?seed=${otherUser?.username || 'chat'}`;
+    const username = escapeHtml(otherUser?.displayName || otherUser?.username || 'Chat');
     const isActive = c.id === activeConvoId;
     const lastMsg = c.lastMessage || c.latestMessage || (c.messages && c.messages[c.messages.length - 1]);
-    const snippet = typeof lastMsg === 'string' ? lastMsg : lastMsg ? (lastMsg.text || (lastMsg.sharedReel ? 'Shared a reel' : 'Attachment')) : 'Start chatting';
-    const time = c.lastAt ? formatTimeAgo(c.lastAt) : lastMsg?.createdAt ? formatTimeAgo(lastMsg.createdAt) : '';
+    const snippet = lastMsg ? (lastMsg.text || (lastMsg.sharedReel ? 'Shared a reel' : 'Attachment')) : 'Start a chat';
+    const time = lastMsg?.createdAt ? formatTimeAgo(lastMsg.createdAt) : '';
     const unread = Number(c.unreadCount) || 0;
 
     return `

@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: nochat
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: NOCHAT_CLOUD_URL
+        sync: false
+      - key: NOCHAT_BRIDGE_SECRET
+        sync: false
+      - key: FOUNDER_PASSWORD
+        sync: false
+      - key: DAILY_REEL_LIMIT
+        value: 2
+      - key: STUN_URL
+        value: stun:stun.l.google.com:19302
+      # v3.3 optional — calls through a TURN relay (choose ONE option, see TURN-SETUP.md)
+      - key: TURN_SECRET
+        sync: false
+      - key: TURN_URLS
+        sync: false
+      - key: CLOUDFLARE_TURN_KEY_ID
+        sync: false
+      - key: CLOUDFLARE_TURN_API_TOKEN
+        sync: false

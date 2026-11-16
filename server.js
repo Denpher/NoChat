@@ -23,7 +23,7 @@ import { accountRestriction, sessionRevoked, isListed, cleanText } from './accou
 import { checkSpam, spamMessage } from './antispam.js';
 import { mountVideos } from './videos.js';
 import { mountGroups, isGroup, readCount } from './groups.js';
-import { turnMode, buildIceConfig } from './turn.js';
+import { turnMode } from './turn.js';
 
 dotenv.config();
 if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || !cloudEnabled)) throw new Error('Production requires stable JWT_SECRET, NOCHAT_CLOUD_URL and NOCHAT_BRIDGE_SECRET.');
@@ -293,7 +293,7 @@ function safeUser(user, currentUserId = null) {
   const isVerified = isFounder || user.verifiedBadge === true || user.isVerified === true;
   const subscribersCount = db.subscriptions.filter(s => s.creatorId === user.id).length;
   const subscriptionsCount = db.subscriptions.filter(s => s.subscriberId === user.id).length;
-  const postsCount = db.reels.filter(r => !r.isDeleted && r.userId === user.id).length;
+  const postsCount = db.reels.filter(r => r.userId === user.id).length;
   const isSubscribed = currentUserId
     ? db.subscriptions.some(s => s.creatorId === user.id && s.subscriberId === currentUserId)
     : false;
@@ -701,7 +701,7 @@ app.get("/api/me", authenticate, async (req, res) => {
     r => r.toId === currentUserId
   ).length;
 
-  const reelsCount = db.reels.filter(r => !r.isDeleted && r.userId === currentUserId).length;
+  const reelsCount = db.reels.filter(r => r.userId === currentUserId).length;
   const subscribersCount = db.subscriptions.filter(s => s.creatorId === currentUserId).length;
   const unreadMessagesCount = db.conversations
     .filter(c => c.members.includes(currentUserId))
@@ -1131,7 +1131,7 @@ app.get("/api/users/profile/:userId", authenticate, (req, res) => {
   );
 
   const userReels = db.reels
-    .filter(r => !r.isDeleted && r.userId === targetUser.id && (targetUser.id === req.user.id || !r.moderationStatus || r.moderationStatus === "approved"))
+    .filter(r => r.userId === targetUser.id && (targetUser.id === req.user.id || !r.moderationStatus || r.moderationStatus === "approved"))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .map(r => formatReel(r, req.user.id));
 
@@ -1160,9 +1160,7 @@ function formatReel(reel, currentUserId) {
   return {
     id: reel.id,
     userId: reel.userId,
-    videoUrl: reel.videoUrl || '',
-    imageUrl: reel.imageUrl || '',
-    isPost: Boolean(reel.isPost),
+    videoUrl: reel.videoUrl,
     caption: reel.caption || "",
     musicTitle: reel.musicTitle || "Original Audio",
     musicUrl: TRENDING_AUDIO.find(t=>t.id===reel.audioId)?.url || null,
@@ -1175,54 +1173,11 @@ function formatReel(reel, currentUserId) {
   };
 }
 
-function storyRows() { return db.reelUploads.filter(r => r?.kind === "nochat-story"); }
-app.get("/api/stories", authenticate, (req, res) => {
-  const now=Date.now();
-  const stories=storyRows().filter(story => new Date(story.expiresAt).getTime()>now && !story.isDeleted && (!story.closeFriendsOnly || story.userId===req.user.id || db.reelUploads.some(r=>r?.kind==="nochat-close-friend"&&r.userId===story.userId&&r.friendUserId===req.user.id)))
-    .map(story=>({...story,user:safeUser(db.users.find(u=>u.id===story.userId),req.user.id)}));
-  return res.json({stories});
-});
-app.post("/api/stories", authenticate, uploadAttachment.single("media"), async (req, res) => {
-  try {
-    if(!req.file) return res.status(400).json({error:"Choose a photo or video for your story."});
-    const checked=validateFile(req.file,"attachments");
-    if(!checked.mimetype.startsWith("image/")&&!checked.mimetype.startsWith("video/")) return res.status(400).json({error:"Stories support photos and videos only."});
-    const mediaUrl=await persistFile(checked,"attachments",req.user.id); const createdAt=Date.now();
-    const story={id:makeId(),kind:"nochat-story",userId:req.user.id,mediaUrl,mediaType:checked.mimetype,caption:cleanText(req.body.caption||"",220),closeFriendsOnly:req.body.closeFriendsOnly==="true",createdAt,expiresAt:createdAt+86400000};
-    db.reelUploads.push(story); await saveDB();
-    return res.status(201).json({success:true,story:{...story,user:safeUser(req.user,req.user.id)}});
-  } catch(error) { console.error("Story upload error:",error); return res.status(400).json({error:error.message||"Could not upload story."}); }
-});
-app.delete("/api/stories/:id", authenticate, async (req,res)=>{const story=storyRows().find(s=>s.id===req.params.id);if(!story)return res.status(404).json({error:"Story not found."});if(story.userId!==req.user.id&&!await isAdmin(req.user))return res.status(403).json({error:"You cannot delete this story."});story.isDeleted=true;await saveDB();return res.json({success:true});});
-app.post("/api/close-friends/:userId", authenticate, async (req,res)=>{const target=db.users.find(u=>u.id===req.params.userId);if(!target)return res.status(404).json({error:"User not found."});let row=db.reelUploads.find(r=>r?.kind==="nochat-close-friend"&&r.userId===req.user.id&&r.friendUserId===target.id);if(row)db.reelUploads=db.reelUploads.filter(r=>r!==row);else db.reelUploads.push({id:makeId(),kind:"nochat-close-friend",userId:req.user.id,friendUserId:target.id,createdAt:new Date().toISOString()});await saveDB();return res.json({success:true,isCloseFriend:!row});});
-app.get("/api/calls/ice", authenticate, async (req,res)=>{const config=await buildIceConfig({userId:req.user.id});return res.json(config);});
-
-app.post("/api/posts", authenticate, uploadAttachment.single("media"), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: "Choose a photo or video to post." });
-    const checked = validateFile(req.file, "attachments");
-    if (!checked.mimetype.startsWith("image/") && !checked.mimetype.startsWith("video/")) return res.status(400).json({ error: "Posts support photo and video files only." });
-    const caption = cleanText(req.body.caption || "", 2200);
-    const mediaUrl = await persistFile(checked, "attachments", req.user.id);
-    const verdict = checked.mimetype.startsWith("video/") ? await reviewReel(checked, caption) : { status: "approved", reason: null };
-    const row = { id: makeId(), userId: req.user.id, isPost: true, caption, createdAt: new Date().toISOString(), moderationStatus: verdict.status, moderationReason: verdict.reason || null };
-    if (checked.mimetype.startsWith("image/")) row.imageUrl = mediaUrl; else row.videoUrl = mediaUrl;
-    db.reels.unshift(row);
-    await saveDB();
-    const formatted = { ...formatReel(row, req.user.id), user: safeUser(req.user, req.user.id) };
-    if(verdict.status==="approved") io.emit("post:new", formatted);
-    return res.status(201).json({ success: true, post: formatted });
-  } catch (error) {
-    console.error("Post upload error:", error);
-    return res.status(400).json({ error: error.message || "Could not upload post." });
-  }
-});
-
 app.get("/api/reels", authenticate, (req, res) => {
   const currentUserId = req.user.id;
 
   const reels = db.reels
-    .filter(reel => !reel.isDeleted && isListed(db.users.find(u => u.id === reel.userId)) && (!reel.moderationStatus || reel.moderationStatus === "approved"))
+    .filter(reel => isListed(db.users.find(u => u.id === reel.userId)) && (!reel.moderationStatus || reel.moderationStatus === "approved"))
     .map(reel => formatReel(reel, currentUserId))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -1276,39 +1231,6 @@ app.post("/api/reels", authenticate, reserveReel, uploadReel.single("video"), as
   }
 });
 
-app.post("/api/reels/:id/soft-delete", authenticate, async (req, res) => {
-  try {
-    const reel = db.reels.find(r => r.id === req.params.id);
-    if (!reel || reel.isDeleted) return res.status(404).json({ error: "Reel not found." });
-    if (!canDeleteContent(reel.userId, req.user.id, await isAdmin(req.user))) return res.status(403).json({ error: "You can only delete your own reels." });
-    reel.isDeleted = true;
-    reel.deletedAt = new Date().toISOString();
-    reel.deletedBy = req.user.id;
-    await saveDB();
-    io.emit("reel:deleted", { id: reel.id });
-    return res.json({ success: true, message: "Reel moved to deleted items." });
-  } catch (error) {
-    console.error("Soft delete reel error:", error);
-    return res.status(500).json({ error: "Could not delete reel." });
-  }
-});
-
-app.post("/api/admin/reels/:id/restore", authenticate, async (req, res) => {
-  try {
-    if (!(await isAdmin(req.user))) return res.status(403).json({ error: "Admin access required." });
-    const reel = db.reels.find(r => r.id === req.params.id);
-    if (!reel || !reel.isDeleted) return res.status(404).json({ error: "Deleted reel not found." });
-    reel.isDeleted = false;
-    delete reel.deletedAt;
-    delete reel.deletedBy;
-    await saveDB();
-    return res.json({ success: true, reel: formatReel(reel, req.user.id) });
-  } catch (error) {
-    console.error("Restore reel error:", error);
-    return res.status(500).json({ error: "Could not restore reel." });
-  }
-});
-
 app.delete("/api/reels/:id", authenticate, async (req, res) => {
   try {
     const { id } = req.params;
@@ -1344,7 +1266,7 @@ app.post("/api/reels/:id/like", authenticate, async (req, res) => {
     const { id } = req.params;
     const currentUserId = req.user.id;
 
-    const reel = db.reels.find(r => r.id === id && !r.isDeleted);
+    const reel = db.reels.find(r => r.id === id);
     if (!reel) {
       return res.status(404).json({ error: "Reel not found." });
     }
@@ -1502,7 +1424,7 @@ app.get("/api/conversations", authenticate, (req, res) => {
   const currentUserId = req.user.id;
 
   const convos = db.conversations
-    .filter(c => c.members.includes(currentUserId) && !(c.hiddenFor || []).includes(currentUserId))
+    .filter(c => c.members.includes(currentUserId))
     .map(c => {
       if (isGroup(c)) {
         const last = db.messages.filter(m => m.conversationId === c.id).at(-1);
@@ -1574,33 +1496,20 @@ app.post("/api/conversations", authenticate, async (req, res) => {
   }
 });
 
-app.post("/api/conversations/:id/hide", authenticate, async (req,res) => {
-  const conversation=db.conversations.find(c=>c.id===req.params.id&&c.members.includes(req.user.id));
-  if(!conversation) return res.status(404).json({error:"Chat not found."});
-  if(isGroup(conversation)) return res.status(400).json({error:"This action is only available in personal chats."});
-  conversation.hiddenFor=Array.isArray(conversation.hiddenFor)?conversation.hiddenFor:[];
-  if(!conversation.hiddenFor.includes(req.user.id)) conversation.hiddenFor.push(req.user.id);
-  conversation.clearedAtByUser=conversation.clearedAtByUser||{};
-  conversation.clearedAtByUser[req.user.id]=new Date().toISOString();
-  await saveDB();
-  return res.json({success:true});
-});
-
 app.get("/api/conversations/:id/messages", authenticate, (req, res) => {
   const { id } = req.params;
   const currentUserId = req.user.id;
 
   const conversation = db.conversations.find(
-    c => c.id === id && c.members.includes(currentUserId) && !(c.hiddenFor||[]).includes(currentUserId)
+    c => c.id === id && c.members.includes(currentUserId)
   );
 
   if (!conversation) {
     return res.status(404).json({ error: "Conversation not found." });
   }
 
-  const clearedAt=conversation.clearedAtByUser?.[currentUserId] || "";
   const messages = db.messages
-    .filter(m => m.conversationId === id && (!clearedAt || m.createdAt > clearedAt))
+    .filter(m => m.conversationId === id)
     .slice(-300);
 
   if (isGroup(conversation)) {
@@ -1671,7 +1580,6 @@ app.post("/api/conversations/:id/messages", authenticate, async (req, res) => {
     };
 
     db.messages.push(message);
-    conversation.hiddenFor=[];
     await saveDB();
 
     io.to(`conversation:${id}`).emit("message:new", message);
@@ -1741,7 +1649,7 @@ app.post("/api/conversations/:id/share-reel", authenticate, async (req, res) => 
     const conversation = db.conversations.find(c => c.id === id && c.members.includes(currentUserId));
     if (!conversation) return res.status(404).json({ error: "Conversation not found." });
 
-    const reel = db.reels.find(r => r.id === reelId && !r.isDeleted);
+    const reel = db.reels.find(r => r.id === reelId);
     if (!reel) return res.status(404).json({ error: "Reel not found." });
     const creator = db.users.find(u => u.id === reel.userId);
 
@@ -1933,20 +1841,6 @@ io.on("connection", socket => {
 
   io.emit("presence:update", { userId, isOnline: true });
 
-  const canSignal = (conversationId, targetUserId) => {
-    const c=db.conversations.find(item=>item.id===String(conversationId||"")&&item.members.includes(userId)&&item.members.includes(String(targetUserId||"")));
-    return Boolean(c);
-  };
-  socket.on("call:invite", (payload={}) => {
-    const targetUserId=String(payload.targetUserId||""); const conversationId=String(payload.conversationId||"");
-    if(!canSignal(conversationId,targetUserId)) return;
-    io.to("user:"+targetUserId).emit("call:incoming",{conversationId,callerId:userId,caller:safeUser(socket.user,targetUserId),video:Boolean(payload.video)});
-  });
-  socket.on("call:accept", payload=>{const target=String(payload?.targetUserId||"");if(canSignal(payload?.conversationId,target))io.to("user:"+target).emit("call:accepted",{conversationId:payload.conversationId,fromUserId:userId});});
-  socket.on("call:decline", payload=>{const target=String(payload?.targetUserId||"");if(canSignal(payload?.conversationId,target))io.to("user:"+target).emit("call:declined",{conversationId:payload.conversationId,fromUserId:userId});});
-  for(const signalType of ["offer","answer","ice"]) socket.on("call:"+signalType,payload=>{const target=String(payload?.targetUserId||"");if(canSignal(payload?.conversationId,target))io.to("user:"+target).emit("call:"+signalType,{conversationId:payload.conversationId,fromUserId:userId,signal:payload.signal});});
-  socket.on("call:end",payload=>{const target=String(payload?.targetUserId||"");if(canSignal(payload?.conversationId,target))io.to("user:"+target).emit("call:end",{conversationId:payload.conversationId,fromUserId:userId});});
-
   socket.on("conversation:join", conversationId => {
     const id = String(conversationId || "");
     const conversation = db.conversations.find(
@@ -2008,7 +1902,6 @@ io.on("connection", socket => {
       };
 
       db.messages.push(message);
-      conversation.hiddenFor=[];
       await saveDB();
 
       io.to(`conversation:${conversationId}`).emit("message:new", message);
