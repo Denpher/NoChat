@@ -225,7 +225,7 @@ async function renderApp() {
       ${sidebarHtml}
       <main class="main-content" id="main-content-scroll">
         <header class="topbar">
-          <h1><img src="/icons/icon-192.png" alt="NoChat" class="v3-header-mark">${formatTopBarTitle(route)}</h1>
+          <h1>${formatTopBarTitle(route)}</h1>
           <div style="display:flex; gap:8px;">
             ${route === 'home' ? `<button type="button" class="btn-icon v4-bell-button" data-action="notifications" aria-label="Notifications" title="Notifications"><i data-lucide="bell"></i><span class="v4-notification-count ${state.unreadNotifications ? '' : 'hidden'}" data-bell-count>${state.unreadNotifications || ''}</span></button>` : ''}
             <button type="button" class="btn-icon" data-action="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle theme">◐</button>
