@@ -1,0 +1,2 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {spawnSync} from 'node:child_process';
+test('production refuses temporary storage rather than losing reels on sleep',()=>{const result=spawnSync(process.execPath,['server.js'],{env:{...process.env,NODE_ENV:'production',JWT_SECRET:'local-test-only',NOCHAT_CLOUD_URL:'',NOCHAT_BRIDGE_SECRET:''},encoding:'utf8'});assert.notEqual(result.status,0);assert.match(result.stderr,/Production requires stable/);});
