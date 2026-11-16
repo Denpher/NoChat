@@ -40,7 +40,8 @@ export function renderChatWindow(conversation, messages = [], currentUserId = nu
 
         <div style="display:flex; gap:8px;">
           <button class="btn-icon" data-action="start-video-call" title="Video Call"><i data-lucide="video"></i></button>
-          <button class="btn-icon" data-action="start-voice-call" title="Voice Call"><i data-lucide="phone"></i></button>
+          <button type="button" class="btn-icon" data-action="start-voice-call" title="Voice Call"><i data-lucide="phone"></i></button>
+          ${!conversation.group && conversation.type !== 'group' ? '<button type="button" class="btn-icon chat-delete-button" data-action="delete-full-chat" title="Delete full chat for me" aria-label="Delete full chat"><i data-lucide="trash-2"></i></button>' : ''}
         </div>
       </header>
 
