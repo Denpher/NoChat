@@ -864,6 +864,23 @@ function showSignOutModal() {
 }
 
 /* ---------- Event Handlers ---------- */
+(function ncMediaAndMobileFix() {
+  if (document.getElementById("nc-media-fix")) return;
+  const st = document.createElement("style");
+  st.id = "nc-media-fix";
+  st.textContent = ".message-bubble audio,.m-audio,.voice-note audio{display:block;width:min(260px,64vw);max-width:100%;height:40px;margin-top:4px;pointer-events:auto}" +
+    "@media (max-width:760px){.chat-layout{height:calc(100dvh - var(--navbar-height) - 60px)!important}.chat-input-bar{padding-bottom:max(10px,env(safe-area-inset-bottom))!important}}";
+  document.head.appendChild(st);
+  // Native audio/video controls need the browser default action. Stop ancestor handlers
+  // (bubble double-tap, action layer) from seeing clicks that start inside a media element.
+  ["pointerdown", "mousedown", "touchstart", "click"].forEach(function (type) {
+    document.addEventListener(type, function (e) {
+      const t = e.target;
+      if (t && t.closest && t.closest("audio,video")) e.stopPropagation();
+    }, true);
+  });
+})();
+
 function bindCommonEvents() {
   // Shared NoChat action delegation handles app and landing action buttons.
 }
