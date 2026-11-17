@@ -161,8 +161,22 @@ function setupGlobalRealtime() {
     }
   });
 
+  onSocketEvent('typing:active', ({ conversationId, username }) => {
+    if (!state.activeConvo || String(state.activeConvo.id) !== String(conversationId)) return;
+    showTypingDots(username);
+  });
+  onSocketEvent('typing:inactive', ({ conversationId }) => {
+    if (state.activeConvo && String(state.activeConvo.id) === String(conversationId)) hideTypingDots();
+  });
+  onSocketEvent('messages:read', ({ conversationId, userId }) => {
+    if (String(userId) === String(state.user?.id)) return;
+    if (state.activeConvo && String(state.activeConvo.id) === String(conversationId)) refreshActiveMessages();
+  });
+  onSocketEvent('message:edited', ({ conversationId }) => {
+    if (state.activeConvo && String(state.activeConvo.id) === String(conversationId)) refreshActiveMessages();
+  });
   onSocketEvent('conversation:update', payload => { void handleConversationUpdate(payload); });
-  onSocketEvent('connect', () => { if(state.activeConvo?.id) getSocket()?.emit('conversation:join',state.activeConvo.id); });
+  onSocketEvent('connect', joinAllConversations);
   onSocketEvent('message:reaction', ({ conversationId, messageId, reactions }) => {
     if (state.activeConvo && state.activeConvo.id === conversationId) {
       const msg = state.messages.find(m => m.id === messageId);
@@ -206,6 +220,51 @@ function setupGlobalRealtime() {
     if (String(announcement.actorId) !== String(state.user?.id)) toast(`📢 New Announcement: ${announcement.title}`);
     if (state.route === 'home') renderApp();
   });
+}
+
+let typingDotsTimer = null;
+function showTypingDots(name) {
+  const area = document.querySelector(".messages-area");
+  if (!area || !area.parentNode) return;
+  if (!document.getElementById("nc-typing-style")) {
+    const st = document.createElement("style");
+    st.id = "nc-typing-style";
+    st.textContent = ".nc-typing{display:flex;align-items:center;gap:8px;padding:4px 24px 8px;color:var(--muted);font-size:12px}.nc-typing[hidden]{display:none}.nc-dots{display:inline-flex;gap:3px}.nc-dots i{width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block;animation:ncTyping 1.2s infinite ease-in-out}.nc-dots i:nth-child(2){animation-delay:.15s}.nc-dots i:nth-child(3){animation-delay:.3s}@keyframes ncTyping{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-4px);opacity:1}}.nc-seen{margin-left:6px;color:var(--accent-blue);font-size:11px;font-weight:600}";
+    document.head.appendChild(st);
+  }
+  let el = document.getElementById("nc-typing");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "nc-typing";
+    el.className = "nc-typing";
+    area.parentNode.insertBefore(el, area.nextSibling);
+  }
+  el.innerHTML = "<span>" + escapeHtml(name || "Someone") + " is typing</span><span class=\"nc-dots\"><i></i><i></i><i></i></span>";
+  el.hidden = false;
+  clearTimeout(typingDotsTimer);
+  typingDotsTimer = setTimeout(hideTypingDots, 4000);
+}
+function hideTypingDots() {
+  clearTimeout(typingDotsTimer);
+  const el = document.getElementById("nc-typing");
+  if (el) el.hidden = true;
+}
+async function refreshActiveMessages() {
+  if (!state.activeConvo) return;
+  try {
+    const res = await api.get("/api/conversations/" + encodeURIComponent(state.activeConvo.id) + "/messages");
+    state.messages = res.messages || [];
+    setCachedMessages(state.activeConvo.id, state.messages);
+    renderChatWindowArea();
+  } catch (e) { /* keep what is on screen */ }
+}
+// Server delivers message events only to sockets inside the conversation room.
+// Join every conversation so messages from any chat (not just the open one) arrive live.
+function joinAllConversations() {
+  const s = getSocket();
+  if (!s || !s.connected) return;
+  state.conversations.forEach(c => { if (c && c.id) s.emit("conversation:join", c.id); });
+  if (state.activeConvo && state.activeConvo.id) s.emit("conversation:join", state.activeConvo.id);
 }
 
 function updatePresenceBadges() {
@@ -625,6 +684,7 @@ async function loadChatData() {
   try {
     const res = await api.get('/api/conversations');
     state.conversations = (res.conversations || []).map(c => ({...c, otherUser: c.user || c.otherUser || null}));
+    joinAllConversations();
     state.conversations.forEach(convo => {
       const id=convo.otherUser?.id;
       if(id==null)return;
@@ -1049,6 +1109,21 @@ function bindChatEvents() {
     };
   });
 
+  // Typing indicator: start (throttled) and stop after 2.5s idle
+  const typingBox = $("#chat-message-input");
+  if (typingBox && state.activeConvo) {
+    const convoId = state.activeConvo.id;
+    let lastSent = 0, stopTimer = null;
+    typingBox.addEventListener("input", () => {
+      const sock = getSocket();
+      if (!sock || !sock.connected) return;
+      const now = Date.now();
+      if (now - lastSent > 2000) { sock.emit("typing:start", { conversationId: convoId }); lastSent = now; }
+      clearTimeout(stopTimer);
+      stopTimer = setTimeout(() => sock.emit("typing:stop", { conversationId: convoId }), 2500);
+    });
+  }
+
   // Send message form
   const sendForm = $('#chat-send-form');
   if (sendForm) {
@@ -1099,12 +1174,26 @@ function renderChatWindowArea() {
     // chat-layout inside .chat-main-area every time a message arrives or is sent.
     const otherUserId = state.activeConvo?.otherUser?.id;
   const isRecipientOnline = otherUserId != null && state.onlineUsers.has(String(otherUserId));
+    const oldInput = $("#chat-message-input");
+    const draft = oldInput ? oldInput.value : "";
+    const hadFocus = !!oldInput && document.activeElement === oldInput;
+    const oldScroll = $("#chat-messages-scroll");
+    const atBottom = !oldScroll || (oldScroll.scrollHeight - oldScroll.scrollTop - oldScroll.clientHeight) < 80;
+    const prevTop = oldScroll ? oldScroll.scrollTop : 0;
     container.innerHTML = renderChatWindow(state.activeConvo, state.messages, state.user?.id, isRecipientOnline);
     bindChatEvents();
     refreshIcons();
-    // Scroll to bottom
-    const scroll = $('#chat-messages-scroll');
-    if (scroll) scroll.scrollTop = scroll.scrollHeight;
+    const newInput = $("#chat-message-input");
+    if (newInput && draft) newInput.value = draft;
+    if (newInput && hadFocus) newInput.focus();
+    const scroll = $("#chat-messages-scroll");
+    if (scroll) scroll.scrollTop = atBottom ? scroll.scrollHeight : prevTop;
+    // "Seen" under my latest message once the other person has read it
+    const lastMine = [...state.messages].reverse().find(m => String(m.senderId) === String(state.user?.id) && !m.pending);
+    if (lastMine && lastMine.readBy > 0) {
+      const node = document.querySelector("[data-message-id=\"" + CSS.escape(String(lastMine.id)) + "\"]");
+      if (node && !node.querySelector(".nc-seen")) node.insertAdjacentHTML("beforeend", "<span class=\"nc-seen\">Seen</span>");
+    }
   }
 }
 
@@ -1163,6 +1252,23 @@ function bindProfileEvents() {
 }
 
 function bindAdminEvents() {
+  $$('[data-action="admin-ban-user"]').forEach(btn => {
+    btn.onclick = async () => {
+      const uid = btn.dataset.userId;
+      const name = btn.dataset.username || "this user";
+      const reason = window.prompt("Reason for banning @" + name + ":");
+      if (!reason || !reason.trim()) return;
+      if (!window.confirm("Ban @" + name + "? They will be signed out and cannot log in.")) return;
+      try {
+        await api.post("/api/admin/users/" + encodeURIComponent(uid) + "/action", { action: "ban", reason: reason.trim() });
+        toast("@" + name + " has been banned");
+        renderApp();
+      } catch (err) {
+        toast(err.message || "Could not ban this user.");
+      }
+    };
+  });
+
   // User search filter
   const searchInput = $('#admin-user-search');
   if (searchInput) {
