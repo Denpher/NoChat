@@ -881,6 +881,14 @@ function showSignOutModal() {
   });
 })();
 
+(function ncMobileChatFix() {
+  if (document.getElementById("nc-mobile-chat-fix")) return;
+  const st = document.createElement("style");
+  st.id = "nc-mobile-chat-fix";
+  st.textContent = "@media (max-width:760px){.topbar{min-width:0;gap:8px}.topbar h1{font-size:18px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 auto}.chat-main-area{display:flex!important;flex-direction:column;min-height:0;height:100%!important}.chat-main{display:flex!important;flex-direction:column;flex:1 1 auto;min-height:0;height:100%}.chat-header{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;flex:0 0 auto}.chat-recipient{flex:1 1 auto;min-width:0;overflow:hidden}.chat-recipient *{min-width:0}.chat-header-actions{flex:0 0 auto;gap:2px}.chat-header-actions button{min-width:34px!important;min-height:34px!important;width:34px;height:34px}.messages-area{flex:1 1 auto;min-height:0;overflow-y:auto}.chat-input-bar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 10px max(10px,env(safe-area-inset-bottom));background:var(--bg,#0a0a0a)}.chat-input-bar .chat-input{flex:1 1 auto;min-width:0}}";
+  document.head.appendChild(st);
+})();
+
 function bindCommonEvents() {
   // Shared NoChat action delegation handles app and landing action buttons.
 }
