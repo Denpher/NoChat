@@ -889,6 +889,14 @@ function showSignOutModal() {
   document.head.appendChild(st);
 })();
 
+(function ncMobileChatFix2() {
+  if (document.getElementById("nc-mobile-chat-fix2")) return;
+  const st = document.createElement("style");
+  st.id = "nc-mobile-chat-fix2";
+  st.textContent = "@media (max-width:760px){.topbar h1{font-size:16px}.main-content:has(.chat-layout){height:100dvh!important;display:flex!important;flex-direction:column!important;padding-bottom:60px!important;box-sizing:border-box!important;overflow:hidden!important}.main-content:has(.chat-layout) > .topbar{flex:0 0 auto}.main-content:has(.chat-layout) #route-container{flex:1 1 auto!important;min-height:0!important;display:flex!important;flex-direction:column!important}.main-content:has(.chat-layout) .chat-layout{flex:1 1 auto!important;height:auto!important;min-height:0!important;max-height:none!important}.main-content:has(.chat-layout) .chat-main-area{height:100%!important;min-height:0!important}}";
+  document.head.appendChild(st);
+})();
+
 function bindCommonEvents() {
   // Shared NoChat action delegation handles app and landing action buttons.
 }
