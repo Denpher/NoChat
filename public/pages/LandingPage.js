@@ -154,6 +154,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
         </div>
         <div class="india-cta-copy">
           <span class="india-cta-eyebrow">A homegrown social space</span>
+          <div class="india-terminal" aria-label="Independent platform built in India"><span class="india-terminal-prompt" aria-hidden="true">&gt;</span><span class="india-terminal-text"> MADE IN INDIA // INDEPENDENT PLATFORM</span><span class="india-terminal-cursor" aria-hidden="true"></span></div>
           <h2 id="india-cta-title">NoChat</h2>
           <p>Proudly Made in <span class="india-accent">India</span> <span aria-label="India flag" role="img">🇮🇳</span></p>
           <button class="btn btn-primary india-cta-button" data-action="open-auth">
