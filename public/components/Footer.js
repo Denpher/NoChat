@@ -16,6 +16,10 @@ const socialLinks = `
     </a>
   </nav>`;
 
+<style>
+.footer-india-link{display:inline-flex;align-items:center;justify-content:center;min-width:30px;min-height:30px;border-radius:8px;font-size:18px;line-height:1;text-decoration:none;transition:transform .18s ease,background .18s ease}
+.footer-india-link:hover,.footer-india-link:focus-visible{background:rgba(198,255,62,.09);transform:translateY(-1px);outline:2px solid rgba(198,255,62,.55);outline-offset:2px}
+</style>
 export function renderFooter({ landing = false } = {}) {
   if (landing) return `
     <footer class="global-footer landing-footer">
@@ -29,6 +33,7 @@ export function renderFooter({ landing = false } = {}) {
           <a href="#/privacy" class="footer-link">Privacy</a>
           <a href="#/terms" class="footer-link">Terms</a>
           <a href="#/contact" class="footer-link">Contact</a>
+          <a href="#/trust-safety" class="footer-india-link" aria-label="India — Trust and Safety" title="India — Trust and Safety">🇮🇳</a>
           <span class="footer-text">Developed &amp; designed by <a href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer" class="footer-author">Denpher Technologies</a></span>
         </div>
       </div>
@@ -45,6 +50,8 @@ export function renderFooter({ landing = false } = {}) {
         <a href="#/terms" class="footer-link">Terms</a>
         <span class="footer-divider">|</span>
         <a href="#/contact" class="footer-link">Contact</a>
+        <span class="footer-divider">|</span>
+        <a href="#/trust-safety" class="footer-india-link" aria-label="India — Trust and Safety" title="India — Trust and Safety">🇮🇳</a>
         <span class="footer-divider">|</span>
         <span class="footer-text">Developed &amp; designed by <a href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer" class="footer-author">Denpher Technologies</a></span>
       </div>
