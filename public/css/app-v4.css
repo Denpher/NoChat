@@ -2165,3 +2165,48 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 @media(prefers-reduced-motion:reduce) {
   .landing-footer-wordmark span,.landing-footer-wordmark span::after { transition:none !important; transform:none !important; }
 }
+
+
+/* DENPHER footer signature — premium gold, simple and readable */
+.landing-footer-wordmark {
+  color:#D4AF37 !important;
+  overflow:visible !important;
+}
+.landing-footer-wordmark span {
+  display:inline-block;
+  color:#D4AF37 !important;
+  -webkit-text-fill-color:#D4AF37 !important;
+  -webkit-text-stroke:0 !important;
+  background:none !important;
+  opacity:0;
+  transform:translateY(14px);
+  transition:opacity .85s ease, transform .85s cubic-bezier(.2,.7,.2,1);
+  text-shadow:0 1px 0 rgba(255,255,255,.08);
+}
+.landing-footer-wordmark.is-revealed span {
+  opacity:1;
+  transform:translateY(0);
+}
+.landing-footer-wordmark span::after {
+  content:none !important;
+  display:none !important;
+  background:none !important;
+}
+.landing-footer-wordmark:hover span,
+.landing-footer-wordmark:focus-visible span {
+  color:#E5C76B !important;
+  -webkit-text-fill-color:#E5C76B !important;
+}
+.landing-footer .footer-author {
+  color:#D4AF37 !important;
+}
+.landing-footer .footer-author:hover {
+  color:#E5C76B !important;
+}
+@media(prefers-reduced-motion:reduce) {
+  .landing-footer-wordmark span {
+    opacity:1 !important;
+    transform:none !important;
+    transition:none !important;
+  }
+}
