@@ -133,6 +133,38 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
           </div>
         </div>
       </section>
+
+      <section class="india-cta" aria-labelledby="india-cta-title">
+        <div class="india-flag-art" aria-hidden="true">
+          <svg viewBox="0 0 480 300" role="img" focusable="false">
+            <defs>
+              <linearGradient id="flag-saffron" x2="0" y2="1"><stop stop-color="#ffb14d"/><stop offset="1" stop-color="#e87516"/></linearGradient>
+              <linearGradient id="flag-white" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#dfe5ed"/></linearGradient>
+              <linearGradient id="flag-green" x2="0" y2="1"><stop stop-color="#21a85a"/><stop offset="1" stop-color="#087b3c"/></linearGradient>
+              <filter id="flag-shadow"><feGaussianBlur stdDeviation="7"/></filter>
+            </defs>
+            <path d="M14 35 Q120 12 232 42 T466 34 L466 104 Q350 122 232 105 T14 112Z" fill="url(#flag-saffron)"/>
+            <path d="M14 112 Q120 90 232 105 T466 104 L466 190 Q350 205 232 190 T14 190Z" fill="url(#flag-white)"/>
+            <path d="M14 190 Q120 175 232 190 T466 190 L466 266 Q350 286 232 262 T14 266Z" fill="url(#flag-green)"/>
+            <circle cx="240" cy="151" r="35" fill="none" stroke="#183b7a" stroke-width="4"/>
+            <circle cx="240" cy="151" r="5" fill="#183b7a"/>
+            <g stroke="#183b7a" stroke-width="2">
+              <path d="M240 116V186 M205 151H275 M215.25 126.25L264.75 175.75 M264.75 126.25L215.25 175.75"/>
+              <path d="M226.6 118.7L253.4 183.3 M208 137.6L272 164.4 M208 164.4L272 137.6 M226.6 183.3L253.4 118.7"/>
+            </g>
+            <path d="M14 35 Q120 12 232 42 T466 34" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="3"/>
+          </svg>
+        </div>
+        <div class="india-cta-copy">
+          <span class="india-cta-eyebrow">A homegrown social space</span>
+          <h2 id="india-cta-title">NoChat</h2>
+          <p>Proudly Made in India <span aria-label="India flag" role="img">🇮🇳</span></p>
+          <button class="btn btn-primary india-cta-button" data-action="open-auth">
+            <span>Join NoChat — Free</span>
+            <i data-lucide="arrow-up-right" aria-hidden="true"></i>
+          </button>
+        </div>
+      </section>
       </main>
 
       ${renderFooter({ landing: true })}
