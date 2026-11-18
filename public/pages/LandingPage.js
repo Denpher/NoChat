@@ -160,7 +160,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
           <h2 id="india-cta-title">NoChat</h2>
           <p>Proudly Made in India <span aria-label="India flag" role="img">🇮🇳</span></p>
           <button class="btn btn-primary india-cta-button" data-action="open-auth">
-            <span>Join NoChat — Free</span>
+            <span>Start Watching — Free</span>
             <i data-lucide="arrow-up-right" aria-hidden="true"></i>
           </button>
         </div>
