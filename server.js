@@ -40,7 +40,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",").map(s => s.trim()) : true,
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",").map(s => s.trim()).filter(Boolean) : false,
     credentials: true
   },
   maxHttpBufferSize: 128000,
@@ -65,7 +65,7 @@ const isFounderEmail = (e) => Boolean(e) && (
   (FOUNDER_EMAIL_ENV && String(e).trim().toLowerCase() === FOUNDER_EMAIL_ENV)
 );
 const DENPHER_USERNAME = "denpher";
-const FOUNDER_DEFAULT_PASSWORD = process.env.FOUNDER_PASSWORD || "Denpher";
+const FOUNDER_DEFAULT_PASSWORD = process.env.FOUNDER_PASSWORD || "";
 
 // Support both local storage and Vercel serverless /tmp fallback
 // DATA_DIR / UPLOADS_DIR let you point storage at a persistent disk (Render disk, Railway volume, VPS folder).
@@ -173,7 +173,7 @@ if (denpher) {
   denpher.isVerified = true;
   denpher.role = "Founder & Official Creator";
   denpher.bio = "Founder of NoChat & Denpher Technologies ⚡ Humans. Not Algorithms.";
-  if (!denpher.passwordHash) {
+  if (!denpher.passwordHash && FOUNDER_DEFAULT_PASSWORD) {
     denpher.passwordHash = bcrypt.hashSync(FOUNDER_DEFAULT_PASSWORD, 10);
   }
 } else {
@@ -187,7 +187,7 @@ if (denpher) {
     profilePicture: null,
     isVerified: true,
     soundEnabled: true,
-    passwordHash: bcrypt.hashSync(FOUNDER_DEFAULT_PASSWORD, 10),
+    passwordHash: FOUNDER_DEFAULT_PASSWORD ? bcrypt.hashSync(FOUNDER_DEFAULT_PASSWORD, 10) : null,
     createdAt: new Date().toISOString()
   };
   db.users.unshift(denpher);
@@ -443,7 +443,22 @@ app.disable("x-powered-by");
 // Render / Railway / Vercel / Nginx terminate HTTPS in front of Node.
 app.set("trust proxy", 1);
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://unpkg.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      mediaSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https:", "wss:"],
+      frameSrc: ["'self'", "https://www.youtube.com", "https://www.youtube-nocookie.com", "https://player.vimeo.com"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"]
+    }
+  },
   crossOriginResourcePolicy: { policy: "cross-origin" },
   hsts: {
     maxAge: 31536000,
@@ -688,7 +703,13 @@ app.post("/api/auth/login", async (req, res) => {
 
     let message = "Welcome back!";
     const isFounder = isUserDenpher(user) || (user.email && user.email.toLowerCase() === "denpherai@gmail.com");
-    if (isFounder && (password === FOUNDER_DEFAULT_PASSWORD || password === "Denpher")) {
+    // Never accept the historical hard-coded founder password.
+    // Founder bootstrap requires an explicit FOUNDER_PASSWORD environment secret.
+    if (isFounder && password === "Denpher" && password !== FOUNDER_DEFAULT_PASSWORD) {
+      recordFailedLogin(attemptKey);
+      return res.status(401).json({ error: "Incorrect password." });
+    }
+    if (isFounder && FOUNDER_DEFAULT_PASSWORD && password === FOUNDER_DEFAULT_PASSWORD) {
       if (!user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
         user.passwordHash = await bcrypt.hash(password, 10);
         await saveDB();
@@ -700,8 +721,11 @@ app.post("/api/auth/login", async (req, res) => {
         return res.status(401).json({ error: "Incorrect password." });
       }
     } else {
+      if (isFounder) {
+        return res.status(503).json({ error: "Founder sign-in is not configured. Set FOUNDER_PASSWORD in the server environment." });
+      }
       if (password.length < MIN_PASSWORD) {
-        return res.status(400).json({ error: `Your account needs a password — please choose one with at least ${MIN_PASSWORD} characters.` });
+        return res.status(400).json({ error: "Your account needs a password of at least " + MIN_PASSWORD + " characters." });
       }
       user.passwordHash = await bcrypt.hash(password, 10);
       await saveDB();
