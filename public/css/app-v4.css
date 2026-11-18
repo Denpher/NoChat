@@ -1973,3 +1973,120 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
   .landing-page .india-cta-copy p { margin: 10px 0 20px; }
   .landing-page .india-cta-button { width: 100%; max-width: 360px; min-height: 52px; }
 }
+
+
+/* Landing page palette correction — color-only overrides */
+.landing-page {
+  background: #0A0A0A !important;
+  color: #FFFFFF;
+}
+.landing-page .hero-section,
+.landing-page #features,
+.landing-page .founder-card,
+.landing-page .india-cta,
+.landing-page .global-footer {
+  background: #0A0A0A !important;
+}
+.landing-page .hero-headline,
+.landing-page .hero-headline .accent,
+.landing-page h1,
+.landing-page h2,
+.landing-page h3,
+.landing-page .india-cta-copy h2,
+.landing-page .founder-quote,
+.landing-page .founder-author {
+  color: #FFFFFF !important;
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+  text-shadow: none !important;
+}
+.landing-page .hero-subtext,
+.landing-page p,
+.landing-page .stat-label,
+.landing-page .founder-author,
+.landing-page .footer-content,
+.landing-page .footer-link,
+.landing-page .india-cta-copy p {
+  color: #A1A1AA !important;
+}
+.landing-page .hero-pill,
+.landing-page .india-cta-eyebrow {
+  background: #1A1A1A !important;
+  color: #C6FF3E !important;
+  border: 1px solid #C6FF3E !important;
+  box-shadow: none !important;
+}
+.landing-page .hero-pill::before {
+  background: #C6FF3E !important;
+  box-shadow: none !important;
+}
+.landing-page .stats-bar,
+.landing-page .feature-card,
+.landing-page .step-card,
+.landing-page .founder-card {
+  background: #111111 !important;
+  border: 1px solid #222222 !important;
+  box-shadow: none !important;
+}
+.landing-page .feature-card:hover,
+.landing-page .step-card:hover,
+.landing-page .founder-card:hover {
+  border-color: #C6FF3E !important;
+  box-shadow: none !important;
+}
+.landing-page .stat-number {
+  color: #FFFFFF !important;
+}
+.landing-page .feature-icon,
+.landing-page .step-number,
+.landing-page .india-cta-eyebrow,
+.landing-page .footer-india-link {
+  color: #C6FF3E !important;
+}
+.landing-page .btn-primary,
+.landing-page .india-cta-button {
+  background: #C6FF3E !important;
+  background-image: none !important;
+  color: #000000 !important;
+  border: 1px solid #C6FF3E !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+.landing-page .btn-primary *,
+.landing-page .india-cta-button * {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+.landing-page .btn-primary:hover,
+.landing-page .india-cta-button:hover {
+  background: #C6FF3E !important;
+  border-color: #C6FF3E !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+.landing-page .btn-secondary {
+  background: transparent !important;
+  background-image: none !important;
+  color: #FFFFFF !important;
+  border: 1px solid #FFFFFF !important;
+  box-shadow: none !important;
+}
+.landing-page .btn-secondary:hover {
+  background: #111111 !important;
+  border-color: #FFFFFF !important;
+}
+.landing-page .india-cta-copy .india-accent {
+  color: #C6FF3E !important;
+  -webkit-text-fill-color: #C6FF3E !important;
+}
+.landing-page .india-flag-art svg {
+  filter: none !important;
+}
+.landing-page .global-footer {
+  border-top: 1px solid #222222 !important;
+}
+.landing-page .footer-link:hover {
+  color: #FFFFFF !important;
+}
