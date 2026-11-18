@@ -495,20 +495,41 @@ app.use((req,res,next)=>{
  * compatible URLs. Intercept them BEFORE express.static and authorize each read
  * against the message's conversation membership.
  */
-app.get("/uploads/attachments/:filename", authenticate, async (req, res) => {
+app.get("/uploads/:folder/:filename", authenticate, async (req, res, next) => {
   try {
+    const folder = String(req.params.folder || "");
+    if (!["attachments", "reels"].includes(folder)) return next();
     const filename = String(req.params.filename || "");
     if (!filename || filename !== path.basename(filename) || !/^[a-f0-9-]{20,80}\.[a-z0-9]{2,8}$/i.test(filename)) {
       return res.status(404).end();
     }
-    const url = "/uploads/attachments/" + filename;
-    const message = db.messages.find(m => !m.deletedAt && m.attachment?.url === url);
-    const conversation = message && db.conversations.find(c => c.id === message.conversationId && c.members.includes(req.user.id));
-    if (!conversation) return res.status(404).end();
+    const url = "/uploads/" + folder + "/" + filename;
+    let allowed = false;
+    if (folder === "attachments") {
+      const message = db.messages.find(m => !m.deletedAt && m.attachment?.url === url);
+      const conversation = message && db.conversations.find(item => item.id === message.conversationId && item.members.includes(req.user.id));
+      const story = db.reelUploads.find(row => row?.kind === "nochat-story" && row.mediaUrl === url);
+      const storyAllowed = story && canViewStory(story, req.user.id, db.reelUploads);
+      const post = db.reels.find(row => !row.isDeleted && (row.imageUrl === url || row.videoUrl === url));
+      const postAllowed = post && (
+        canViewReel(post, req.user.id, isListed(db.users.find(user => user.id === post.userId))) ||
+        await isAdmin(req.user)
+      );
+      allowed = Boolean(conversation || storyAllowed || postAllowed);
+    } else {
+      const reel = db.reels.find(row => !row.isDeleted && row.videoUrl === url);
+      const reelAllowed = reel && (
+        canViewReel(reel, req.user.id, isListed(db.users.find(user => user.id === reel.userId))) ||
+        await isAdmin(req.user)
+      );
+      const video = (db.videos || []).some(row => !row.deletedAt && row.fileUrl === url);
+      allowed = Boolean(reelAllowed || video);
+    }
+    if (!allowed) return res.status(404).end();
 
     const roots = [...new Set([UPLOADS_ROOT, LEGACY_UPLOADS_ROOT])];
     for (const root of roots) {
-      const filePath = path.join(root, "attachments", filename);
+      const filePath = path.join(root, folder, filename);
       try {
         await fs.promises.access(filePath, fs.constants.R_OK);
         res.set("Cache-Control", "private, no-store");
