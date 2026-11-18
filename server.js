@@ -552,6 +552,48 @@ const authLimiter = rateLimit({
 });
 app.use("/api/auth", authLimiter);
 
+// Additional login protection: five consecutive failures for the same IP + account
+// trigger a five-minute cooldown. Successful sign-in clears the pair's counter.
+const LOGIN_FAILURE_LIMIT = 5;
+const LOGIN_COOLDOWN_MS = 5 * 60 * 1000;
+const loginFailures = new Map();
+
+function loginAttemptKey(req, identifier) {
+  const ip = req.ip || req.socket?.remoteAddress || "unknown";
+  const normalized = String(identifier || "").trim().toLowerCase();
+  return crypto.createHash("sha256").update(ip + "\\0" + normalized).digest("hex");
+}
+
+function loginCooldownRemaining(key, now = Date.now()) {
+  const entry = loginFailures.get(key);
+  if (!entry) return 0;
+  if (entry.blockedUntil > now) return entry.blockedUntil - now;
+  if (entry.blockedUntil && entry.blockedUntil <= now) loginFailures.delete(key);
+  return 0;
+}
+
+function recordFailedLogin(key, now = Date.now()) {
+  // Bound memory use and discard stale entries during incoming login traffic.
+  if (loginFailures.size > 5000) {
+    for (const [storedKey, entry] of loginFailures) {
+      if (now - entry.lastSeen > LOGIN_COOLDOWN_MS * 2 || entry.blockedUntil <= now) loginFailures.delete(storedKey);
+      if (loginFailures.size <= 4000) break;
+    }
+  }
+  const entry = loginFailures.get(key) || { count: 0, blockedUntil: 0, lastSeen: now };
+  entry.count += 1;
+  entry.lastSeen = now;
+  if (entry.count >= LOGIN_FAILURE_LIMIT) {
+    entry.count = 0;
+    entry.blockedUntil = now + LOGIN_COOLDOWN_MS;
+  }
+  loginFailures.set(key, entry);
+}
+
+function clearFailedLogins(key) {
+  loginFailures.delete(key);
+}
+
 const MIN_PASSWORD = 6;
 
 function findUserByIdentifier(identifier) {
@@ -623,6 +665,13 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     const identifier = String(req.body.identifier || req.body.username || req.body.email || "").trim();
     const password = String(req.body.password || "");
+    const attemptKey = loginAttemptKey(req, identifier);
+    const cooldownRemaining = loginCooldownRemaining(attemptKey);
+    if (cooldownRemaining > 0) {
+      const retryAfter = Math.ceil(cooldownRemaining / 1000);
+      res.set("Retry-After", String(retryAfter));
+      return res.status(429).json({ error: "Too many failed sign-in attempts. Please wait 5 minutes before trying again.", code: "LOGIN_COOLDOWN", retryAfterMs: cooldownRemaining });
+    }
 
     if (!identifier) {
       return res.status(400).json({ error: "Enter your username or email." });
@@ -633,6 +682,7 @@ app.post("/api/auth/login", async (req, res) => {
 
     const user = findUserByIdentifier(identifier);
     if (!user) {
+      recordFailedLogin(attemptKey);
       return res.status(404).json({ error: "No account found with that username or email.", code: "NOT_FOUND" });
     }
 
@@ -646,6 +696,7 @@ app.post("/api/auth/login", async (req, res) => {
     } else if (user.passwordHash) {
       const ok = await bcrypt.compare(password, user.passwordHash);
       if (!ok) {
+        recordFailedLogin(attemptKey);
         return res.status(401).json({ error: "Incorrect password." });
       }
     } else {
@@ -657,6 +708,7 @@ app.post("/api/auth/login", async (req, res) => {
       message = "Password set successfully — welcome back!";
     }
 
+    clearFailedLogins(attemptKey);
     if (isUserDenpher(user)) user.isVerified = true;
     const restriction = accountRestriction(user);
     if (restriction) return res.status(403).json({ ...restriction, canAppeal: true });
