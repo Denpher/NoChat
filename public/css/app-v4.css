@@ -2215,3 +2215,14 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 @keyframes india-type{from{width:0}to{width:var(--type-width,32ch)}}@keyframes india-caret{50%{border-color:transparent}}
 @media(max-width:768px){.landing-page .india-cta{grid-template-columns:minmax(0,1fr);gap:18px;padding:22px 18px 26px}.landing-page .india-flag-art{max-width:360px}.landing-page .india-flag-art svg{max-height:220px}.landing-page .india-cta-copy{max-width:100%;text-align:center}.landing-page .india-terminal{margin:0 auto 20px;text-align:left}.landing-page .india-cta-copy .india-cta-eyebrow{margin-bottom:10px}}
 @media(prefers-reduced-motion:reduce){.landing-page .india-terminal-lines p span{width:auto;max-width:100%;border:0;animation:none}}
+
+
+/* Final override: prevent legacy reveal overlay from covering the tricolour letters */
+.landing-footer-wordmark{display:block!important;width:100%!important;overflow:visible!important;background:transparent!important}
+.landing-footer-wordmark>span{position:relative!important;display:inline-block!important;font-size:clamp(54px,20vw,360px)!important;font-weight:900!important;line-height:.82!important;letter-spacing:-.085em!important;white-space:nowrap!important;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;opacity:1!important;-webkit-text-stroke:0!important;background:none!important;transform:none!important}
+.landing-footer-wordmark>span::before,.landing-footer-wordmark>span::after{content:none!important;display:none!important;background:none!important;background-image:none!important;-webkit-text-fill-color:currentColor!important}
+.landing-footer-wordmark>span>span{position:static!important;display:inline!important;font-size:inherit!important;font-weight:inherit!important;line-height:inherit!important;letter-spacing:inherit!important;white-space:inherit!important;opacity:1!important;transform:none!important;-webkit-text-stroke:0!important;background:none!important;-webkit-background-clip:border-box!important}
+.landing-footer-wordmark .wordmark-saffron{color:#FF9933!important;-webkit-text-fill-color:#FF9933!important}
+.landing-footer-wordmark .wordmark-white{color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}
+.landing-footer-wordmark .wordmark-green{color:#138808!important;-webkit-text-fill-color:#138808!important}
+@media(max-width:640px){.landing-footer-wordmark>span{font-size:clamp(52px,19vw,120px)!important}}
