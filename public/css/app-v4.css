@@ -2167,49 +2167,20 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 }
 
 
-/* DENPHER footer signature — premium gold, simple and readable */
-.landing-footer-wordmark {
-  color:#D4AF37 !important;
-  overflow:visible !important;
-}
-.landing-footer-wordmark span {
-  display:inline-block;
-  color:#D4AF37 !important;
-  -webkit-text-fill-color:#D4AF37 !important;
-  -webkit-text-stroke:0 !important;
-  background:none !important;
-  opacity:0;
-  transform:translateY(14px);
-  transition:opacity .85s ease, transform .85s cubic-bezier(.2,.7,.2,1);
-  text-shadow:0 1px 0 rgba(255,255,255,.08);
-}
-.landing-footer-wordmark.is-revealed span {
-  opacity:1;
-  transform:translateY(0);
-}
-.landing-footer-wordmark span::after {
-  content:none !important;
-  display:none !important;
-  background:none !important;
-}
-.landing-footer-wordmark:hover span,
-.landing-footer-wordmark:focus-visible span {
-  color:#E5C76B !important;
-  -webkit-text-fill-color:#E5C76B !important;
-}
-.landing-footer .footer-author {
-  color:#D4AF37 !important;
-}
-.landing-footer .footer-author:hover {
-  color:#E5C76B !important;
-}
-@media(prefers-reduced-motion:reduce) {
-  .landing-footer-wordmark span {
-    opacity:1 !important;
-    transform:none !important;
-    transition:none !important;
-  }
-}
+/* DENPHER footer signature — Indian tricolour, solid authentic colours */
+.landing-footer-wordmark{color:#FFFFFF!important;overflow:visible!important}
+.landing-footer-wordmark>span{display:inline-block;opacity:0;transform:translateY(14px);transition:opacity .85s ease,transform .85s cubic-bezier(.2,.7,.2,1);-webkit-text-stroke:0!important;background:none!important;text-shadow:0 1px 0 rgba(0,0,0,.18)}
+.landing-footer-wordmark.is-revealed>span{opacity:1;transform:translateY(0)}
+.landing-footer-wordmark>span>span{display:inline!important;opacity:1!important;transform:none!important;transition:color .2s ease!important;-webkit-text-fill-color:currentColor!important;text-shadow:none!important}
+.landing-footer-wordmark .wordmark-saffron{color:#FF9933!important}
+.landing-footer-wordmark .wordmark-white{color:#FFFFFF!important}
+.landing-footer-wordmark .wordmark-green{color:#138808!important}
+.landing-footer-wordmark:hover .wordmark-saffron,.landing-footer-wordmark:focus-visible .wordmark-saffron{color:#FFB45C!important}
+.landing-footer-wordmark:hover .wordmark-white,.landing-footer-wordmark:focus-visible .wordmark-white{color:#FFFFFF!important}
+.landing-footer-wordmark:hover .wordmark-green,.landing-footer-wordmark:focus-visible .wordmark-green{color:#25A51B!important}
+.landing-footer .footer-author{color:#2563EB!important}
+.landing-footer .footer-author:hover{color:#6D9BFF!important}
+@media(prefers-reduced-motion:reduce){.landing-footer-wordmark>span{opacity:1!important;transform:none!important;transition:none!important}}
 
 
 /* Made-in-India terminal micro-animation */
