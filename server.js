@@ -512,7 +512,7 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many requests. Please slow down." }
 });
-app.use("/api", apiLimiter);;
+app.use("/api", apiLimiter);
 
 // Upload endpoints use in-memory multipart buffers (up to 100 MB), so the general
 // API limit is too generous for them. Add per-IP limits before any upload route
@@ -534,15 +534,16 @@ const standardUploadLimiter = rateLimit({
 });
 app.use((req, res, next) => {
   if (req.method !== "POST") return next();
-  if (/^\\/api\\/(?:reels|videos\\/upload)$/.test(req.path)) {
-    return heavyUploadLimiter(req, res, next);
-  }
-  if (
-    /^\\/api\\/(?:profile\\/avatar|stories|posts)$/.test(req.path) ||
-    /^\\/api\\/(?:groups\\/[^/]+\\/avatar|conversations\\/[^/]+\\/attachments)$/.test(req.path)
-  ) {
-    return standardUploadLimiter(req, res, next);
-  }
+  const p = req.path;
+  const heavy = p === "/api/reels" || p === "/api/videos/upload";
+  const standard =
+    p === "/api/profile/avatar" ||
+    p === "/api/stories" ||
+    p === "/api/posts" ||
+    /^\/api\/groups\/[^/]+\/avatar$/.test(p) ||
+    /^\/api\/conversations\/[^/]+\/attachments$/.test(p);
+  if (heavy) return heavyUploadLimiter(req, res, next);
+  if (standard) return standardUploadLimiter(req, res, next);
   next();
 });
 
