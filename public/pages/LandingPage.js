@@ -13,6 +13,16 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
       <main id="main-content" class="landing-main">
       <header class="hero-section">
         <div class="hero-pill">30+ Members and Growing</div>
+        <section class="hero-terminal" aria-label="NoChat status terminal">
+          <div class="hero-terminal-bar"><span></span><span></span><span></span><small>NOCHAT / SYSTEM CONSOLE</small></div>
+          <div class="hero-terminal-screen">
+            <p style="--line-order:0;--line-chars:30"><b>&gt;</b><span>INITIALIZING TRUST OVERVIEW...</span></p>
+            <p style="--line-order:1;--line-chars:33"><b>&gt;</b><span>LOADING ACCOUNT SAFEGUARDS...</span></p>
+            <p style="--line-order:2;--line-chars:34"><b>&gt;</b><span>CHECKING COMMUNITY STANDARDS...</span></p>
+            <p style="--line-order:3;--line-chars:22"><b>&gt;</b><span>STATUS: INFORMATIONAL</span></p>
+            <p style="--line-order:4;--line-chars:34"><b>&gt;</b><span>NOCHAT // INDEPENDENT PLATFORM</span></p>
+          </div>
+        </section>
         <h1 class="hero-headline">Humans. <span class="accent">Not Algorithms.</span></h1>
         <p class="hero-subtext">
           A calmer corner of the internet, built around people, conversations and a feed that stays in chronological order. No surveillance advertising or black-box ranking deciding what you see.
@@ -154,7 +164,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
         </div>
         <div class="india-cta-copy">
           <span class="india-cta-eyebrow">A homegrown social space</span>
-          <div class="india-terminal" aria-label="NoChat project information"><div class="india-terminal-bar"><span></span><span></span><span></span><small>NOCHAT / ORIGIN</small></div><div class="india-terminal-lines" aria-hidden="true"><p><b>&gt;</b> <span>PROJECT: NOCHAT</span></p><p><b>&gt;</b> <span>BUILT IN INDIA</span></p><p><b>&gt;</b> <span>INDEPENDENT SOCIAL PLATFORM</span></p></div></div>
+
           <h2 id="india-cta-title">NoChat</h2>
           <p>Proudly Made in <span class="india-accent">India</span> <span aria-label="India flag" role="img">🇮🇳</span></p>
           <button class="btn btn-primary india-cta-button" data-action="open-auth">
