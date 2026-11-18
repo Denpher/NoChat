@@ -1300,7 +1300,11 @@ function bindAdminEvents() {
       if (!reason || !reason.trim()) return;
       if (!window.confirm("Ban @" + name + "? They will be signed out and cannot log in.")) return;
       try {
-        await api.post("/api/admin/users/" + encodeURIComponent(uid) + "/action", { action: "ban", reason: reason.trim() });
+        await api.post("/api/admin/users/" + encodeURIComponent(uid) + "/action", {
+          action: "ban",
+          reason: reason.trim(),
+          confirm: name
+        });
         toast("@" + name + " has been banned");
         renderApp();
       } catch (err) {
