@@ -574,14 +574,14 @@ app.use("/api", apiLimiter);
 // file formats, account data, or normal chat/API traffic.
 const heavyUploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 6,
+  limit: 2,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many large uploads. Please wait before uploading again." }
 });
 const standardUploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 24,
+  limit: 12,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many uploads. Please wait before uploading again." }
