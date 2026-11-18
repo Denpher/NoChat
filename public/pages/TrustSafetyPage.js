@@ -42,6 +42,24 @@ export function renderTrustSafetyPage() {
         .nc-trust-page .trust-point{padding:14px;border:1px solid #292929;border-radius:12px;background:#111111}
         .nc-trust-page .trust-point strong{display:block;margin-bottom:5px;font-size:12px}
         .nc-trust-page .trust-point span{color:#aaa;font-size:11px;line-height:1.6}
+        .nc-trust-page .trust-terminal{max-width:760px;margin:0 auto 42px;overflow:hidden;border:1px solid #263b66;border-radius:13px;background:#080B12;box-shadow:0 16px 44px rgba(0,0,0,.22);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+        .nc-trust-page .trust-terminal-bar{height:38px;display:flex;align-items:center;gap:7px;padding:0 13px;border-bottom:1px solid #202b40;background:#101725}
+        .nc-trust-page .trust-terminal-bar>span{width:8px;height:8px;border-radius:50%;background:#343f52}
+        .nc-trust-page .trust-terminal-bar>span:first-child{background:#D97757}
+        .nc-trust-page .trust-terminal-bar>span:nth-child(2){background:#D6A84B}
+        .nc-trust-page .trust-terminal-bar>span:nth-child(3){background:#4C9A70}
+        .nc-trust-page .trust-terminal-bar small{margin-left:8px;color:#8B98AD;font-size:10px;letter-spacing:.12em}
+        .nc-trust-page .trust-terminal-body{padding:18px 20px 20px;display:grid;gap:11px}
+        .nc-trust-page .terminal-line{display:flex;gap:10px;margin:0;color:#D7DFED;font-size:clamp(10px,1.5vw,12px);line-height:1.5;opacity:0;overflow:hidden;white-space:nowrap;animation:trust-line-in .35s ease forwards}
+        .nc-trust-page .terminal-line b{color:#4F8CFF;font-weight:800}
+        .nc-trust-page .terminal-line:nth-child(1){animation-delay:.2s}
+        .nc-trust-page .terminal-line:nth-child(2){animation-delay:1s}
+        .nc-trust-page .terminal-line:nth-child(3){animation-delay:1.8s}
+        .nc-trust-page .terminal-line:nth-child(4){animation-delay:2.6s}
+        .nc-trust-page .terminal-line:nth-child(5){animation-delay:3.4s;color:#8FB5FF}
+        @keyframes trust-line-in{from{opacity:0;transform:translateY(5px);clip-path:inset(0 100% 0 0)}to{opacity:1;transform:translateY(0);clip-path:inset(0 0 0 0)}}
+        @media(max-width:480px){.nc-trust-page .trust-terminal{margin-bottom:32px}.nc-trust-page .trust-terminal-body{padding:15px 12px;gap:10px}.nc-trust-page .terminal-line{font-size:9px;letter-spacing:-.02em}}
+        @media(prefers-reduced-motion:reduce){.nc-trust-page .terminal-line{opacity:1;transform:none;clip-path:none;animation:none}}
         @media(max-width:720px){.nc-trust-page{padding:30px 14px}.nc-trust-page .trust-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.nc-trust-page .trust-data{grid-template-columns:1fr}.nc-trust-page .trust-data section+section{border-top:1px solid #292929;border-left:0}.nc-trust-page .trust-policy{align-items:flex-start;flex-direction:column}.nc-trust-page .trust-points{grid-template-columns:1fr}}
         @media(max-width:420px){.nc-trust-page .trust-grid{grid-template-columns:1fr}.nc-trust-page .trust-card{display:grid;grid-template-columns:34px minmax(0,1fr);gap:0 11px}.nc-trust-page .trust-icon{grid-row:span 2;margin:0}.nc-trust-page .trust-card h3{align-self:end}.nc-trust-page .trust-card p{grid-column:2}}
         @media(prefers-reduced-motion:reduce){.nc-trust-page *{scroll-behavior:auto!important;transition:none!important}}
@@ -52,6 +70,16 @@ export function renderTrustSafetyPage() {
           <h1>Clear standards. Practical safeguards.</h1>
           <p class="trust-intro">A straightforward look at the account, privacy and moderation measures used across NoChat. No security system can promise zero risk, so we explain what is in place without overstating it.</p>
         </header>
+        <section class="trust-terminal" aria-label="NoChat project terminal">
+          <div class="trust-terminal-bar"><span></span><span></span><span></span><small>NOCHAT / TRUST &amp; SAFETY</small></div>
+          <div class="trust-terminal-body" aria-hidden="true">
+            <p class="terminal-line"><b>&gt;</b> <span>INITIALIZING TRUST OVERVIEW...</span></p>
+            <p class="terminal-line"><b>&gt;</b> <span>LOADING ACCOUNT SAFEGUARDS...</span></p>
+            <p class="terminal-line"><b>&gt;</b> <span>CHECKING COMMUNITY STANDARDS...</span></p>
+            <p class="terminal-line"><b>&gt;</b> <span>STATUS: INFORMATIONAL</span></p>
+            <p class="terminal-line"><b>&gt;</b> <span>NOCHAT // INDEPENDENT PLATFORM</span></p>
+          </div>
+        </section>
         <main>
           <section class="trust-section" aria-labelledby="trust-security-heading">
             <header class="trust-section-head"><h2 id="trust-security-heading">Account &amp; platform security</h2><p class="trust-section-intro">The controls below help protect account access and reduce abuse.</p></header>
