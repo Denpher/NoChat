@@ -2283,3 +2283,20 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 .landing-page>*{position:relative;z-index:1}
 @keyframes nochat-star-drift{from{background-position:12px 24px,71px 83px,129px 47px}to{background-position:149px 175px,262px 256px,392px 274px}}
 @media(prefers-reduced-motion:reduce){.landing-page::before{animation:none}}
+
+
+/* Hero system console: sequential character typing, repeating continuously */
+.landing-page .hero-terminal{width:min(100%,560px);margin:22px auto 26px;overflow:hidden;border:1px solid rgba(37,99,235,.55);border-radius:12px;background:#080B12;text-align:left;box-shadow:0 12px 32px rgba(0,0,0,.18);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.landing-page .hero-terminal-bar{height:34px;display:flex;align-items:center;gap:7px;padding:0 12px;border-bottom:1px solid #202b40;background:#101725}
+.landing-page .hero-terminal-bar>span{width:8px;height:8px;border-radius:50%;background:#39465c}
+.landing-page .hero-terminal-bar>span:first-child{background:#D97757}
+.landing-page .hero-terminal-bar>span:nth-child(2){background:#D6A84B}
+.landing-page .hero-terminal-bar>span:nth-child(3){background:#4C9A70}
+.landing-page .hero-terminal-bar small{margin-left:7px;color:#8B98AD;font-size:9px;letter-spacing:.12em}
+.landing-page .hero-terminal-screen{display:grid;gap:10px;padding:16px 18px 18px}
+.landing-page .hero-terminal-screen p{display:flex;align-items:baseline;gap:10px;min-width:0;margin:0;color:#D7DFED;font-size:clamp(10px,1.4vw,12px);line-height:1.5;white-space:nowrap}
+.landing-page .hero-terminal-screen p b{flex:0 0 auto;color:#4F8CFF;font-weight:800}
+.landing-page .hero-terminal-screen p span{display:inline-block;max-width:calc(100% - 20px);width:0;overflow:hidden;white-space:nowrap;border-right:1px solid #4F8CFF;padding-right:3px;animation:hero-console-type 15s steps(36,end) infinite;animation-delay:calc(var(--line-order)*2.5s)}
+@keyframes hero-console-type{0%{width:0}16%{width:min(calc(var(--line-chars)*1ch),100%)}96%{width:min(calc(var(--line-chars)*1ch),100%)}100%{width:0}}
+@media(max-width:600px){.landing-page .hero-terminal{margin:20px auto 24px}.landing-page .hero-terminal-screen{padding:14px 11px;gap:9px}.landing-page .hero-terminal-screen p{font-size:9px;letter-spacing:-.025em}.landing-page .hero-terminal-bar{height:31px}}
+@media(prefers-reduced-motion:reduce){.landing-page .hero-terminal-screen p span{width:auto;max-width:100%;border:0;animation:none}}
