@@ -2210,3 +2210,14 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
     transition:none !important;
   }
 }
+
+
+/* Made-in-India terminal micro-animation */
+.landing-page .india-terminal{display:flex;align-items:center;justify-content:flex-start;gap:3px;width:max-content;max-width:100%;margin:0 0 14px;padding:9px 12px;border:1px solid rgba(37,99,235,.55);border-radius:8px;background:#111111;color:#A1A1AA;font:600 10px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.045em;overflow:hidden}
+.landing-page .india-terminal-prompt{color:#2563EB;flex:0 0 auto}
+.landing-page .india-terminal-text{display:inline-block;max-width:0;white-space:nowrap;overflow:hidden;animation:india-terminal-type 3.2s steps(37,end) .35s forwards;color:#FFFFFF}
+.landing-page .india-terminal-cursor{width:6px;height:12px;flex:0 0 6px;background:#2563EB;animation:india-terminal-blink .8s steps(2,start) infinite}
+@keyframes india-terminal-type{to{max-width:34ch}}
+@keyframes india-terminal-blink{to{visibility:hidden}}
+@media(max-width:480px){.landing-page .india-terminal{margin:0 auto 14px;font-size:9px;padding:8px 9px}.landing-page .india-cta-copy{text-align:center}}
+@media(prefers-reduced-motion:reduce){.landing-page .india-terminal-text{max-width:none;animation:none}.landing-page .india-terminal-cursor{animation:none;visibility:hidden}}
