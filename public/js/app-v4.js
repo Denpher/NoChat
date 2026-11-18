@@ -37,6 +37,7 @@ import { renderPrivacyPage } from '../pages/PrivacyPage.js';
 import { renderTermsPage } from '../pages/TermsPage.js';
 import { renderAboutPage } from '../pages/AboutPage.js';
 import { renderContactPage } from '../pages/ContactPage.js';
+import { renderTrustSafetyPage } from '../pages/TrustSafetyPage.js';
 
 /* ---------- Global Application State ---------- */
 const state = {
@@ -336,7 +337,7 @@ async function renderApp() {
   const route = state.route;
 
   // 1. Unauthenticated or Landing/Legal Pages
-  if (!state.user && !['privacy', 'terms', 'about', 'contact'].includes(route)) {
+  if (!state.user && !['privacy', 'terms', 'about', 'contact', 'trust-safety'].includes(route)) {
     loadVideosCatalog();
     app.innerHTML = renderLandingPage(state.user, state.videos);
     decorateLandingVersion();
@@ -367,6 +368,12 @@ async function renderApp() {
   if (route === 'contact') {
     app.innerHTML = renderLegalShell(renderContactPage());
     bindContactEvents();
+    bindCommonEvents();
+    refreshIcons();
+    return;
+  }
+  if (route === 'trust-safety') {
+    app.innerHTML = renderLegalShell(renderTrustSafetyPage());
     bindCommonEvents();
     refreshIcons();
     return;
