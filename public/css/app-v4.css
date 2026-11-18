@@ -1774,9 +1774,7 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 
 /* NoChat landing refresh — editorial detail + mobile-first layout */
 .landing-page {
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(198,255,62,.075), transparent 42%),
-    var(--bg);
+  background: #0A0A0A;
 }
 .landing-page .hero-section {
   max-width: 980px;
@@ -1820,8 +1818,8 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
   width: min(100%, 620px);
   gap: clamp(18px, 5vw, 56px);
   border-color: rgba(198,255,62,.14);
-  background: linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
-  box-shadow: 0 18px 60px rgba(0,0,0,.22);
+  background: #111111;
+  box-shadow: none;
 }
 .landing-page .stat-number { color: #C6FF3E; font-variant-numeric: tabular-nums; }
 .landing-page #features > div:first-child h2,
@@ -1831,7 +1829,7 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 .landing-page .founder-card {
   border-radius: 18px;
   border-color: rgba(255,255,255,.09);
-  background: linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
+  background: #111111;
 }
 .landing-page .feature-card { padding: clamp(20px, 3vw, 30px); }
 .landing-page .feature-icon,
@@ -1912,17 +1910,14 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
   overflow: hidden;
   border: 1px solid rgba(198,255,62,.18);
   border-radius: 26px;
-  background:
-    radial-gradient(ellipse at 18% 45%, rgba(255,153,51,.11), transparent 40%),
-    radial-gradient(ellipse at 78% 70%, rgba(19,150,75,.10), transparent 42%),
-    linear-gradient(135deg, #111 0%, #080808 72%);
+  background: #0A0A0A;
 }
 .landing-page .india-flag-art { min-width: 0; }
 .landing-page .india-flag-art svg {
   display: block;
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 18px 24px rgba(0,0,0,.35));
+  filter: none;
 }
 .landing-page .india-cta-copy { min-width: 0; text-align: left; }
 .landing-page .india-cta-eyebrow {
