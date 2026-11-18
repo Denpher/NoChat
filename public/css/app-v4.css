@@ -2226,3 +2226,42 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 .landing-footer-wordmark .wordmark-white{color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}
 .landing-footer-wordmark .wordmark-green{color:#138808!important;-webkit-text-fill-color:#138808!important}
 @media(max-width:640px){.landing-footer-wordmark>span{font-size:clamp(52px,19vw,120px)!important}}
+
+
+/* Intentional blue DENPHER footer panel with readable Indian-tricolour lettering */
+.landing-footer-wordmark{
+  display:block!important;width:100%!important;max-width:100%!important;
+  padding:clamp(18px,3vw,34px) 8px!important;
+  box-sizing:border-box!important;overflow:hidden!important;
+  background:#2563EB!important;border:0!important;border-radius:0!important;
+  color:#FFFFFF!important;text-align:center!important;
+}
+.landing-footer-wordmark>span{
+  display:inline-block!important;position:relative!important;
+  max-width:100%!important;white-space:nowrap!important;
+  font-size:clamp(44px,18vw,240px)!important;font-weight:900!important;
+  line-height:.95!important;letter-spacing:-.085em!important;
+  color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;
+  -webkit-text-stroke:0!important;background:none!important;
+  opacity:1!important;transform:none!important;
+}
+.landing-footer-wordmark span::before,
+.landing-footer-wordmark span::after{
+  content:none!important;display:none!important;
+  background:none!important;background-image:none!important;
+}
+.landing-footer-wordmark>span>span{
+  display:inline!important;position:static!important;
+  font:inherit!important;letter-spacing:inherit!important;line-height:inherit!important;
+  opacity:1!important;transform:none!important;text-shadow:none!important;
+  -webkit-text-stroke:0!important;background:none!important;
+  -webkit-text-fill-color:currentColor!important;
+}
+.landing-footer-wordmark .wordmark-saffron{color:#FF9933!important;-webkit-text-fill-color:#FF9933!important}
+.landing-footer-wordmark .wordmark-white{color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}
+.landing-footer-wordmark .wordmark-green{color:#138808!important;-webkit-text-fill-color:#138808!important}
+.landing-footer-wordmark:hover{background:#2563EB!important;filter:brightness(1.04)}
+@media(max-width:640px){
+  .landing-footer-wordmark{padding:16px 5px!important}
+  .landing-footer-wordmark>span{font-size:clamp(42px,17vw,112px)!important}
+}
