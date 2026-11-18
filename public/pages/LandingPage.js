@@ -13,16 +13,16 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
       <main id="main-content" class="landing-main">
       <header class="hero-section">
         <div class="hero-pill">30+ Members and Growing</div>
-        <section class="hero-terminal" aria-label="NoChat status terminal">
-          <div class="hero-terminal-bar"><span></span><span></span><span></span><small>NOCHAT / SYSTEM CONSOLE</small></div>
-          <div class="hero-terminal-screen">
-            <p style="--line-order:0;--target-width:30ch"><b>&gt;</b><span>INITIALIZING TRUST OVERVIEW...</span></p>
-            <p style="--line-order:1;--target-width:33ch"><b>&gt;</b><span>LOADING ACCOUNT SAFEGUARDS...</span></p>
-            <p style="--line-order:2;--target-width:34ch"><b>&gt;</b><span>CHECKING COMMUNITY STANDARDS...</span></p>
-            <p style="--line-order:3;--target-width:22ch"><b>&gt;</b><span>STATUS: INFORMATIONAL</span></p>
-            <p style="--line-order:4;--target-width:34ch"><b>&gt;</b><span>NOCHAT // INDEPENDENT PLATFORM</span></p>
-          </div>
-        </section>
+        <div class="hero-intro-frame">
+          <iframe
+            src="/intro-video.html"
+            title="NoChat introduction"
+            loading="eager"
+            sandbox="allow-scripts"
+            referrerpolicy="no-referrer"
+            allow="autoplay"
+          ></iframe>
+        </div>
         <h1 class="hero-headline">Humans. <span class="accent">Not Algorithms.</span></h1>
         <p class="hero-subtext">
           A calmer corner of the internet, built around people, conversations and a feed that stays in chronological order. No surveillance advertising or black-box ranking deciding what you see.
