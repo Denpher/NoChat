@@ -2221,3 +2221,26 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 @keyframes india-terminal-blink{to{visibility:hidden}}
 @media(max-width:480px){.landing-page .india-terminal{margin:0 auto 14px;font-size:9px;padding:8px 9px}.landing-page .india-cta-copy{text-align:center}}
 @media(prefers-reduced-motion:reduce){.landing-page .india-terminal-text{max-width:none;animation:none}.landing-page .india-terminal-cursor{animation:none;visibility:hidden}}
+
+
+/* Refined India CTA terminal and balanced flag composition */
+.landing-page .india-cta{grid-template-columns:minmax(0,.9fr) minmax(320px,1.1fr);gap:clamp(28px,5vw,68px);padding:clamp(28px,5vw,56px)}
+.landing-page .india-flag-art{width:100%;max-width:440px;margin-inline:auto}
+.landing-page .india-flag-art svg{width:100%;max-height:270px;object-fit:contain}
+.landing-page .india-cta-copy{max-width:470px}
+.landing-page .india-terminal{display:block;width:min(100%,390px);margin:0 0 22px;border:1px solid #263b66;border-radius:11px;background:#080B12;overflow:hidden;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.landing-page .india-terminal-bar{height:32px;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid #202b40;background:#101725}
+.landing-page .india-terminal-bar>span{width:7px;height:7px;border-radius:50%;background:#344055}
+.landing-page .india-terminal-bar>span:first-child{background:#D97757}
+.landing-page .india-terminal-bar>span:nth-child(2){background:#D6A84B}
+.landing-page .india-terminal-bar>span:nth-child(3){background:#4C9A70}
+.landing-page .india-terminal-bar small{margin-left:6px;color:#8B98AD;font-size:9px;letter-spacing:.1em}
+.landing-page .india-terminal-lines{display:grid;gap:7px;padding:12px 13px 14px}
+.landing-page .india-terminal-lines p{display:flex;gap:8px;margin:0;color:#D7DFED;font-size:10px;line-height:1.45;font-family:inherit;letter-spacing:.035em;opacity:0;animation:india-line-in .35s ease forwards}
+.landing-page .india-terminal-lines p b{color:#4F8CFF}
+.landing-page .india-terminal-lines p:nth-child(1){animation-delay:.2s}
+.landing-page .india-terminal-lines p:nth-child(2){animation-delay:.9s}
+.landing-page .india-terminal-lines p:nth-child(3){animation-delay:1.6s}
+@keyframes india-line-in{from{opacity:0;transform:translateY(5px);clip-path:inset(0 100% 0 0)}to{opacity:1;transform:translateY(0);clip-path:inset(0 0 0 0)}}
+@media(max-width:768px){.landing-page .india-cta{grid-template-columns:minmax(0,1fr);gap:18px;padding:22px 18px 26px}.landing-page .india-flag-art{max-width:360px}.landing-page .india-flag-art svg{max-height:220px}.landing-page .india-cta-copy{max-width:100%;text-align:center}.landing-page .india-terminal{margin:0 auto 20px;text-align:left}.landing-page .india-cta-copy .india-cta-eyebrow{margin-bottom:10px}}
+@media(prefers-reduced-motion:reduce){.landing-page .india-terminal-lines p{opacity:1;transform:none;clip-path:none;animation:none}}
