@@ -16,11 +16,11 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
         <section class="hero-terminal" aria-label="NoChat status terminal">
           <div class="hero-terminal-bar"><span></span><span></span><span></span><small>NOCHAT / SYSTEM CONSOLE</small></div>
           <div class="hero-terminal-screen">
-            <p style="--line-order:0;--line-chars:30"><b>&gt;</b><span>INITIALIZING TRUST OVERVIEW...</span></p>
-            <p style="--line-order:1;--line-chars:33"><b>&gt;</b><span>LOADING ACCOUNT SAFEGUARDS...</span></p>
-            <p style="--line-order:2;--line-chars:34"><b>&gt;</b><span>CHECKING COMMUNITY STANDARDS...</span></p>
-            <p style="--line-order:3;--line-chars:22"><b>&gt;</b><span>STATUS: INFORMATIONAL</span></p>
-            <p style="--line-order:4;--line-chars:34"><b>&gt;</b><span>NOCHAT // INDEPENDENT PLATFORM</span></p>
+            <p style="--line-order:0;--target-width:30ch"><b>&gt;</b><span>INITIALIZING TRUST OVERVIEW...</span></p>
+            <p style="--line-order:1;--target-width:33ch"><b>&gt;</b><span>LOADING ACCOUNT SAFEGUARDS...</span></p>
+            <p style="--line-order:2;--target-width:34ch"><b>&gt;</b><span>CHECKING COMMUNITY STANDARDS...</span></p>
+            <p style="--line-order:3;--target-width:22ch"><b>&gt;</b><span>STATUS: INFORMATIONAL</span></p>
+            <p style="--line-order:4;--target-width:34ch"><b>&gt;</b><span>NOCHAT // INDEPENDENT PLATFORM</span></p>
           </div>
         </section>
         <h1 class="hero-headline">Humans. <span class="accent">Not Algorithms.</span></h1>
