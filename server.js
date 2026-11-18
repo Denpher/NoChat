@@ -512,7 +512,40 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many requests. Please slow down." }
 });
-app.use("/api", apiLimiter);
+app.use("/api", apiLimiter);;
+
+// Upload endpoints use in-memory multipart buffers (up to 100 MB), so the general
+// API limit is too generous for them. Add per-IP limits before any upload route
+// parses a request body; this reduces memory/CPU exhaustion risk without changing
+// file formats, account data, or normal chat/API traffic.
+const heavyUploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 6,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many large uploads. Please wait before uploading again." }
+});
+const standardUploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 24,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many uploads. Please wait before uploading again." }
+});
+app.use((req, res, next) => {
+  if (req.method !== "POST") return next();
+  if (/^\\/api\\/(?:reels|videos\\/upload)$/.test(req.path)) {
+    return heavyUploadLimiter(req, res, next);
+  }
+  if (
+    /^\\/api\\/(?:profile\\/avatar|stories|posts)$/.test(req.path) ||
+    /^\\/api\\/(?:groups\\/[^/]+\\/avatar|conversations\\/[^/]+\\/attachments)$/.test(req.path)
+  ) {
+    return standardUploadLimiter(req, res, next);
+  }
+  next();
+});
+
 
 /* =========================================================
    HEALTH CHECK & BRAND POLICIES
