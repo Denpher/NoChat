@@ -12,10 +12,10 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
 
       <main id="main-content" class="landing-main">
       <header class="hero-section">
-        <div class="hero-pill">21 Real Humans Inside</div>
+        <div class="hero-pill">30+ Members and Growing</div>
         <h1 class="hero-headline">Humans. <span class="accent">Not Algorithms.</span></h1>
         <p class="hero-subtext">
-          NoChat is the world's first social network engineered purely for real human connection. No bot farms, no surveillance advertising, and no black-box algorithm deciding who you see.
+          A calmer corner of the internet, built around people, conversations and a feed that stays in chronological order. No surveillance advertising or black-box ranking deciding what you see.
         </p>
 
         <div class="hero-buttons">
@@ -23,13 +23,13 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
             <a href="#/home" class="btn btn-primary" style="height:48px; padding:0 28px; font-size:15px;">Enter NoChat Feed</a>
           ` : `
             <button class="btn btn-primary" data-action="open-auth" style="height:48px; padding:0 28px; font-size:15px;">Join NoChat — It's Free</button>
-            <button class="btn btn-secondary" data-action="open-auth" style="height:48px; padding:0 24px; font-size:15px;">Live Humans Inside: 21</button>
+            <button class="btn btn-secondary" data-action="open-auth" style="height:48px; padding:0 24px; font-size:15px;">30+ Members Already Here</button>
           `}
         </div>
 
         <div class="stats-bar">
           <div class="stat-item">
-            <span class="stat-number">21</span>
+            <span class="stat-number">30+</span>
             <span class="stat-label">Humans</span>
           </div>
           <div class="stat-item">
@@ -100,7 +100,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
           <article class="step-card">
             <div class="step-number">01</div>
             <h3 style="font-size:18px; font-weight:700; margin-bottom:8px;">Claim Your Human Number</h3>
-            <p style="color:var(--muted); font-size:14px; line-height:1.6;">Register with your username. You receive a sequential member number (e.g. Human #21) forever.</p>
+            <p style="color:var(--muted); font-size:14px; line-height:1.6;">Register with your username. You receive a sequential member number (your own member number) forever.</p>
           </article>
 
           <article class="step-card">
