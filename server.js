@@ -489,6 +489,39 @@ app.use((req,res,next)=>{
   } next();
 });
 
+
+/*
+ * Local chat attachments live below the public uploads directory for backwards
+ * compatible URLs. Intercept them BEFORE express.static and authorize each read
+ * against the message's conversation membership.
+ */
+app.get("/uploads/attachments/:filename", authenticate, async (req, res) => {
+  try {
+    const filename = String(req.params.filename || "");
+    if (!filename || filename !== path.basename(filename) || !/^[a-f0-9-]{20,80}\.[a-z0-9]{2,8}$/i.test(filename)) {
+      return res.status(404).end();
+    }
+    const url = "/uploads/attachments/" + filename;
+    const message = db.messages.find(m => !m.deletedAt && m.attachment?.url === url);
+    const conversation = message && db.conversations.find(c => c.id === message.conversationId && c.members.includes(req.user.id));
+    if (!conversation) return res.status(404).end();
+
+    const roots = [...new Set([UPLOADS_ROOT, LEGACY_UPLOADS_ROOT])];
+    for (const root of roots) {
+      const filePath = path.join(root, "attachments", filename);
+      try {
+        await fs.promises.access(filePath, fs.constants.R_OK);
+        res.set("Cache-Control", "private, no-store");
+        res.set("X-Content-Type-Options", "nosniff");
+        return res.sendFile(filePath);
+      } catch { /* try legacy upload storage */ }
+    }
+    return res.status(404).end();
+  } catch {
+    return res.status(404).end();
+  }
+});
+
 app.use(express.static(PUBLIC_DIR, { index: "index.html" }));
 
 // Uploaded files: persistent folder first, then any files that already live in public/uploads.
