@@ -2265,3 +2265,21 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
   .landing-footer-wordmark{padding:16px 5px!important}
   .landing-footer-wordmark>span{font-size:clamp(42px,17vw,112px)!important}
 }
+
+
+/* Subtle animated starfield — restrained, low-contrast and non-interactive */
+.landing-page{position:relative;isolation:isolate;overflow:clip;background:#0A0A0A}
+.landing-page::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background-color:transparent;
+  background-image:
+    radial-gradient(circle,#FFFFFF 0 1px,transparent 1.35px),
+    radial-gradient(circle,#8DB6FF 0 .8px,transparent 1.2px),
+    radial-gradient(circle,#FFFFFF 0 .7px,transparent 1.1px);
+  background-size:137px 151px,191px 173px,263px 227px;
+  background-position:12px 24px,71px 83px,129px 47px;
+  opacity:.22;animation:nochat-star-drift 90s linear infinite;
+}
+.landing-page>*{position:relative;z-index:1}
+@keyframes nochat-star-drift{from{background-position:12px 24px,71px 83px,129px 47px}to{background-position:149px 175px,262px 256px,392px 274px}}
+@media(prefers-reduced-motion:reduce){.landing-page::before{animation:none}}
