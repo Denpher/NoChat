@@ -10,6 +10,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
     <div class="landing-page">
       ${renderNavbar(currentUser)}
 
+      <main id="main-content" class="landing-main">
       <header class="hero-section">
         <div class="hero-pill">21 Real Humans Inside</div>
         <h1 class="hero-headline">Humans. <span class="accent">Not Algorithms.</span></h1>
@@ -96,23 +97,23 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
         </div>
 
         <div class="steps-grid">
-          <div class="step-card">
+          <article class="step-card">
             <div class="step-number">01</div>
             <h3 style="font-size:18px; font-weight:700; margin-bottom:8px;">Claim Your Human Number</h3>
             <p style="color:var(--muted); font-size:14px; line-height:1.6;">Register with your username. You receive a sequential member number (e.g. Human #21) forever.</p>
-          </div>
+          </article>
 
-          <div class="step-card">
+          <article class="step-card">
             <div class="step-number">02</div>
             <h3 style="font-size:18px; font-weight:700; margin-bottom:8px;">Chronological Content</h3>
             <p style="color:var(--muted); font-size:14px; line-height:1.6;">See posts and reels in the exact order they were uploaded. No AI decides who deserves visibility.</p>
-          </div>
+          </article>
 
-          <div class="step-card">
+          <article class="step-card">
             <div class="step-number">03</div>
             <h3 style="font-size:18px; font-weight:700; margin-bottom:8px;">Watch & Connect</h3>
             <p style="color:var(--muted); font-size:14px; line-height:1.6;">Enjoy open-source anime films, discuss them live in chat, and talk directly with creators.</p>
-          </div>
+          </article>
         </div>
       </section>
 
@@ -132,7 +133,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
           </div>
         </div>
       </section>
-
+      </main>
 
       ${renderFooter({ landing: true })}
     </div>
