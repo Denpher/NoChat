@@ -495,10 +495,7 @@ app.use((req,res,next)=>{
  * compatible URLs. Intercept them BEFORE express.static and authorize each read
  * against the message's conversation membership.
  */
-// Profile photos and group avatars remain publicly viewable; only private media is gated.
-app.get("/uploads/profile/:filename", (_req, _res, next) => next());
-
-app.get("/uploads/:folder/:filename", authenticate, async (req, res, next) => {
+app.get("/uploads/:folder(attachments|reels)/:filename", authenticate, async (req, res, next) => {
   try {
     const folder = String(req.params.folder || "");
     if (!["attachments", "reels"].includes(folder)) return next();
