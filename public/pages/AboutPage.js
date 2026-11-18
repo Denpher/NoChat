@@ -17,7 +17,7 @@ export function renderAboutPage() {
 
         <div class="stats-bar" style="margin: 0 auto 48px;">
           <div class="stat-item">
-            <span class="stat-number">21</span>
+            <span class="stat-number">30+</span>
             <span class="stat-label">Real Humans</span>
           </div>
           <div class="stat-item">
@@ -41,7 +41,7 @@ export function renderAboutPage() {
           <section>
             <h2>Why Was NoChat Built?</h2>
             <p>
-              Modern social platforms are optimized for screen addiction, outrage harvesting, and fake engagement bot farms. Real human connections were buried under sponsored reels and manipulative recommendations. NoChat strips all of that away: chronological feeds, direct messaging with 15-minute edits, real-time video calling, verified sequential human member numbers (#1 to #21), and honest trailer watch parties.
+              Modern social platforms are optimized for screen addiction, outrage harvesting, and fake engagement bot farms. Real human connections were buried under sponsored reels and manipulative recommendations. NoChat strips all of that away: chronological feeds, direct messaging with 15-minute edits, real-time video calling, sequential member numbers, and honest trailer watch parties.
             </p>
           </section>
 
