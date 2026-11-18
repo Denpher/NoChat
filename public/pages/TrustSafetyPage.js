@@ -50,16 +50,16 @@ export function renderTrustSafetyPage() {
         .nc-trust-page .trust-terminal-bar>span:nth-child(3){background:#4C9A70}
         .nc-trust-page .trust-terminal-bar small{margin-left:8px;color:#8B98AD;font-size:10px;letter-spacing:.12em}
         .nc-trust-page .trust-terminal-body{padding:18px 20px 20px;display:grid;gap:11px}
-        .nc-trust-page .terminal-line{display:flex;gap:10px;margin:0;color:#D7DFED;font-size:clamp(10px,1.5vw,12px);line-height:1.5;opacity:0;overflow:hidden;white-space:nowrap;animation:trust-line-in .35s ease forwards}
+        .nc-trust-page .terminal-line{display:flex;gap:10px;margin:0;color:#D7DFED;font-size:clamp(10px,1.5vw,12px);line-height:1.5;white-space:nowrap;overflow:hidden}.nc-trust-page .terminal-line span{display:inline-block;width:0;max-width:100%;overflow:hidden;white-space:nowrap;border-right:1px solid #4F8CFF;padding-right:3px;animation:trust-type 1.15s steps(36,end) forwards,trust-caret .7s step-end infinite}.nc-trust-page .terminal-line:nth-child(1) span{animation-delay:.25s,.25s}.nc-trust-page .terminal-line:nth-child(2) span{animation-delay:1.65s,1.65s}.nc-trust-page .terminal-line:nth-child(3) span{animation-delay:3.05s,3.05s}.nc-trust-page .terminal-line:nth-child(4) span{animation-delay:4.45s,4.45s}.nc-trust-page .terminal-line:nth-child(5) span{animation-delay:5.85s,5.85s}
         .nc-trust-page .terminal-line b{color:#4F8CFF;font-weight:800}
         .nc-trust-page .terminal-line:nth-child(1){animation-delay:.2s}
         .nc-trust-page .terminal-line:nth-child(2){animation-delay:1s}
         .nc-trust-page .terminal-line:nth-child(3){animation-delay:1.8s}
         .nc-trust-page .terminal-line:nth-child(4){animation-delay:2.6s}
         .nc-trust-page .terminal-line:nth-child(5){animation-delay:3.4s;color:#8FB5FF}
-        @keyframes trust-line-in{from{opacity:0;transform:translateY(5px);clip-path:inset(0 100% 0 0)}to{opacity:1;transform:translateY(0);clip-path:inset(0 0 0 0)}}
+        @keyframes trust-type{from{width:0}to{width:var(--type-width,36ch)}}@keyframes trust-caret{50%{border-color:transparent}}
         @media(max-width:480px){.nc-trust-page .trust-terminal{margin-bottom:32px}.nc-trust-page .trust-terminal-body{padding:15px 12px;gap:10px}.nc-trust-page .terminal-line{font-size:9px;letter-spacing:-.02em}}
-        @media(prefers-reduced-motion:reduce){.nc-trust-page .terminal-line{opacity:1;transform:none;clip-path:none;animation:none}}
+        @media(prefers-reduced-motion:reduce){.nc-trust-page .terminal-line span{width:auto;max-width:100%;border:0;animation:none}}
         @media(max-width:720px){.nc-trust-page{padding:30px 14px}.nc-trust-page .trust-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.nc-trust-page .trust-data{grid-template-columns:1fr}.nc-trust-page .trust-data section+section{border-top:1px solid #292929;border-left:0}.nc-trust-page .trust-policy{align-items:flex-start;flex-direction:column}.nc-trust-page .trust-points{grid-template-columns:1fr}}
         @media(max-width:420px){.nc-trust-page .trust-grid{grid-template-columns:1fr}.nc-trust-page .trust-card{display:grid;grid-template-columns:34px minmax(0,1fr);gap:0 11px}.nc-trust-page .trust-icon{grid-row:span 2;margin:0}.nc-trust-page .trust-card h3{align-self:end}.nc-trust-page .trust-card p{grid-column:2}}
         @media(prefers-reduced-motion:reduce){.nc-trust-page *{scroll-behavior:auto!important;transition:none!important}}
