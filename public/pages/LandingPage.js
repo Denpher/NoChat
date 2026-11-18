@@ -138,14 +138,11 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
         <div class="india-flag-art" aria-hidden="true">
           <svg viewBox="0 0 480 300" role="img" focusable="false">
             <defs>
-              <linearGradient id="flag-saffron" x2="0" y2="1"><stop stop-color="#ffb14d"/><stop offset="1" stop-color="#e87516"/></linearGradient>
-              <linearGradient id="flag-white" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#dfe5ed"/></linearGradient>
-              <linearGradient id="flag-green" x2="0" y2="1"><stop stop-color="#21a85a"/><stop offset="1" stop-color="#087b3c"/></linearGradient>
-              <filter id="flag-shadow"><feGaussianBlur stdDeviation="7"/></filter>
+              
             </defs>
-            <path d="M14 35 Q120 12 232 42 T466 34 L466 104 Q350 122 232 105 T14 112Z" fill="url(#flag-saffron)"/>
-            <path d="M14 112 Q120 90 232 105 T466 104 L466 190 Q350 205 232 190 T14 190Z" fill="url(#flag-white)"/>
-            <path d="M14 190 Q120 175 232 190 T466 190 L466 266 Q350 286 232 262 T14 266Z" fill="url(#flag-green)"/>
+            <path d="M14 35 Q120 12 232 42 T466 34 L466 104 Q350 122 232 105 T14 112Z" fill="#FF9933"/>
+            <path d="M14 112 Q120 90 232 105 T466 104 L466 190 Q350 205 232 190 T14 190Z" fill="#FFFFFF"/>
+            <path d="M14 190 Q120 175 232 190 T466 190 L466 266 Q350 286 232 262 T14 266Z" fill="#138808"/>
             <circle cx="240" cy="151" r="35" fill="none" stroke="#183b7a" stroke-width="4"/>
             <circle cx="240" cy="151" r="5" fill="#183b7a"/>
             <g stroke="#183b7a" stroke-width="2">
@@ -158,7 +155,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
         <div class="india-cta-copy">
           <span class="india-cta-eyebrow">A homegrown social space</span>
           <h2 id="india-cta-title">NoChat</h2>
-          <p>Proudly Made in India <span aria-label="India flag" role="img">🇮🇳</span></p>
+          <p>Proudly Made in <span class="india-accent">India</span> <span aria-label="India flag" role="img">🇮🇳</span></p>
           <button class="btn btn-primary india-cta-button" data-action="open-auth">
             <span>Start Watching — Free</span>
             <i data-lucide="arrow-up-right" aria-hidden="true"></i>
