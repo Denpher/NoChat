@@ -2308,3 +2308,39 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 @keyframes hero-terminal-caret{0%,100%{border-color:#4F8CFF}50%{border-color:transparent}}
 @media(max-width:600px){.landing-page .hero-terminal-screen p span{max-width:calc(100vw - 100px);font-size:9px}}
 @media(prefers-reduced-motion:reduce){.landing-page .hero-terminal-screen p span{width:auto;max-width:100%;border:0;animation:none}}
+
+
+/* Final hero terminal loop: five staggered typewriter lines, forever */
+.landing-page .hero-terminal-screen p span{
+  display:inline-block!important;
+  flex:0 1 auto!important;
+  width:0;
+  max-width:calc(100% - 20px)!important;
+  overflow:hidden!important;
+  white-space:nowrap!important;
+  border-right:2px solid #4F8CFF!important;
+  padding-right:3px!important;
+  animation:
+    hero-terminal-type-loop 15s steps(34,end) infinite,
+    hero-terminal-caret-loop .7s step-end infinite!important;
+  animation-delay:calc(var(--line-order,0)*3s),calc(var(--line-order,0)*3s)!important;
+}
+@keyframes hero-terminal-type-loop{
+  0%{width:0}
+  12%{width:var(--target-width,30ch)}
+  94%{width:var(--target-width,30ch)}
+  100%{width:0}
+}
+@keyframes hero-terminal-caret-loop{
+  0%,100%{border-right-color:#4F8CFF}
+  50%{border-right-color:transparent}
+}
+@media(max-width:600px){
+  .landing-page .hero-terminal-screen p span{max-width:calc(100vw - 100px)!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .landing-page .hero-terminal-screen p span{
+    width:auto!important;max-width:100%!important;border:0!important;
+    animation:none!important
+  }
+}
