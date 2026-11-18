@@ -54,7 +54,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
           <article class="feature-card">
             <div class="feature-icon"><i data-lucide="users"></i></div>
             <h3>Real Humans Only</h3>
-            <p>Every profile is an authentic verified person. Zero automated bots, zero ghost accounts, and zero fake engagement farms.</p>
+            <p>Profiles are created by people. Server-side rate limits and anti-spam checks help reduce automated abuse.</p>
           </article>
 
           <article class="feature-card">
@@ -66,7 +66,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
           <article class="feature-card">
             <div class="feature-icon"><i data-lucide="message-circle"></i></div>
             <h3>Private & Group Chat</h3>
-            <p>Direct messaging with 15-minute message edits, instant message reactions, replies, and end-to-end privacy with zero ad profiling.</p>
+            <p>Direct messaging with message edits, reactions, replies, and privacy-focused account controls.</p>
           </article>
 
           <article class="feature-card">
