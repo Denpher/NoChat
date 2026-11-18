@@ -16,10 +16,6 @@ const socialLinks = `
     </a>
   </nav>`;
 
-<style>
-.footer-india-link{display:inline-flex;align-items:center;justify-content:center;min-width:30px;min-height:30px;border-radius:8px;font-size:18px;line-height:1;text-decoration:none;transition:transform .18s ease,background .18s ease}
-.footer-india-link:hover,.footer-india-link:focus-visible{background:rgba(198,255,62,.09);transform:translateY(-1px);outline:2px solid rgba(198,255,62,.55);outline-offset:2px}
-</style>
 export function renderFooter({ landing = false } = {}) {
   if (landing) return `
     <footer class="global-footer landing-footer">
