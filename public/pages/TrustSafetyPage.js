@@ -8,38 +8,38 @@ export function renderTrustSafetyPage() {
   return `
     <div class="nc-trust-page">
       <style>
-        .nc-trust-page{--trust-lime:#C6FF3E;min-height:100%;padding:clamp(28px,5vw,64px) 18px;color:#f5f5f5;background:#0A0A0A}
+        .nc-trust-page{--trust-blue:#2563EB;min-height:100%;padding:clamp(28px,5vw,64px) 18px;color:#FFFFFF;background:#0A0A0A}
         .nc-trust-page *{box-sizing:border-box}
         .nc-trust-page .trust-wrap{width:min(1040px,100%);margin:0 auto}
         .nc-trust-page .trust-hero{max-width:720px;margin:0 auto 34px;text-align:center}
-        .nc-trust-page .trust-eyebrow{display:inline-flex;padding:7px 11px;border:1px solid rgba(198,255,62,.35);border-radius:999px;color:var(--trust-lime);background:rgba(198,255,62,.06);font-size:10px;font-weight:800;letter-spacing:.14em}
+        .nc-trust-page .trust-eyebrow{display:inline-flex;padding:7px 11px;border:1px solid rgba(37,99,235,.55);border-radius:999px;color:var(--trust-blue);background:rgba(37,99,235,.10);font-size:10px;font-weight:800;letter-spacing:.14em}
         .nc-trust-page h1{margin:16px 0 12px;font-size:clamp(30px,5vw,48px);line-height:1.08;letter-spacing:-.04em}
         .nc-trust-page h2{margin:0 0 9px;font-size:clamp(21px,3vw,28px);letter-spacing:-.025em}
         .nc-trust-page .trust-intro,.nc-trust-page .trust-section-intro{color:#a4a4a4;font-size:14px;line-height:1.75}
         .nc-trust-page .trust-section{margin:0 0 46px}
         .nc-trust-page .trust-section-head{margin-bottom:19px}
         .nc-trust-page .trust-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-        .nc-trust-page .trust-card{min-width:0;padding:20px;border:1px solid #292929;border-radius:14px;background:linear-gradient(145deg,#151515,#101010)}
-        .nc-trust-page .trust-icon{display:grid;place-items:center;width:36px;height:36px;margin-bottom:13px;border:1px solid rgba(198,255,62,.2);border-radius:10px;color:var(--trust-lime);background:rgba(198,255,62,.07)}
+        .nc-trust-page .trust-card{min-width:0;padding:20px;border:1px solid #222222;border-radius:14px;background:#111111}
+        .nc-trust-page .trust-icon{display:grid;place-items:center;width:36px;height:36px;margin-bottom:13px;border:1px solid rgba(37,99,235,.45);border-radius:10px;color:var(--trust-blue);background:rgba(37,99,235,.10)}
         .nc-trust-page .trust-icon svg{width:18px;height:18px}
         .nc-trust-page .trust-card h3{margin:0 0 7px;font-size:14px;font-weight:750}
         .nc-trust-page .trust-card p{margin:0;color:#a5a5a5;font-size:12px;line-height:1.7}
-        .nc-trust-page .trust-card a{color:var(--trust-lime)}
+        .nc-trust-page .trust-card a{color:var(--trust-blue)}
         .nc-trust-page .trust-data{display:grid;grid-template-columns:1fr 1fr;margin-top:13px;border:1px solid #292929;border-radius:14px;overflow:hidden;background:#111}
         .nc-trust-page .trust-data section{padding:20px}
         .nc-trust-page .trust-data section+section{border-left:1px solid #292929}
-        .nc-trust-page .trust-data h3{margin:0 0 12px;color:var(--trust-lime);font-size:10px;letter-spacing:.13em}
+        .nc-trust-page .trust-data h3{margin:0 0 12px;color:var(--trust-blue);font-size:10px;letter-spacing:.13em}
         .nc-trust-page .trust-tags{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
         .nc-trust-page .trust-tags li{padding:7px 10px;border:1px solid #303030;border-radius:999px;color:#ddd;background:#181818;font-size:11px}
         .nc-trust-page .trust-policy{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-top:14px;padding:18px 20px;border:1px solid #292929;border-radius:14px;background:#111}
         .nc-trust-page .trust-policy nav{display:flex;flex-wrap:wrap;gap:8px}
         .nc-trust-page .trust-policy a{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 12px;border:1px solid #383838;border-radius:9px;color:#eee;font-size:12px;font-weight:700;text-decoration:none}
-        .nc-trust-page a:hover,.nc-trust-page a:focus-visible{border-color:var(--trust-lime);color:var(--trust-lime);outline-offset:3px}
+        .nc-trust-page a:hover,.nc-trust-page a:focus-visible{border-color:var(--trust-blue);color:var(--trust-blue);outline-offset:3px}
         .nc-trust-page .trust-note{margin-top:14px;color:#858585;font-size:11px;line-height:1.7}
-        .nc-trust-page .trust-india{padding:clamp(22px,4vw,34px);border:1px solid rgba(198,255,62,.45);border-radius:18px;background:radial-gradient(ellipse at 50% 0%,rgba(198,255,62,.07),transparent 58%),#0e0e0e;text-align:center}
+        .nc-trust-page .trust-india{padding:clamp(22px,4vw,34px);border:1px solid rgba(37,99,235,.55);border-radius:18px;background:radial-gradient(ellipse at 50% 0%,rgba(37,99,235,.10),transparent 58%),#0e0e0e;text-align:center}
         .nc-trust-page .trust-flag{display:block;margin-bottom:10px;font-size:36px}
         .nc-trust-page .trust-points{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:20px;text-align:left}
-        .nc-trust-page .trust-point{padding:14px;border:1px solid #292929;border-radius:12px;background:rgba(255,255,255,.025)}
+        .nc-trust-page .trust-point{padding:14px;border:1px solid #292929;border-radius:12px;background:#111111}
         .nc-trust-page .trust-point strong{display:block;margin-bottom:5px;font-size:12px}
         .nc-trust-page .trust-point span{color:#aaa;font-size:11px;line-height:1.6}
         @media(max-width:720px){.nc-trust-page{padding:30px 14px}.nc-trust-page .trust-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.nc-trust-page .trust-data{grid-template-columns:1fr}.nc-trust-page .trust-data section+section{border-top:1px solid #292929;border-left:0}.nc-trust-page .trust-policy{align-items:flex-start;flex-direction:column}.nc-trust-page .trust-points{grid-template-columns:1fr}}
