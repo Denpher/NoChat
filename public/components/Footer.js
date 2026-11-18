@@ -20,7 +20,7 @@ export function renderFooter({ landing = false } = {}) {
   if (landing) return `
     <footer class="global-footer landing-footer">
       <a class="landing-footer-wordmark" href="https://denpher-portfolio-6xe8.vercel.app/" target="_blank" rel="noopener noreferrer" aria-label="Denpher Technologies">
-        <span data-wordmark="DENPHER">DENPHER</span>
+        <span data-wordmark="DENPHER"><span class="wordmark-saffron">DEN</span><span class="wordmark-white">PH</span><span class="wordmark-green">ER</span></span>
       </a>
       <div class="landing-footer-lower">
         ${socialLinks}
