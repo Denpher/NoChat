@@ -1765,3 +1765,8 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 .v4-incoming-call section,.v4-call-stage section {width:min(100%,620px);padding:22px;background:#121212;color:#fff;border:1px solid #262626;border-radius:20px;display:grid;gap:16px;text-align:center;}
 .v4-incoming-call section button,.v4-call-stage footer button {min-height:44px;padding:8px 16px;border-radius:12px;background:#262626;color:#fff;}.v4-incoming-call section button:first-of-type {background:#0095F6;}.v4-call-stage header {display:flex;justify-content:space-between;font-size:18px;font-weight:700;}
 .v4-call-stage [data-call-remote] {width:100%;max-height:60vh;min-height:180px;object-fit:contain;background:#050505;border-radius:14px;}.v4-call-stage [data-call-local] {position:absolute;right:28px;bottom:104px;width:120px;height:160px;object-fit:cover;border:2px solid #fff;border-radius:12px;}.v4-call-stage .v4-audio-call {position:absolute;width:1px!important;height:1px!important;opacity:.01;pointer-events:none;}.v4-call-stage footer {display:flex;justify-content:center;gap:10px;}.v4-call-stage footer .v4-call-end {background:#e33446;}
+
+/* Footer trust & safety shortcut */
+.footer-india-link{display:inline-flex;align-items:center;justify-content:center;min-width:30px;min-height:30px;border-radius:8px;font-size:18px;line-height:1;text-decoration:none;transition:transform .18s ease,background .18s ease}
+.footer-india-link:hover,.footer-india-link:focus-visible{background:rgba(198,255,62,.09);transform:translateY(-1px);outline:2px solid rgba(198,255,62,.55);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.footer-india-link{transition:none}}
