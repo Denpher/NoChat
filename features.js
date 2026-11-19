@@ -7,7 +7,7 @@ export function mountFeatures({app,io,db,authenticate,saveDB,isAdmin,persistFile
   const convoFor=(id,userId)=>db.conversations.find(c=>c.id===id&&c.members.includes(userId));
   app.get('/api/media/*',authenticate,route(async(req,res)=>{
     const key=req.params[0];const url='/api/media/'+key;
-    const reel=db.reels.find(r=>r.videoUrl===url); const avatar=db.users.some(u=>u.profilePicture===url);
+    const reel=db.reels.find(r=>!r.isDeleted&&(r.videoUrl===url||r.imageUrl===url)); const avatar=db.users.some(u=>u.profilePicture===url);
     const story=db.reelUploads.find(r=>r?.kind==='nochat-story'&&r.mediaUrl===url);
     const storyVisible=canViewStory(story,req.user.id,db.reelUploads);
     const message=db.messages.find(m=>!m.deletedAt && m.attachment?.url===url);
