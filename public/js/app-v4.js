@@ -352,14 +352,14 @@ function startLandingMemberCount(root) {
     const target = 40;
     const suffix = counter.dataset.suffix || '';
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      counter.textContent = String(target);
+      counter.textContent = `${target}${suffix}`;
       return;
     }
     let value = 0;
-    counter.textContent = '0';
+    counter.textContent = `0${suffix}`;
     counter.__memberCountTimer = setInterval(() => {
       value = Math.min(target, value + 1);
-      counter.textContent = String(value);
+      counter.textContent = `${value}${suffix}`;
       if (value >= target) {
         clearInterval(counter.__memberCountTimer);
         counter.__memberCountTimer = null;
