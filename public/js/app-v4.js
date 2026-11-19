@@ -344,6 +344,30 @@ async function handleConversationUpdate(payload={}) {
   updateChatPreview(convo);
 }
 
+/* ---------- Landing member count animation ---------- */
+function startLandingMemberCount(root) {
+  const counters = root.querySelectorAll('[data-member-counter]');
+  counters.forEach(counter => {
+    if (counter.__memberCountTimer) clearInterval(counter.__memberCountTimer);
+    const target = 40;
+    const suffix = counter.dataset.suffix || '';
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      counter.textContent = String(target);
+      return;
+    }
+    let value = 0;
+    counter.textContent = '0';
+    counter.__memberCountTimer = setInterval(() => {
+      value = Math.min(target, value + 1);
+      counter.textContent = String(value);
+      if (value >= target) {
+        clearInterval(counter.__memberCountTimer);
+        counter.__memberCountTimer = null;
+      }
+    }, 32);
+  });
+}
+
 /* ---------- Landing welcome terminal ---------- */
 function startLandingTerminalAnimation(root) {
   const output = root.querySelector('[data-landing-terminal]');
@@ -387,6 +411,7 @@ async function renderApp() {
     loadVideosCatalog();
     app.innerHTML = renderLandingPage(state.user, state.videos);
     startLandingTerminalAnimation(app);
+    startLandingMemberCount(app);
     decorateLandingVersion();
     bindLandingEvents();
     refreshIcons();
