@@ -97,8 +97,8 @@ export function renderProfilePage({
             <p style="font-size:13px;">When media is posted, it will appear here.</p>
           </div>
         ` : currentItems.map(item => `
-          <div class="grid-item" data-item-id="${escapeHtml(item.id)}" data-type="${item.videoUrl ? 'reel' : 'post'}" ${item.videoUrl ? `role="button" tabindex="0" aria-label="Open reel by @${username}" title="@${username} · User ID: ${escapeHtml(item.userId || user.id || '')}"` : ''}>
-            ${item.videoUrl ? `
+          <div class="grid-item" data-item-id="${escapeHtml(item.id)}" data-type="${item.isPost !== true && item.videoUrl ? 'reel' : 'post'}" ${item.isPost !== true && item.videoUrl ? `role="button" tabindex="0" aria-label="Open reel by @${username}" title="@${username} · User ID: ${escapeHtml(item.userId || user.id || '')}"` : ''}>
+            ${item.isPost !== true && item.videoUrl ? `
               <span class="profile-grid-username" title="User ID: ${escapeHtml(item.userId || user.id || '')}">@${username}</span>` : ''}
             ${item.videoUrl ? `
               <video src="${item.videoUrl}#t=0.1" preload="metadata" muted playsinline></video>
@@ -106,7 +106,7 @@ export function renderProfilePage({
                 <i data-lucide="clapperboard" style="width:18px;height:18px;"></i>
               </div>
             ` : `
-              <img src="${item.imageUrl || item.thumbnailUrl || '/icons/icon-512.png'}" alt="Media thumbnail" loading="lazy" />
+              <img src="${item.imageUrl || item.thumbnailUrl || item.mediaUrl || '/icons/icon-512.png'}" alt="Media thumbnail" loading="lazy" />
             `}
           </div>
         `).join('')}
