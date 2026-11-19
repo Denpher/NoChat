@@ -3129,3 +3129,9 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
     opacity:1 !important; visibility:visible !important; pointer-events:auto !important;
   }
 }
+
+
+/* Instagram-inspired blue verified badge */
+:root {
+  --verified-mint: #3897F0;
+}
