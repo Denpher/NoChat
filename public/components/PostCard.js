@@ -30,7 +30,7 @@ export function renderPostCard(post, currentUser = null) {
         ${isVideo ? `
           <video src="${mediaUrl}" loop playsinline muted preload="metadata" class="post-video"></video>
         ` : `
-          <img src="${mediaUrl || '/icons/icon-512.png'}" alt="Post media" loading="lazy" />
+          <img class="post-media-image" data-post-media src="${mediaUrl || '/icons/icon-512.png'}" alt="Post media" loading="lazy" />
         `}
         <div class="heart-burst"><i data-lucide="heart" style="width:72px;height:72px;fill:var(--like-red);"></i></div>
       </div>
