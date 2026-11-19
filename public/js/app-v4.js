@@ -477,13 +477,13 @@ async function renderApp() {
       await loadReelsData();
       // Keep a reel selected from a profile available even when it is outside the main feed page.
       if (state.routeParam && Array.isArray(state.profileReels)) {
-        const selectedProfileReel = state.profileReels.find(r => String(r.id) === String(state.routeParam) && r.videoUrl);
+        const selectedProfileReel = state.profileReels.find(r => String(r.id) === String(state.routeParam) && r.videoUrl && r.isPost !== true);
         if (selectedProfileReel && !state.reels.some(r => String(r.id) === String(state.routeParam))) {
           state.reels = [selectedProfileReel, ...state.reels];
         }
       }
       container.innerHTML = renderReelsPage({
-        reels: state.reels.filter(r=>r.videoUrl),
+        reels: state.reels.filter(r=>r.videoUrl && r.isPost !== true),
         currentUser: state.user,
         followingIds: new Set()
       });
