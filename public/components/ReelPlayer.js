@@ -10,6 +10,8 @@ export function renderReelItem(reel, currentUser = null, isFollowing = false) {
   const avatar = reel.user?.profilePicture || `https://api.dicebear.com/7.x/identicon/svg?seed=${reel.user?.username || 'user'}`;
   const username = escapeHtml(reel.user?.username || 'creator');
   const isVerified = Boolean(reel.user?.isVerified || reel.user?.verifiedBadge);
+  const creatorId = escapeHtml(reel.userId || reel.user?.id || '');
+  const creatorBio = escapeHtml(reel.user?.bio || 'No bio yet');
   const isOwnPending = String(reel.userId) === String(currentUser?.id) && reel.moderationStatus === 'pending';
   const audioTitle = escapeHtml(reel.audioTitle || 'Original Audio · Denpher Beats');
 
@@ -48,7 +50,7 @@ export function renderReelItem(reel, currentUser = null, isFollowing = false) {
       <div class="reel-bottom-info">
         <div class="reel-user-row">
           <img src="${avatar}" alt="${username}" class="reel-avatar" />
-          <span class="reel-username user-id-hint" data-user-id="${escapeHtml(reel.userId || '')}" title="User ID: ${escapeHtml(reel.userId || '')}">@${username}</span>
+          <span class="reel-username user-id-hint" data-user-id="${creatorId}">@${username}</span><div class="ig-user-preview ig-reel-preview" role="tooltip"><div class="ig-preview-head"><img src="${avatar}" alt=""/><div><strong>@${username}</strong>${isVerified ? '<span class="ig-preview-verified">✓ Verified</span>' : ''}<small>ID: ${creatorId}</small></div></div><div class="ig-preview-stats"><span><b>${Number(reel.user?.postsCount || 0)}</b> posts</span><span><b>${Number(reel.user?.followersCount || 0)}</b> followers</span><span><b>${Number(reel.user?.followingCount || 0)}</b> following</span></div><p>${creatorBio}</p><a class="ig-preview-profile-link" href="#/profile/${creatorId}">View profile</a></div>
           ${isVerified ? `<i data-lucide="badge-check" style="width:16px;height:16px;color:var(--verified-mint);"></i>` : ''}
           ${currentUser && currentUser.id !== reel.userId ? `
             <button class="btn-follow-pill ${isFollowing ? 'following' : ''}" data-action="toggle-follow" data-user-id="${reel.userId}">
