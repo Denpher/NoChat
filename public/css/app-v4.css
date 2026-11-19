@@ -2935,3 +2935,53 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
   .post-media-container:hover img, .post-media-container:hover video,
   .post-action-btn:hover { transform: none !important; }
 }
+
+
+/* Home feed: give photo and reel cards a larger, more immersive canvas */
+.feed-container {
+  grid-template-columns: minmax(0, 640px) minmax(270px, 320px);
+}
+.feed-container > .posts-stream {
+  width: 100%;
+  max-width: 640px;
+}
+.feed-container .post-card {
+  width: 100%;
+  max-width: 640px;
+}
+.feed-container .post-media-container {
+  width: 100%;
+  min-height: 280px;
+}
+.feed-container .post-media-container img,
+.feed-container .post-media-container video {
+  width: 100%;
+  max-height: min(82vh, 820px);
+}
+@media (max-width: 1050px) {
+  .feed-container {
+    grid-template-columns: minmax(0, 640px);
+    justify-content: center;
+  }
+}
+@media (max-width: 760px) {
+  .feed-container {
+    display: block !important;
+    width: 100%;
+    max-width: 100%;
+    margin: 8px auto 32px;
+    padding: 8px 0 calc(76px + env(safe-area-inset-bottom));
+  }
+  .feed-container > .posts-stream,
+  .feed-container .post-card {
+    width: 100%;
+    max-width: none;
+  }
+  .feed-container .post-media-container {
+    min-height: 240px;
+  }
+  .feed-container .post-media-container img,
+  .feed-container .post-media-container video {
+    max-height: 80dvh;
+  }
+}
