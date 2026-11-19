@@ -131,10 +131,10 @@ input:focus, textarea:focus, select:focus {
   transition: background-color var(--transition-fast), transform var(--transition-fast);
 }
 .btn-icon:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: transparent;
 }
 .btn-icon:active {
-  transform: scale(0.92);
+  transform: none;
 }
 
 .badge {
@@ -2522,7 +2522,7 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 }
 .topbar { background:rgba(10,10,10,.82); border-bottom-color:rgba(148,163,184,.14); }
 .shell[data-theme="light"] .topbar { background:rgba(255,255,255,.88); border-bottom-color:rgba(30,41,59,.12); }
-.btn,.btn-icon,.nav-item,.tabbar .tab,.chat-row,.feature-card {
+.btn,.nav-item,.tabbar .tab,.chat-row,.feature-card {
   transition:background-color .18s ease,border-color .18s ease,color .18s ease,transform .18s ease,box-shadow .18s ease;
 }
 .btn-primary {
@@ -2548,4 +2548,123 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 :where(button,a,input,textarea,select,[tabindex]):focus-visible { outline:2px solid #60A5FA; outline-offset:3px; }
 @media(prefers-reduced-motion:reduce) {
   .btn,.btn-icon,.nav-item,.tabbar .tab,.chat-row,.feature-card { transition:none!important; }
+}
+
+
+/* Profile reel navigation, creator ID hints and compact mobile profile layout */
+.profile-grid-username {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  max-width: calc(100% - 20px);
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(10, 10, 10, .72);
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .16s ease;
+  pointer-events: none;
+}
+.grid-item:hover .profile-grid-username,
+.grid-item:focus-visible .profile-grid-username { opacity: 1; }
+.grid-item:focus-visible { outline: 2px solid #2563EB; outline-offset: 2px; }
+.reel-username { cursor: default; }
+
+@media (max-width: 760px) {
+  .profile-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 14px auto 32px;
+    padding: 0 12px calc(76px + env(safe-area-inset-bottom));
+  }
+  .profile-header {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    align-items: start;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .profile-avatar-wrap {
+    width: 88px;
+    height: 88px;
+  }
+  .profile-details { min-width: 0; gap: 12px; }
+  .profile-top-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .profile-username { font-size: 17px; overflow-wrap: anywhere; }
+  .profile-top-row .btn {
+    min-height: 34px !important;
+    height: 34px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+  .member-pill { padding: 3px 8px; font-size: 11px; }
+  .profile-stats-row {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 4px;
+  }
+  .profile-stat { font-size: 12px; white-space: nowrap; }
+  .profile-bio { font-size: 13px; overflow-wrap: anywhere; }
+  .profile-tabs {
+    position: sticky;
+    top: var(--navbar-height);
+    z-index: 8;
+    gap: clamp(20px, 8vw, 48px);
+    justify-content: center;
+    background: var(--bg);
+  }
+  .profile-tab {
+    min-width: 0 !important;
+    min-height: 48px !important;
+    height: 48px;
+    padding: 0 4px;
+    gap: 5px;
+    font-size: 11px;
+  }
+  .profile-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+    margin-top: 8px;
+  }
+  .grid-item { min-width: 0; }
+  .profile-grid-username {
+    left: 5px;
+    bottom: 5px;
+    max-width: calc(100% - 10px);
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+  .grid-item:hover img, .grid-item:hover video { transform: none; }
+  .grid-item .profile-grid-username { opacity: 1; }
+  .shell .btn-icon:hover { background: transparent; }
+  .shell .btn-icon:active { transform: none !important; }
+}
+@media (max-width: 380px) {
+  .profile-header { grid-template-columns: 72px minmax(0, 1fr); gap: 10px; }
+  .profile-avatar-wrap { width: 72px; height: 72px; }
+  .profile-top-row { gap: 6px; }
+  .profile-username { font-size: 15px; }
+  .profile-stat { font-size: 11px; }
+  .profile-tab span { font-size: 10px; }
+}
+
+/* Keep icon buttons visually quiet: no hover glow, scale or lift. */
+.shell .btn-icon,
+.shell .btn-icon:hover,
+.shell .btn-icon:active {
+  box-shadow: none !important;
+  transform: none !important;
 }
