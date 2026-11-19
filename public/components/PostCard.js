@@ -9,6 +9,7 @@ export function renderPostCard(post, currentUser = null) {
   const isLiked = Boolean(post.isLiked || (post.likes && post.likes.includes(currentUser?.id)));
   const avatar = post.user?.profilePicture || `https://api.dicebear.com/7.x/identicon/svg?seed=${post.user?.username || 'user'}`;
   const username = escapeHtml(post.user?.username || 'user');
+  const userId = escapeHtml(post.user?.id || post.userId || '');
   const isVerified = Boolean(post.user?.isVerified || post.user?.verifiedBadge);
   const mediaUrl = post.videoUrl || post.imageUrl || post.mediaUrl || '';
   const isVideo = Boolean(post.videoUrl || mediaUrl.endsWith('.mp4') || mediaUrl.includes('/reels/'));
@@ -19,7 +20,7 @@ export function renderPostCard(post, currentUser = null) {
         <div class="post-user">
           <img src="${avatar}" alt="${username}" class="post-avatar" />
           <div class="post-username">
-            <a href="#/profile/${post.user?.id || ''}">${username}</a>
+            <a class="user-id-hint" data-user-id="${userId}" href="#/profile/${post.user?.id || ''}">${username}</a>
             ${isVerified ? `<i data-lucide="badge-check" style="width:16px;height:16px;color:var(--verified-mint);"></i>` : ''}
           </div>
         </div>
