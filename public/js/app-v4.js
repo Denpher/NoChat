@@ -617,16 +617,42 @@ function closeV4StoryViewer(){const old=document.querySelector('.v4-story-viewer
 function showV4StoryAt(index) { const story=state.activeStoryList[index];if(!story){closeV4StoryViewer();return;}state.activeStoryIndex=index;closeV4StoryViewer();const view=document.createElement('div');view.className='v4-story-viewer';view.innerHTML='<div class="v4-story-progress"><i></i></div><button class="v4-story-sound" data-action="v4-story-sound">Sound Off</button><button class="v4-story-close" data-action="close-story" aria-label="Close">×</button><div class="v4-story-tap-left" data-action="story-prev"></div><div class="v4-story-tap-right" data-action="story-next"></div><div class="v4-story-content">'+(String(story.mediaType||'').startsWith('video/')?'<video autoplay muted controls playsinline src="'+escapeHtml(story.mediaUrl)+'"></video>':'<img src="'+escapeHtml(story.mediaUrl)+'" alt="Story">')+(story.caption?'<p>'+escapeHtml(story.caption)+'</p>':'')+'</div><form class="v4-story-reply"><input name="reply" placeholder="Reply to story…"><button type="submit">Send</button></form>';document.body.append(view);view.querySelector('.v4-story-progress i').style.animationDuration='5s';view.dataset.timer=setTimeout(()=>showV4StoryAt(index+1),5000); }
 function handleStorySubmit(event) { if(!event.target.matches('.v4-story-reply'))return;event.preventDefault();const text=event.target.reply.value.trim();if(!text)return;const story=state.activeStoryList[state.activeStoryIndex];const convo=state.conversations.find(c=>String(c.otherUser?.id)===String(story?.userId));if(convo)api.post('/api/conversations/'+encodeURIComponent(convo.id)+'/messages',{text:'Story reply: '+text}).then(()=>toast('Reply sent')).catch(e=>toast('Reply failed: '+e.message));else toast('Open a chat with this creator to reply');event.target.reset(); }
 async function normalizeStoryImage(file) {
-  if(file.type==='image/gif') return file;
-  if(file.type.startsWith('video/')||/\.(?:mp4|mov|webm)$/i.test(file.name)) return file;
-  let image,objectUrl='';
-  try { if(typeof createImageBitmap==='function')image=await createImageBitmap(file); else {objectUrl=URL.createObjectURL(file);image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=objectUrl;});} } catch {if(objectUrl)URL.revokeObjectURL(objectUrl);throw new Error('This photo format is not supported by your browser. Save it as JPG or PNG and retry.');}
-  const scale=Math.min(1,2048/Math.max(image.width,image.height));
-  const canvas=document.createElement('canvas'); canvas.width=Math.max(1,Math.round(image.width*scale)); canvas.height=Math.max(1,Math.round(image.height*scale));
-  const ctx=canvas.getContext('2d'); if(!ctx){image.close?.();if(objectUrl)URL.revokeObjectURL(objectUrl);throw new Error('Could not prepare this photo.');}
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);image.close?.();if(objectUrl)URL.revokeObjectURL(objectUrl);
-  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.9)); if(!blob)throw new Error('Could not convert this photo.');
-  return new File([blob],`${file.name.replace(/\.[^.]+$/,'')||'story'}.jpg`,{type:'image/jpeg',lastModified:Date.now()});
+  if (file.type === 'image/gif' || file.type.startsWith('video/') || /\.(?:mp4|mov|webm)$/i.test(file.name)) return file;
+  if (!file.type.startsWith('image/')) throw new Error('Choose a supported photo or video.');
+  let image, objectUrl = '';
+  try {
+    if (typeof createImageBitmap === 'function') {
+      try { image = await createImageBitmap(file); } catch { /* Try browser image decoding below. */ }
+    }
+    if (!image) {
+      objectUrl = URL.createObjectURL(file);
+      image = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('This photo format cannot be opened by this browser. Please save it as JPG or PNG and retry.'));
+        img.src = objectUrl;
+      });
+    }
+    const scale = Math.min(1, 2048 / Math.max(image.width, image.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not prepare this photo.');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    image.close?.();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .9));
+    if (!blob) throw new Error('Could not convert this photo. Please use JPG or PNG.');
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'photo';
+    return new File([blob], baseName + '.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+  } catch (error) {
+    image?.close?.();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    throw error;
+  }
 }
 async function publishV4Story() { const modal=document.querySelector('.v4-story-modal');let file=modal?.querySelector('[data-story-file]')?.files?.[0]||modal?.querySelector('[data-story-video]')?.files?.[0];if(!file){toast('Choose a photo or video first');return;}const submit=modal.querySelector('[data-action="publish-story"]');if(submit)submit.disabled=true;try{file=await normalizeStoryImage(file);const form=new FormData();form.append('media',file,file.name);form.append('caption',modal.querySelector('[data-story-caption]')?.value.trim()||'');form.append('closeFriendsOnly',String(!!modal.querySelector('[data-story-close-friends]')?.checked));const result=await api.post('/api/stories',form);if(!state.stories.some(item=>String(item.id)===String(result.story.id)))state.stories.push(result.story);modal.remove();toast('Story posted for 24 hours');if(state.route==='home')renderApp();}catch(e){toast(e.status===401?'Login again':'Story upload failed: '+e.message);}finally{if(submit?.isConnected)submit.disabled=false;} }
 function wireStoryPreview() { document.addEventListener('change',event=>{const input=event.target;if(!input.matches('[data-story-file],[data-story-video]')||!input.files?.[0])return;const file=input.files[0],url=URL.createObjectURL(file),preview=document.querySelector('[data-story-preview]'),isVideo=file.type.startsWith('video/')||/\.(?:mp4|mov|webm)$/i.test(file.name);if(preview)preview.innerHTML=isVideo?'<video controls playsinline src="'+url+'"></video>':'<img src="'+url+'" alt="Story preview">';}); }
