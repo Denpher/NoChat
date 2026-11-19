@@ -2770,3 +2770,168 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
     transform: none !important;
   }
 }
+
+
+/* Instagram-inspired story and feed hover polish + mobile fit */
+.stories-shell {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.stories-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 10px 4px 14px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.stories-bar::-webkit-scrollbar { display: none; }
+.story-circle {
+  flex: 0 0 68px;
+  scroll-snap-align: start;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.story-ring {
+  width: 64px;
+  height: 64px;
+  padding: 3px;
+  border-radius: 50%;
+  background: conic-gradient(from 25deg, #F59E0B, #EC4899, #8B5CF6, #F59E0B);
+}
+.story-avatar {
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  object-fit: cover;
+}
+.story-username {
+  display: block;
+  max-width: 68px;
+  margin-top: 7px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feed-container {
+  width: min(100%, 680px);
+  min-width: 0;
+  margin: 0 auto;
+  padding: 12px 16px 28px;
+}
+.posts-stream {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 22px;
+  width: 100%;
+  min-width: 0;
+}
+.post-card {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  transform: translateZ(0);
+}
+.post-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+.post-user { min-width: 0; }
+.post-username { min-width: 0; overflow-wrap: anywhere; }
+.post-media-container {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: #080808;
+  isolation: isolate;
+}
+.post-media-container img,
+.post-media-container video {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  max-height: min(78vh, 720px);
+  object-fit: contain;
+  margin: 0 auto;
+}
+@media (hover: hover) and (pointer: fine) {
+  .story-circle { transition: transform 220ms cubic-bezier(.2,.75,.25,1); }
+  .story-circle:hover { transform: translateY(-4px); }
+  .story-circle:hover .story-ring {
+    transform: scale(1.075);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12), 0 8px 24px rgba(37,99,235,.2);
+    filter: saturate(1.12);
+  }
+  .story-circle:hover .story-avatar { transform: scale(.94); }
+  .post-card {
+    transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+  }
+  .post-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(37,99,235,.38);
+    box-shadow: 0 18px 44px rgba(0,0,0,.2), 0 0 0 1px rgba(37,99,235,.06);
+  }
+  .post-media-container img,
+  .post-media-container video {
+    transition: transform 380ms cubic-bezier(.2,.75,.25,1), filter 300ms ease;
+  }
+  .post-media-container:hover img,
+  .post-media-container:hover video { transform: scale(1.025); }
+  .post-action-btn {
+    transition: color 160ms ease, transform 160ms ease, background-color 160ms ease;
+    border-radius: 50%;
+  }
+  .post-action-btn:hover {
+    color: var(--accent-blue);
+    transform: scale(1.1);
+    background: rgba(37,99,235,.08);
+  }
+}
+@media (max-width: 760px) {
+  .feed-container {
+    width: 100%;
+    max-width: 100%;
+    padding: 10px 0 calc(76px + env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+  .stories-bar { gap: 14px; padding: 8px 14px 12px; }
+  .posts-stream { gap: 14px; padding: 0 10px; }
+  .post-card { border-radius: 14px; }
+  .post-header { padding: 12px; }
+  .post-media-container img,
+  .post-media-container video {
+    max-height: 72dvh;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .story-circle, .story-ring, .story-avatar, .post-card,
+  .post-media-container img, .post-media-container video, .post-action-btn {
+    transition: none !important;
+    animation: none !important;
+  }
+  .story-circle:hover, .story-circle:hover .story-ring,
+  .story-circle:hover .story-avatar, .post-card:hover,
+  .post-media-container:hover img, .post-media-container:hover video,
+  .post-action-btn:hover { transform: none !important; }
+}
