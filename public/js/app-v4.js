@@ -1283,11 +1283,27 @@ function decorateNavigationButtons() {
 }
 
 function bindProfileEvents() {
-  $$('.profile-tab').forEach(tab => {
+  $('.profile-tab').forEach(tab => {
     tab.onclick = () => {
       state.profileTab=tab.dataset.tab||'posts';
       renderApp();
     };
+  });
+
+  // Open a selected profile reel directly in the full-screen reels feed.
+  $('.profile-grid .grid-item[data-type="reel"]').forEach(tile => {
+    const openReel = () => {
+      const reelId = tile.dataset.itemId;
+      if (!reelId) return;
+      window.location.hash = '#/reels/' + encodeURIComponent(reelId);
+    };
+    tile.addEventListener('click', openReel);
+    tile.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openReel();
+      }
+    });
   });
 }
 
