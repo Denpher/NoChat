@@ -1621,3 +1621,118 @@ input:focus, textarea:focus, select:focus {
 @media (prefers-reduced-motion: reduce) {
   .landing-page .hero-terminal-cursor { animation: none; opacity: 1; }
 }
+
+
+/* NoChat landing hero refinement — preserve existing page structure */
+.landing-page .hero-section {
+  position: relative;
+  isolation: isolate;
+}
+.landing-page .hero-section::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: min(82vw, 760px);
+  height: 420px;
+  top: 55px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: radial-gradient(ellipse, rgba(37,99,235,.15) 0%, rgba(37,99,235,.055) 42%, transparent 72%);
+  filter: blur(18px);
+}
+.landing-page .hero-terminal {
+  position: relative;
+  min-height: 76px;
+  padding: 29px 18px 14px;
+  border-color: rgba(96,165,250,.38);
+  border-radius: 14px;
+  background: linear-gradient(125deg, #101827 0%, #090b10 52%, #111827 100%);
+  box-shadow: 0 12px 38px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.055), 0 0 26px rgba(37,99,235,.09);
+}
+.landing-page .hero-terminal::before {
+  content: "NOCHAT  /  LIVE SYSTEM CONSOLE";
+  position: absolute;
+  top: 8px;
+  left: 18px;
+  color: #93A4BD;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+.landing-page .hero-terminal-prompt {
+  color: #60A5FA;
+  text-shadow: 0 0 12px rgba(96,165,250,.5);
+}
+.landing-page .hero-terminal-cursor {
+  box-shadow: 0 0 12px rgba(96,165,250,.7);
+}
+.landing-page .hero-intro-frame {
+  width: min(100%, 560px);
+  aspect-ratio: 16 / 9;
+  margin: 0 auto 30px;
+  overflow: hidden;
+  border: 1px solid rgba(96,165,250,.32);
+  border-radius: 18px;
+  background: radial-gradient(ellipse at 50% 35%, #111c35, #050608 72%);
+  box-shadow: 0 20px 55px rgba(0,0,0,.42), 0 0 34px rgba(37,99,235,.12), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.landing-page .hero-intro-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.landing-page .hero-pill {
+  border-color: rgba(239,68,68,.28);
+  box-shadow: 0 0 22px rgba(239,68,68,.055);
+}
+.landing-page .hero-live-dot {
+  animation: nochat-live-pulse 1.8s ease-in-out infinite;
+}
+@keyframes nochat-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(239,68,68,.13), 0 0 0 0 rgba(239,68,68,0); }
+  50% { box-shadow: 0 0 0 4px rgba(239,68,68,.18), 0 0 0 8px rgba(239,68,68,0); }
+}
+.post-media-fallback {
+  width: 100%;
+  min-height: 240px;
+  aspect-ratio: 4 / 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  background: radial-gradient(ellipse at 50% 35%, rgba(37,99,235,.10), transparent 65%), var(--surface);
+}
+.post-media-fallback strong {
+  color: var(--text);
+  font-size: 15px;
+}
+.post-media-fallback span {
+  max-width: 260px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+@media (max-width: 600px) {
+  .landing-page .hero-intro-frame {
+    width: 100%;
+    margin-bottom: 24px;
+    border-radius: 14px;
+  }
+  .landing-page .hero-terminal {
+    min-height: 74px;
+    padding: 27px 13px 12px;
+  }
+  .landing-page .hero-terminal::before {
+    left: 13px;
+    font-size: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-page .hero-live-dot { animation: none; }
+}
