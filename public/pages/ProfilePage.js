@@ -19,6 +19,7 @@ export function renderProfilePage({
   const isSelf = currentUser && currentUser.id === user.id;
   const avatar = user.profilePicture || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.username || 'user'}`;
   const username = escapeHtml(user.username || 'user');
+  const userId = escapeHtml(user.id || '');
   const displayName = escapeHtml(user.displayName || user.username || 'Human');
   const isVerified = Boolean(user.isVerified || user.verifiedBadge);
   const memberText = formatMemberNumber(user.memberNumber || 21);
@@ -35,7 +36,7 @@ export function renderProfilePage({
 
         <div class="profile-details">
           <div class="profile-top-row">
-            <h2 class="profile-username">@${username}</h2>
+            <h2 class="profile-username user-id-hint" data-user-id="${userId}">@${username}</h2>
             ${isVerified ? `
               <div title="Verified Human · ${verifiedCountdown}" style="display:inline-flex; align-items:center;">
                 <i data-lucide="badge-check" style="width:20px;height:20px;color:var(--verified-mint);"></i>
