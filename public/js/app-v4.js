@@ -1348,7 +1348,7 @@ function decorateNavigationButtons() {
 }
 
 function bindProfileEvents() {
-  $('.profile-tab').forEach(tab => {
+  $$('.profile-tab').forEach(tab => {
     tab.onclick = () => {
       state.profileTab=tab.dataset.tab||'posts';
       renderApp();
@@ -1356,7 +1356,7 @@ function bindProfileEvents() {
   });
 
   // Open a selected profile reel directly in the full-screen reels feed.
-  $('.profile-grid .grid-item[data-type="reel"]').forEach(tile => {
+  $$('.profile-grid .grid-item[data-type="reel"]').forEach(tile => {
     const openReel = () => {
       const reelId = tile.dataset.itemId;
       if (!reelId) return;
