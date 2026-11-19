@@ -17,7 +17,7 @@ export function renderStoryCircle(user, hasUnseen = true) {
       <div class="story-ring" style="${!hasUnseen ? 'background: var(--border-light);' : ''}">
         <img src="${avatar}" alt="${username}" class="story-avatar" />
       </div>
-      <span class="story-username user-id-hint" data-user-id="${userId}">${username}</span><div class="ig-user-preview ig-story-preview" role="tooltip"><div class="ig-preview-head"><img src="${avatar}" alt=""/><div><strong>@${username}</strong><small>${displayName} · ID: ${userId}</small></div></div><div class="ig-preview-stats"><span><b>${posts}</b> posts</span><span><b>${followers}</b> followers</span><span><b>${following}</b> following</span></div><p>${bio}</p><a class="ig-preview-profile-link" href="#/profile/${user?.id || ''}">View profile</a></div>
+      <span class="story-username user-id-hint" data-user-id="${userId}">${username}</span><div class="ig-user-preview ig-story-preview" role="tooltip"><div class="ig-preview-head"><img src="${avatar}" alt=""/><div><strong>@${username}</strong><small>${displayName}</small></div></div><div class="ig-preview-stats"><span><b>${posts}</b> posts</span><span><b>${followers}</b> followers</span><span><b>${following}</b> following</span></div><p>${bio}</p><a class="ig-preview-profile-link" href="#/profile/${user?.id || ''}">View profile</a></div>
     </div>
   `;
 }
