@@ -16,7 +16,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
           <span class="hero-terminal-prompt" aria-hidden="true">›</span>
           <span data-landing-terminal></span><span class="hero-terminal-cursor" aria-hidden="true"></span>
         </div>
-        <div class="hero-pill"><span class="hero-live-dot" aria-hidden="true"></span><span>40+ Members and Growing</span><span class="hero-live-label">LIVE</span></div>
+        <div class="hero-pill"><span class="hero-live-dot" aria-hidden="true"></span><span><span data-member-counter data-suffix="+">40</span> Members and Growing</span><span class="hero-live-label">LIVE</span></div>
         <div class="hero-intro-frame">
           <iframe
             src="/intro-video.html"
@@ -43,7 +43,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
 
         <div class="stats-bar">
           <div class="stat-item">
-            <span class="stat-number">40+</span>
+            <span class="stat-number" data-member-counter data-suffix="+">40</span>
             <span class="stat-label">Humans</span>
           </div>
           <div class="stat-item">
