@@ -2668,3 +2668,105 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
   box-shadow: none !important;
   transform: none !important;
 }
+
+
+/* Instagram-inspired feed interactions — desktop hover, mobile press feedback */
+@media (hover: hover) and (pointer: fine) {
+  .story-circle {
+    transition: transform 220ms cubic-bezier(.2,.75,.25,1);
+  }
+  .story-circle:hover {
+    transform: translateY(-3px);
+  }
+  .story-ring {
+    transform: translateZ(0);
+    transition: transform 240ms cubic-bezier(.2,.75,.25,1), box-shadow 240ms ease, filter 240ms ease;
+  }
+  .story-circle:hover .story-ring {
+    transform: scale(1.07);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .13), 0 7px 22px rgba(37, 99, 235, .18);
+    filter: saturate(1.12);
+  }
+  .story-avatar {
+    transition: transform 240ms cubic-bezier(.2,.75,.25,1);
+  }
+  .story-circle:hover .story-avatar {
+    transform: scale(.96);
+  }
+  .story-circle:hover .story-username {
+    color: var(--accent-blue);
+  }
+  .post-card {
+    transition: transform 240ms cubic-bezier(.2,.75,.25,1), border-color 240ms ease, box-shadow 240ms ease;
+  }
+  .post-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(37, 99, 235, .32);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, .12);
+  }
+  .post-media-container img,
+  .post-media-container video {
+    transition: transform 420ms cubic-bezier(.2,.75,.25,1), filter 320ms ease;
+  }
+  .post-media-container:hover img,
+  .post-media-container:hover video {
+    transform: scale(1.025);
+  }
+  .post-user {
+    transition: opacity 180ms ease;
+  }
+  .post-user:hover {
+    opacity: .86;
+  }
+  .post-avatar {
+    transition: transform 220ms cubic-bezier(.2,.75,.25,1), box-shadow 220ms ease;
+  }
+  .post-user:hover .post-avatar {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, .22);
+  }
+  .post-username {
+    transition: color 180ms ease;
+  }
+  .post-user:hover .post-username {
+    color: var(--accent-blue);
+  }
+}
+
+/* Touch devices get a restrained pressed state instead of hover-only effects. */
+@media (hover: none), (pointer: coarse) {
+  .story-circle:active .story-ring {
+    transform: scale(.96);
+  }
+  .post-card:active {
+    border-color: rgba(37, 99, 235, .24);
+  }
+  .post-media-container:active img,
+  .post-media-container:active video {
+    filter: brightness(.96);
+  }
+}
+
+/* Keep interactions comfortable for visitors who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .story-circle,
+  .story-ring,
+  .story-avatar,
+  .post-card,
+  .post-media-container img,
+  .post-media-container video,
+  .post-user,
+  .post-avatar,
+  .post-username {
+    transition: none !important;
+  }
+  .story-circle:hover,
+  .story-circle:hover .story-ring,
+  .story-circle:hover .story-avatar,
+  .post-card:hover,
+  .post-media-container:hover img,
+  .post-media-container:hover video,
+  .post-user:hover .post-avatar {
+    transform: none !important;
+  }
+}
