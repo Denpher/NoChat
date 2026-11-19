@@ -352,7 +352,7 @@ function startLandingTerminalAnimation(root) {
     clearInterval(window.__nochatLandingTerminalTimer);
     window.__nochatLandingTerminalTimer = null;
   }
-  const message = "Welcome to NoChat🤗 | India's first teen developed video sharing Platform";
+  const message = Array.from("Welcome to NoChat🤗 | India's first teen developed video sharing Platform");
   let index = 0;
   let pauseTicks = 0;
   output.textContent = '';
@@ -363,7 +363,7 @@ function startLandingTerminalAnimation(root) {
       return;
     }
     if (index < message.length) {
-      output.textContent += message.charAt(index++);
+      output.textContent += message[index++];
       return;
     }
     pauseTicks += 1;
