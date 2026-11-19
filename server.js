@@ -543,6 +543,68 @@ app.get("/uploads/:folder(attachments|reels)/:filename", authenticate, async (re
   }
 });
 
+
+/*
+ * Cloud-backed media uses stable /api/media/... URLs. Resolve them to a fresh
+ * short-lived signed URL only after checking the same NoChat visibility rules
+ * used by the feed. This keeps the storage bucket private.
+ */
+app.get("/api/media/:folder/:ownerId/:filename", authenticate, async (req, res) => {
+  try {
+    if (!cloudEnabled) return res.status(404).end();
+    const folder = String(req.params.folder || "");
+    const ownerId = String(req.params.ownerId || "");
+    const filename = String(req.params.filename || "");
+    if (!["attachments", "reels", "profile"].includes(folder) ||
+        !ownerId || ownerId.includes("/") ||
+        !/^[a-f0-9-]{20,80}\.[a-z0-9]{2,8}$/i.test(filename)) {
+      return res.status(404).end();
+    }
+
+    const key = `${folder}/${ownerId}/${filename}`;
+    const mediaUrl = "/api/media/" + key;
+    let allowed = false;
+
+    if (folder === "profile") {
+      const profile = db.users.find(user => String(user.id) === ownerId);
+      allowed = Boolean(profile && (String(req.user.id) === ownerId || isListed(profile)));
+    } else if (folder === "attachments") {
+      const message = db.messages.find(item => !item.deletedAt && item.attachment?.url === mediaUrl);
+      const conversation = message && db.conversations.find(item =>
+        item.id === message.conversationId && item.members.includes(req.user.id)
+      );
+      const story = db.reelUploads.find(item => item?.kind === "nochat-story" && item.mediaUrl === mediaUrl);
+      const storyAllowed = story && canViewStory(story, req.user.id, db.reelUploads);
+      const post = db.reels.find(item => !item.isDeleted && (item.imageUrl === mediaUrl || item.videoUrl === mediaUrl));
+      const postAllowed = post && (
+        canViewReel(post, req.user.id, isListed(db.users.find(user => user.id === post.userId))) ||
+        await isAdmin(req.user)
+      );
+      allowed = Boolean(conversation || storyAllowed || postAllowed);
+    } else {
+      const reel = db.reels.find(item => !item.isDeleted && item.videoUrl === mediaUrl);
+      const reelAllowed = reel && (
+        canViewReel(reel, req.user.id, isListed(db.users.find(user => user.id === reel.userId))) ||
+        await isAdmin(req.user)
+      );
+      const video = (db.videos || []).some(item => !item.deletedAt && item.fileUrl === mediaUrl);
+      allowed = Boolean(reelAllowed || video);
+    }
+
+    if (!allowed) return res.status(404).end();
+    const result = await cloudCall("download-url", { key });
+    const signedUrl = result?.url;
+    if (typeof signedUrl !== "string" || new URL(signedUrl).protocol !== "https:") {
+      return res.status(502).end();
+    }
+    res.set("Cache-Control", "private, no-store");
+    return res.redirect(302, signedUrl);
+  } catch (error) {
+    console.error("Cloud media read failed:", error?.message || error);
+    return res.status(404).end();
+  }
+});
+
 app.use(express.static(PUBLIC_DIR, { index: "index.html" }));
 
 // Uploaded files: persistent folder first, then any files that already live in public/uploads.
