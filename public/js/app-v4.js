@@ -83,6 +83,21 @@ async function initApp() {
     void dispatchActionsV3?.(event, button);
   });
   window.addEventListener('nochat:refresh-chat',renderChatWindowArea);
+  document.addEventListener('error', event => {
+    const image = event.target;
+    if (!(image instanceof HTMLImageElement) || !image.matches('[data-post-media]')) return;
+    const container = image.closest('.post-media-container');
+    if (!container || container.dataset.mediaFallback === 'shown') return;
+    container.dataset.mediaFallback = 'shown';
+    const fallback = document.createElement('div');
+    fallback.className = 'post-media-fallback';
+    const title = document.createElement('strong');
+    title.textContent = 'Media unavailable';
+    const detail = document.createElement('span');
+    detail.textContent = 'This post image could not be loaded. Please try again later.';
+    fallback.append(title, detail);
+    image.replaceWith(fallback);
+  }, true);
   document.addEventListener('submit', handleStorySubmit);
   document.addEventListener('submit', handlePostSubmit);
   document.addEventListener('submit', handleCommentSubmit);
