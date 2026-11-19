@@ -16,7 +16,7 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
           <span class="hero-terminal-prompt" aria-hidden="true">›</span>
           <span data-landing-terminal></span><span class="hero-terminal-cursor" aria-hidden="true"></span>
         </div>
-        <div class="hero-pill">40+ Members and Growing</div>
+        <div class="hero-pill"><span class="hero-live-dot" aria-hidden="true"></span><span>40+ Members and Growing</span><span class="hero-live-label">LIVE</span></div>
         <div class="hero-intro-frame">
           <iframe
             src="/intro-video.html"
