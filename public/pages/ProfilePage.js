@@ -36,10 +36,10 @@ export function renderProfilePage({
 
         <div class="profile-details">
           <div class="profile-top-row">
-            <h2 class="profile-username user-id-hint" data-user-id="${userId}">@${username}</h2>
+            <h2 class="profile-username">@${username}</h2>
             ${isVerified ? `
               <div title="Verified Human · ${verifiedCountdown}" style="display:inline-flex; align-items:center;">
-                <i data-lucide="badge-check" style="width:20px;height:20px;color:var(--verified-mint);"></i>
+                <span class="ig-verified-badge ig-verified-badge-lg" role="img" aria-label="Verified"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="ig-verified-shape" d="M12 1.2 14.2 2.6 16.8 2.3 18 4.7 20.4 5.8 20.1 8.4 21.5 10.6 20.1 12.8 20.4 15.4 18 16.5 16.8 18.9 14.2 18.6 12 20 9.8 18.6 7.2 18.9 6 16.5 3.6 15.4 3.9 12.8 2.5 10.6 3.9 8.4 3.6 5.8 6 4.7 7.2 2.3 9.8 2.6Z"/><path class="ig-verified-check" d="m7.8 10.9 2.7 2.7 5.8-5.8"/></svg></span>
               </div>
             ` : ''}
             <span class="member-pill">${memberText}</span>
