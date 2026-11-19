@@ -12,7 +12,11 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
 
       <main id="main-content" class="landing-main">
       <header class="hero-section">
-        <div class="hero-pill">30+ Members and Growing</div>
+        <div class="hero-terminal" aria-label="NoChat welcome terminal">
+          <span class="hero-terminal-prompt" aria-hidden="true">›</span>
+          <span data-landing-terminal></span><span class="hero-terminal-cursor" aria-hidden="true"></span>
+        </div>
+        <div class="hero-pill">40+ Members and Growing</div>
         <div class="hero-intro-frame">
           <iframe
             src="/intro-video.html"
@@ -33,13 +37,13 @@ export function renderLandingPage(currentUser = null, sampleVideos = []) {
             <a href="#/home" class="btn btn-primary" style="height:48px; padding:0 28px; font-size:15px;">Enter NoChat Feed</a>
           ` : `
             <button class="btn btn-primary" data-action="open-auth" style="height:48px; padding:0 28px; font-size:15px;">Join NoChat — It's Free</button>
-            <button class="btn btn-secondary" data-action="open-auth" style="height:48px; padding:0 24px; font-size:15px;">30+ Members Already Here</button>
+            <button class="btn btn-secondary" data-action="open-auth" style="height:48px; padding:0 24px; font-size:15px;">40+ Members Already Here</button>
           `}
         </div>
 
         <div class="stats-bar">
           <div class="stat-item">
-            <span class="stat-number">30+</span>
+            <span class="stat-number">40+</span>
             <span class="stat-label">Humans</span>
           </div>
           <div class="stat-item">
