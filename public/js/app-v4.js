@@ -329,6 +329,37 @@ async function handleConversationUpdate(payload={}) {
   updateChatPreview(convo);
 }
 
+/* ---------- Landing welcome terminal ---------- */
+function startLandingTerminalAnimation(root) {
+  const output = root.querySelector('[data-landing-terminal]');
+  if (!output) return;
+  if (window.__nochatLandingTerminalTimer) {
+    clearInterval(window.__nochatLandingTerminalTimer);
+    window.__nochatLandingTerminalTimer = null;
+  }
+  const message = "Welcome to NoChat🤗 | India's first teen developed video sharing Platform";
+  let index = 0;
+  let pauseTicks = 0;
+  output.textContent = '';
+  window.__nochatLandingTerminalTimer = setInterval(() => {
+    if (!output.isConnected) {
+      clearInterval(window.__nochatLandingTerminalTimer);
+      window.__nochatLandingTerminalTimer = null;
+      return;
+    }
+    if (index < message.length) {
+      output.textContent += message.charAt(index++);
+      return;
+    }
+    pauseTicks += 1;
+    if (pauseTicks >= 22) {
+      output.textContent = '';
+      index = 0;
+      pauseTicks = 0;
+    }
+  }, 48);
+}
+
 /* ---------- Main Render Dispatcher ---------- */
 async function renderApp() {
   const app = $('#app');
@@ -340,6 +371,7 @@ async function renderApp() {
   if (!state.user && !['privacy', 'terms', 'about', 'contact', 'trust-safety'].includes(route)) {
     loadVideosCatalog();
     app.innerHTML = renderLandingPage(state.user, state.videos);
+    startLandingTerminalAnimation(app);
     decorateLandingVersion();
     bindLandingEvents();
     refreshIcons();
