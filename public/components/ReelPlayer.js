@@ -48,7 +48,7 @@ export function renderReelItem(reel, currentUser = null, isFollowing = false) {
       <div class="reel-bottom-info">
         <div class="reel-user-row">
           <img src="${avatar}" alt="${username}" class="reel-avatar" />
-          <span class="reel-username">@${username}</span>
+          <span class="reel-username" title="User ID: ${escapeHtml(reel.userId || '')}">@${username}</span>
           ${isVerified ? `<i data-lucide="badge-check" style="width:16px;height:16px;color:var(--verified-mint);"></i>` : ''}
           ${currentUser && currentUser.id !== reel.userId ? `
             <button class="btn-follow-pill ${isFollowing ? 'following' : ''}" data-action="toggle-follow" data-user-id="${reel.userId}">
