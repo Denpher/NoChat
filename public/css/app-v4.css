@@ -3105,3 +3105,27 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
 @media (prefers-reduced-motion:reduce) {
   .ig-user-preview { transition:none; }
 }
+
+
+/* Fix profile preview: remove legacy ID tooltip and prevent post-card clipping */
+@media (hover:hover) and (pointer:fine) {
+  .user-id-hint::after { content:none !important; display:none !important; }
+  .post-username:hover .ig-user-preview,
+  .post-username:focus-within .ig-user-preview {
+    opacity:1 !important;
+    visibility:visible !important;
+    pointer-events:auto !important;
+    transform:translateY(0) scale(1) !important;
+  }
+  .post-card:has(.ig-user-preview) { overflow:visible !important; }
+  .post-header { position:relative; z-index:30; }
+  .post-username { position:relative; z-index:31; }
+  .ig-user-preview { z-index:9999; }
+}
+/* Preserve the media's rounded clipping while allowing the card preview to float */
+.post-card .post-media-container { border-radius:0 0 15px 15px; }
+@media (hover:hover) and (pointer:fine) {
+  .story-circle:hover .ig-story-preview {
+    opacity:1 !important; visibility:visible !important; pointer-events:auto !important;
+  }
+}
