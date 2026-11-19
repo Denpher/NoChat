@@ -11,6 +11,11 @@ export function renderPostCard(post, currentUser = null) {
   const username = escapeHtml(post.user?.username || 'user');
   const userId = escapeHtml(post.user?.id || post.userId || '');
   const isVerified = Boolean(post.user?.isVerified || post.user?.verifiedBadge);
+  const hoverUser = post.user || {};
+  const hoverBio = escapeHtml(hoverUser.bio || 'No bio yet');
+  const hoverPosts = Number(hoverUser.postsCount || 0);
+  const hoverFollowers = Number(hoverUser.followersCount || 0);
+  const hoverFollowing = Number(hoverUser.followingCount || 0);
   const mediaUrl = post.videoUrl || post.imageUrl || post.mediaUrl || '';
   const isVideo = Boolean(post.videoUrl || mediaUrl.endsWith('.mp4') || mediaUrl.includes('/reels/'));
 
@@ -21,6 +26,7 @@ export function renderPostCard(post, currentUser = null) {
           <img src="${avatar}" alt="${username}" class="post-avatar" />
           <div class="post-username">
             <a class="user-id-hint" data-user-id="${userId}" href="#/profile/${post.user?.id || ''}">${username}</a>
+            <div class="ig-user-preview" role="tooltip"><div class="ig-preview-head"><img src="${avatar}" alt=""/><div><strong>@${username}</strong>${isVerified ? '<span class="ig-preview-verified">✓ Verified</span>' : ''}<small>ID: ${userId}</small></div></div><div class="ig-preview-stats"><span><b>${hoverPosts}</b> posts</span><span><b>${hoverFollowers}</b> followers</span><span><b>${hoverFollowing}</b> following</span></div><p>${hoverBio}</p><a class="ig-preview-profile-link" href="#/profile/${post.user?.id || ''}">View profile</a></div>
             ${isVerified ? `<i data-lucide="badge-check" style="width:16px;height:16px;color:var(--verified-mint);"></i>` : ''}
           </div>
         </div>
