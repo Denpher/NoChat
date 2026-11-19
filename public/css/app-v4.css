@@ -2985,3 +2985,44 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
     max-height: 80dvh;
   }
 }
+
+
+/* Compact Instagram-style user ID tooltip */
+.user-id-hint {
+  position: relative;
+  display: inline-block;
+}
+@media (hover: hover) and (pointer: fine) {
+  .user-id-hint::after {
+    content: "ID: " attr(data-user-id);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 9px);
+    z-index: 500;
+    width: max-content;
+    max-width: min(220px, 75vw);
+    padding: 5px 9px;
+    border: 1px solid rgba(148,163,184,.22);
+    border-radius: 7px;
+    background: rgba(17,17,17,.96);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 5px 18px rgba(0,0,0,.22);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translate(-50%, 4px);
+    transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease;
+  }
+  .user-id-hint:hover::after,
+  .user-id-hint:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+  }
+}
