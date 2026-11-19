@@ -97,7 +97,9 @@ export function renderProfilePage({
             <p style="font-size:13px;">When media is posted, it will appear here.</p>
           </div>
         ` : currentItems.map(item => `
-          <div class="grid-item" data-item-id="${item.id}" data-type="${item.videoUrl ? 'reel' : 'post'}">
+          <div class="grid-item" data-item-id="${escapeHtml(item.id)}" data-type="${item.videoUrl ? 'reel' : 'post'}" ${item.videoUrl ? `aria-label="Open reel by @${username}" title="Open reel · @${username}"` : ''}>
+            ${item.videoUrl ? `
+              <span class="profile-grid-username">@${username}</span>` : ''}
             ${item.videoUrl ? `
               <video src="${item.videoUrl}#t=0.1" preload="metadata" muted playsinline></video>
               <div style="position:absolute; top:8px; right:8px; color:#fff; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.8));">
