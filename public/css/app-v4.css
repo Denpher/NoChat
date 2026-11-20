@@ -3395,3 +3395,42 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
     bottom:14px !important;
   }
 }
+
+
+/* Home feed right rail: keep suggestions visibly secondary to the post/reel feed */
+.feed-container {
+  grid-template-columns:minmax(0,640px) minmax(0,290px) !important;
+  max-width:1000px !important;
+  column-gap:28px !important;
+}
+.feed-container > .v3-discover-panel {
+  grid-column:2 !important;
+  grid-row:1 / span 20;
+  justify-self:start !important;
+  align-self:start !important;
+  width:100% !important;
+  max-width:290px !important;
+  min-width:0 !important;
+  box-sizing:border-box !important;
+}
+.feed-container > .v3-discover-panel *,
+.feed-container > .v3-discover-panel *::before,
+.feed-container > .v3-discover-panel *::after {
+  box-sizing:border-box;
+}
+.feed-container > .v3-discover-panel .v3-discover-card {
+  width:100% !important;
+  max-width:290px !important;
+  min-width:0 !important;
+  padding:18px !important;
+}
+@media (max-width:1050px) {
+  .feed-container > .v3-discover-panel { display:none !important; }
+  .feed-container {
+    grid-template-columns:minmax(0,640px) !important;
+    max-width:680px !important;
+  }
+}
+@media (max-width:760px) {
+  .feed-container { display:block !important; }
+}
