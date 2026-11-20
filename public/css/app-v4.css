@@ -3163,3 +3163,138 @@ button,a,[data-action] { touch-action:manipulation; cursor:pointer; }
   stroke-linejoin:round;
 }
 .ig-verified-badge-lg { width:20px; height:20px; flex-basis:20px; }
+
+ 
+/* Reels layout repair: keep the video, creator info and action rail in clear zones */
+.reels-container {
+  width:100%;
+  max-width:520px;
+  height:calc(100vh - var(--navbar-height) - 20px);
+  margin:10px auto;
+  padding:0 12px;
+  overflow-x:hidden;
+  overflow-y:auto;
+  scroll-snap-type:y mandatory;
+}
+.reel-item {
+  position:relative;
+  width:100%;
+  height:100%;
+  min-height:0;
+  max-height:calc(100vh - var(--navbar-height) - 20px);
+  aspect-ratio:9 / 16;
+  margin:0 auto;
+  overflow:hidden;
+  isolation:isolate;
+  border-radius:16px;
+  background:#050505;
+}
+.reel-video {
+  position:absolute;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  max-width:none;
+  object-fit:contain;
+  object-position:center;
+  background:#050505;
+  z-index:0;
+}
+.reel-item::after {
+  content:"";
+  position:absolute;
+  inset:45% 0 0;
+  z-index:1;
+  pointer-events:none;
+  background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.22) 35%,rgba(0,0,0,.76) 100%);
+}
+.reel-actions-column {
+  right:10px;
+  bottom:88px;
+  z-index:4;
+  width:48px;
+  gap:15px;
+}
+.reel-action-btn {
+  width:48px;
+  min-height:42px;
+  justify-content:center;
+  text-align:center;
+  gap:3px;
+}
+.reel-action-btn svg { width:25px; height:25px; }
+.reel-action-btn span {
+  display:block;
+  max-width:48px;
+  font-size:11px;
+  line-height:1.2;
+  white-space:nowrap;
+}
+.music-disc { width:38px; height:38px; flex:0 0 38px; }
+.reel-bottom-info {
+  left:18px;
+  right:72px;
+  bottom:20px;
+  z-index:3;
+  min-width:0;
+  max-width:calc(100% - 90px);
+  gap:7px;
+}
+.reel-user-row {
+  min-width:0;
+  max-width:100%;
+  gap:8px;
+  overflow:visible;
+}
+.reel-avatar { flex:0 0 36px; object-fit:cover; }
+.reel-username {
+  display:block;
+  min-width:0;
+  max-width:calc(100% - 92px);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.reel-user-row .ig-verified-badge { flex:0 0 16px; }
+.btn-follow-pill { flex:0 0 auto; white-space:nowrap; }
+.reel-caption-text {
+  max-width:100%;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  -webkit-line-clamp:2;
+}
+.reel-audio-track {
+  min-width:0;
+  max-width:100%;
+  overflow:hidden;
+}
+.reel-audio-track span {
+  min-width:0;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+@media (max-width:760px) {
+  .reels-container {
+    width:100%;
+    max-width:100%;
+    height:calc(100dvh - var(--navbar-height) - var(--bottom-nav-height));
+    margin:0 auto;
+    padding:6px 8px;
+  }
+  .reel-item {
+    width:100%;
+    height:100%;
+    max-height:none;
+    border-radius:12px;
+  }
+  .reel-actions-column { right:7px; bottom:78px; gap:12px; }
+  .reel-bottom-info { left:12px; right:66px; bottom:14px; max-width:calc(100% - 78px); }
+  .reel-username { max-width:calc(100% - 82px); }
+}
+@media (max-height:620px) and (min-width:761px) {
+  .reels-container { height:calc(100vh - var(--navbar-height) - 12px); }
+  .reel-actions-column { bottom:64px; gap:9px; }
+  .reel-bottom-info { bottom:12px; }
+}
