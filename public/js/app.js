@@ -8,7 +8,7 @@ import { api } from '../services/api.js';
 import { getCurrentUser, fetchMe, loginUser, registerUser, logoutUser, subscribeAuth } from '../services/auth.js';
 import { getSocket, onSocketEvent, emitSocketEvent } from '../services/socket.js';
 import { startCamera, flipCamera, toggleMuteMic, toggleMuteVideo, stopCamera } from '../services/webrtc.js';
-import { $, $$, escapeHtml, toast, refreshIcons } from '../utils/dom.js';
+import { $, $, escapeHtml, toast, refreshIcons as refreshLucideIcons } from '../utils/dom.js';
 import { attachDoubleTap } from '../hooks/useDoubleTap.js';
 import { getCachedMessages, setCachedMessages, appendCachedMessage } from '../utils/cache.js';
 
@@ -31,6 +31,21 @@ import { renderPrivacyPage } from '../pages/PrivacyPage.js';
 import { renderTermsPage } from '../pages/TermsPage.js';
 import { renderAboutPage } from '../pages/AboutPage.js';
 import { renderContactPage } from '../pages/ContactPage.js';
+
+/* ---------- Sidebar Icon Finish ---------- */
+function refreshIcons() {
+  refreshLucideIcons();
+  document.querySelectorAll('.sidebar .side-nav .nav-item svg').forEach((icon) => {
+    icon.setAttribute('width', '25');
+    icon.setAttribute('height', '25');
+    icon.setAttribute('stroke-width', '1.8');
+    icon.setAttribute('stroke-linecap', 'round');
+    icon.setAttribute('stroke-linejoin', 'round');
+    icon.setAttribute('fill', 'none');
+    icon.style.flexShrink = '0';
+    icon.style.display = 'block';
+  });
+}
 
 /* ---------- Global Application State ---------- */
 const state = {
